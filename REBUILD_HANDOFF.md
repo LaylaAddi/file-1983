@@ -7,7 +7,7 @@ Build everything from this spec. Nothing is copied from an old codebase.
 ---
 
 ## The App
-A Django web app that guides users through building a **Section 1983 civil rights complaint**
+A Django web app at **file1983.com** that guides users through building a **Section 1983 civil rights complaint**
 against government officials. Users tell their story, the AI analyzes it, and the wizard walks
 them through 7 steps to produce a complete legal document (PDF).
 
@@ -218,7 +218,7 @@ All API views use JWT auth. All web views use session auth. They share the same 
 ```
 SECRET_KEY=
 DEBUG=0
-ALLOWED_HOSTS=1983law.org,www.1983law.org
+ALLOWED_HOSTS=file1983.com,www.file1983.com
 DATABASE_URL=
 ADMIN_URL=your-secret-path/
 OPENAI_API_KEY=
