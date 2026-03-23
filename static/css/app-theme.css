@@ -1,0 +1,290 @@
+/* ============================================================
+   File 1983 — App Theme
+   American flag color palette, Playfair Display headings
+   ============================================================ */
+
+:root {
+    --patriot-blue: #002868;
+    --patriot-blue-light: #003d99;
+    --patriot-blue-dark: #001a4d;
+    --patriot-red: #BF0A30;
+    --patriot-red-light: #d4213f;
+    --patriot-white: #FFFFFF;
+    --patriot-cream: #F8F9FA;
+    --patriot-gold: #B8860B;
+}
+
+/* ---- Typography ---- */
+.heading-serif,
+h1.display-1, h1.display-2, h1.display-3, h1.display-4, h1.display-5, h1.display-6 {
+    font-family: 'Playfair Display', Georgia, serif;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* ---- Color utilities ---- */
+.text-patriot-blue  { color: var(--patriot-blue) !important; }
+.text-patriot-red   { color: var(--patriot-red) !important; }
+.text-patriot-gold  { color: var(--patriot-gold) !important; }
+.bg-patriot-blue    { background-color: var(--patriot-blue) !important; }
+.bg-patriot-red     { background-color: var(--patriot-red) !important; }
+.bg-patriot-cream   { background-color: var(--patriot-cream) !important; }
+
+/* ---- Navbar ---- */
+.navbar-patriot {
+    background: linear-gradient(135deg, var(--patriot-blue-dark) 0%, var(--patriot-blue) 60%, var(--patriot-blue-light) 100%);
+    border-bottom: 3px solid var(--patriot-red);
+    padding: 0.6rem 0;
+}
+
+.navbar-patriot .navbar-brand {
+    color: var(--patriot-white);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.navbar-patriot .navbar-brand:hover {
+    color: rgba(255,255,255,0.9);
+}
+
+.navbar-gavel-icon {
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 3px;
+}
+
+.navbar-brand-text {
+    letter-spacing: 0.01em;
+}
+
+.navbar-patriot .nav-link {
+    color: rgba(255,255,255,0.85) !important;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+    transition: color 0.15s;
+}
+
+.navbar-patriot .nav-link:hover {
+    color: var(--patriot-white) !important;
+}
+
+.navbar-patriot .navbar-toggler {
+    border-color: rgba(255,255,255,0.3);
+}
+
+.navbar-patriot .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+/* ---- Buttons ---- */
+.btn-patriot-primary {
+    background-color: var(--patriot-blue);
+    border-color: var(--patriot-blue);
+    color: var(--patriot-white);
+    font-weight: 600;
+}
+
+.btn-patriot-primary:hover {
+    background-color: var(--patriot-blue-dark);
+    border-color: var(--patriot-blue-dark);
+    color: var(--patriot-white);
+}
+
+.btn-patriot-red {
+    background-color: var(--patriot-red);
+    border-color: var(--patriot-red);
+    color: var(--patriot-white);
+    font-weight: 600;
+}
+
+.btn-patriot-red:hover {
+    background-color: var(--patriot-red-light);
+    border-color: var(--patriot-red-light);
+    color: var(--patriot-white);
+}
+
+/* ---- Cards ---- */
+.card-patriot {
+    border: 1px solid rgba(0, 40, 104, 0.15);
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.card-patriot .card-header {
+    background: linear-gradient(135deg, var(--patriot-blue-dark), var(--patriot-blue));
+    color: var(--patriot-white);
+    border-bottom: 2px solid var(--patriot-red);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 600;
+}
+
+/* ---- Wizard ---- */
+.wizard-step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid rgba(0,40,104,0.1);
+    margin-bottom: 1.5rem;
+}
+
+.wizard-step-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 2px solid #dee2e6;
+    background: #fff;
+    color: #6c757d;
+    transition: all 0.2s;
+}
+
+.wizard-step-dot.active {
+    background: var(--patriot-blue);
+    border-color: var(--patriot-blue);
+    color: #fff;
+}
+
+.wizard-step-dot.completed {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+
+/* ---- Hero section ---- */
+.hero-patriot {
+    background: linear-gradient(160deg, var(--patriot-blue-dark) 0%, var(--patriot-blue) 50%, var(--patriot-blue-light) 100%);
+    color: var(--patriot-white);
+    padding: 5rem 0;
+    border-bottom: 4px solid var(--patriot-red);
+}
+
+.hero-patriot h1,
+.hero-patriot .display-5 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+}
+
+/* ---- Footer ---- */
+.footer-patriot {
+    background: var(--patriot-blue-dark);
+    border-top: 3px solid var(--patriot-red);
+    color: rgba(255,255,255,0.7);
+}
+
+.footer-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    color: var(--patriot-white);
+}
+
+.footer-tagline {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.6);
+}
+
+.footer-link {
+    color: rgba(255,255,255,0.65);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.15s;
+}
+
+.footer-link:hover {
+    color: var(--patriot-white);
+}
+
+.footer-disclaimer {
+    color: rgba(255,255,255,0.4);
+    font-size: 0.78rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+/* ---- Document hub / list ---- */
+.document-card {
+    border-left: 4px solid var(--patriot-blue);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.document-card:hover {
+    box-shadow: 0 4px 16px rgba(0,40,104,0.12);
+    transform: translateY(-1px);
+}
+
+.document-card.status-paid    { border-left-color: #198754; }
+.document-card.status-draft   { border-left-color: #6c757d; }
+.document-card.status-expired { border-left-color: var(--patriot-red); }
+
+/* ---- Alerts ---- */
+.alert-success { border-left: 4px solid #198754; }
+.alert-danger  { border-left: 4px solid var(--patriot-red); }
+.alert-warning { border-left: 4px solid var(--patriot-gold); }
+.alert-info    { border-left: 4px solid var(--patriot-blue-light); }
+
+/* ---- Dark mode overrides ---- */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #0f1117;
+    --bs-body-color: #e0e4ef;
+}
+
+[data-bs-theme="dark"] .card-patriot {
+    border-color: rgba(255,255,255,0.1);
+    background-color: #1a1f2e;
+}
+
+[data-bs-theme="dark"] .document-card {
+    background-color: #1a1f2e;
+}
+
+[data-bs-theme="dark"] .wizard-step-dot {
+    background: #1a1f2e;
+    border-color: #444;
+    color: #aaa;
+}
+
+[data-bs-theme="dark"] .bg-patriot-cream {
+    background-color: #1a1f2e !important;
+}
+
+/* ---- Pricing cards ---- */
+.pricing-card {
+    border: 2px solid rgba(0,40,104,0.15);
+    border-radius: 0.75rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pricing-card.featured {
+    border-color: var(--patriot-blue);
+    box-shadow: 0 0 0 3px rgba(0,40,104,0.12);
+}
+
+.pricing-card .price-amount {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--patriot-blue);
+}
+
+/* ---- Utility ---- */
+.border-patriot { border-color: var(--patriot-blue) !important; }
+.rounded-patriot { border-radius: 0.5rem; }

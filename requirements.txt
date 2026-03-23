@@ -1,0 +1,22 @@
+Django>=4.2,<5.0
+psycopg2-binary
+dj-database-url
+python-decouple
+whitenoise
+gunicorn
+
+# REST API
+djangorestframework
+djangorestframework-simplejwt
+
+# Payments
+stripe
+
+# AI
+openai
+
+# PDF
+WeasyPrint
+
+# Video evidence
+requests

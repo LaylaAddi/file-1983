@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" fill="none">
+  <!-- Gavel icon -->
+  <rect x="8" y="8" width="40" height="40" rx="8" fill="#002868"/>
+  <g transform="translate(12, 12)" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M18 17L7 28l-1-1 10-12"/>
+    <path d="M13 10l8-8 6 6-8 8"/>
+    <path d="M9 13l8 8"/>
+    <rect x="19" y="18" width="7" height="3.5" rx="1" transform="rotate(45 19 18)" fill="none"/>
+  </g>
+  <!-- App name text -->
+  <text x="58" y="28" font-family="'Playfair Display', Georgia, serif" font-size="18" font-weight="700" fill="#002868">File 1983</text>
+  <text x="58" y="46" font-family="-apple-system, sans-serif" font-size="10" fill="#6c757d">Civil Rights Complaint Builder</text>
+  <!-- Red accent bar -->
+  <rect x="58" y="50" width="130" height="2" rx="1" fill="#BF0A30"/>
+</svg>
