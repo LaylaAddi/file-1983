@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ app_name }} — File Your Section 1983 Complaint{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center">
+    <img src="{% static 'images/gavel-logo.svg' %}" alt="{{ app_name }}" height="80" class="mb-4">
+    <h1 class="display-5 fw-bold heading-serif text-patriot-blue">Know Your Rights.<br>File With Confidence.</h1>
+    <p class="lead text-muted mt-3 mb-4">
+        {{ app_name }} guides you through building a Section 1983 civil rights complaint<br>
+        against government officials — step by step.
+    </p>
+    <a href="{% url 'accounts:register' %}" class="btn btn-patriot-primary btn-lg me-2">Get Started Free</a>
+    <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary btn-lg">Log In</a>
+</div>
+{% endblock %}
