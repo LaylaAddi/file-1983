@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row g-4">
+
+        <!-- Profile info -->
+        <div class="col-lg-5">
+            <div class="card card-patriot shadow-sm h-100">
+                <div class="card-header py-3">
+                    <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Profile</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{{ form.first_name.label }}</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{{ form.last_name.label }}</label>
+                            {{ form.last_name }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{{ form.email.label }}</label>
+                            {{ form.email }}
+                        </div>
+
+                        {% if form.errors %}
+                            <div class="alert alert-danger py-2 small">Please correct the errors above.</div>
+                        {% endif %}
+
+                        <div class="d-grid mt-3">
+                            <button type="submit" class="btn btn-patriot-primary">Save Changes</button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="small text-muted mb-1">Your referral code</div>
+                            <code class="fs-6">{{ request.user.referral_code }}</code>
+                        </div>
+                        <a href="{% url 'accounts:password_reset' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-key me-1"></i>Change Password
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription & packs -->
+        <div class="col-lg-7">
+
+            <!-- Access status -->
+            <div class="card card-patriot shadow-sm mb-4">
+                <div class="card-header py-3">
+                    <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Access</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if request.user.has_unlimited_access %}
+                        <div class="d-flex align-items-center gap-2 text-success">
+                            <i class="bi bi-check-circle-fill fs-5"></i>
+                            <span class="fw-semibold">Unlimited Access</span>
+                        </div>
+                        {% if request.user.is_staff %}
+                            <div class="text-muted small mt-1">Staff / Admin account</div>
+                        {% else %}
+                            <div class="text-muted small mt-1">Active subscription</div>
+                        {% endif %}
+                    {% else %}
+                        <div class="d-flex align-items-center gap-2 text-muted mb-3">
+                            <i class="bi bi-file-earmark-text fs-5"></i>
+                            <span>
+                                <strong>{{ request.user.get_ai_uses_remaining }}</strong>
+                                AI generation{{ request.user.get_ai_uses_remaining|pluralize }} remaining
+                            </span>
+                        </div>
+                        <a href="{% url 'accounts:pricing' %}" class="btn btn-patriot-primary btn-sm">
+                            <i class="bi bi-star me-1"></i>Upgrade
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Active subscriptions -->
+            {% if subscriptions %}
+            <div class="card card-patriot shadow-sm mb-4">
+                <div class="card-header py-3">
+                    <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>Subscriptions</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for sub in subscriptions %}
+                    <div class="list-group-item py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-semibold text-capitalize">{{ sub.plan }}</span>
+                                <span class="badge ms-2 {% if sub.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ sub.status }}
+                                </span>
+                            </div>
+                            {% if sub.current_period_end %}
+                            <div class="text-muted small">
+                                Renews {{ sub.current_period_end|date:"M j, Y" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Document packs -->
+            {% if packs %}
+            <div class="card card-patriot shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0"><i class="bi bi-bag me-2"></i>Document Packs</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for pack in packs %}
+                    <div class="list-group-item py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-semibold text-capitalize">{{ pack.get_pack_type_display }}</span>
+                                <span class="text-muted small ms-2">
+                                    {{ pack.ai_uses_used }}/{{ pack.ai_uses_total }} used
+                                </span>
+                            </div>
+                            <div class="text-muted small">{{ pack.created_at|date:"M j, Y" }}</div>
+                        </div>
+                        <div class="progress mt-2" style="height:4px">
+                            <div class="progress-bar bg-patriot-blue"
+                                 style="width: {% widthratio pack.ai_uses_used pack.ai_uses_total 100 %}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
