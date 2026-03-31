@@ -85,8 +85,10 @@
                             <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left me-1"></i>Back
                             </a>
-                            <button type="submit" class="btn btn-patriot-primary px-4"
-                                    :disabled="storyText.trim().length < 50">
+                            <button type="submit" class="btn btn-lg px-4 fw-semibold"
+                                    style="background-color: var(--patriot-red); color: #fff; border-color: var(--patriot-red);"
+                                    :disabled="storyText.trim().length < 50"
+                                    :style="storyText.trim().length < 50 ? 'opacity:0.5;' : 'opacity:1;'">
                                 <i class="bi bi-stars me-2"></i>
                                 Analyze My Story
                                 <i class="bi bi-arrow-right ms-1"></i>
