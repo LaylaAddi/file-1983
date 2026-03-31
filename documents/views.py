@@ -40,14 +40,20 @@ def wizard_story(request, document_slug):
 
     if request.method == 'POST':
         story_text = request.POST.get('story_text', '').strip()
+        action = request.POST.get('action', 'analyze')
         if story_text:
             session.story_text = story_text
             session.status = 'in_progress'
-            session.current_step = 1
-            session.save(update_fields=['story_text', 'status', 'current_step', 'updated_at'])
-            # AI extraction will be triggered here in a later step
-            messages.success(request, 'Story saved. Now let\'s review the details.')
-            return redirect('documents:wizard_story', document_slug=doc.slug)
+            session.save(update_fields=['story_text', 'status', 'updated_at'])
+            if action == 'save':
+                messages.success(request, 'Story saved. Come back any time to continue.')
+                return redirect('documents:wizard_story', document_slug=doc.slug)
+            else:
+                # AI extraction will be triggered here in a later step
+                session.current_step = 1
+                session.save(update_fields=['current_step', 'updated_at'])
+                messages.success(request, 'Story saved. Now let\'s review the details.')
+                return redirect('documents:wizard_story', document_slug=doc.slug)
         else:
             messages.error(request, 'Please enter your story before continuing.')
 
