@@ -1,15 +1,16 @@
 from django.contrib import admin
 from .models import (
     Document, WizardSession, PlaintiffInfo, IncidentOverview,
-    Defendant, IncidentNarrative, RightsViolated, Witness, Evidence,
-    Damages, PriorComplaints, ReliefSought, AIPrompt,
-    PromoCode, PromoCodeUsage, PayoutRequest,
+    TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
+    Evidence, Witness, Damages, PriorComplaints, ReliefSought,
+    AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest,
 )
 
 
 class WizardSessionInline(admin.StackedInline):
     model = WizardSession
     extra = 0
+    readonly_fields = ['ai_extraction_attempted', 'ai_extraction_succeeded', 'ai_extraction_error']
 
 
 class PlaintiffInfoInline(admin.StackedInline):
@@ -22,28 +23,34 @@ class IncidentOverviewInline(admin.StackedInline):
     extra = 0
 
 
+class TimelineEntryInline(admin.TabularInline):
+    model = TimelineEntry
+    extra = 1
+    ordering = ['order']
+
+
 class DefendantInline(admin.TabularInline):
     model = Defendant
     extra = 1
 
 
-class IncidentNarrativeInline(admin.StackedInline):
-    model = IncidentNarrative
+class GovernmentEntityInline(admin.StackedInline):
+    model = GovernmentEntity
     extra = 0
 
 
-class RightsViolatedInline(admin.TabularInline):
-    model = RightsViolated
-    extra = 0
-
-
-class WitnessInline(admin.TabularInline):
-    model = Witness
+class ConstitutionalClaimInline(admin.TabularInline):
+    model = ConstitutionalClaim
     extra = 0
 
 
 class EvidenceInline(admin.TabularInline):
     model = Evidence
+    extra = 0
+
+
+class WitnessInline(admin.TabularInline):
+    model = Witness
     extra = 0
 
 
@@ -64,7 +71,7 @@ class ReliefSoughtInline(admin.StackedInline):
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ['slug', 'user', 'title', 'payment_status', 'created_at']
+    list_display = ['slug', 'user', 'title', 'payment_status', 'jury_trial_demand', 'created_at']
     list_filter = ['payment_status']
     search_fields = ['slug', 'user__email', 'title']
     readonly_fields = ['slug', 'created_at', 'updated_at']
@@ -72,15 +79,24 @@ class DocumentAdmin(admin.ModelAdmin):
         WizardSessionInline,
         PlaintiffInfoInline,
         IncidentOverviewInline,
+        TimelineEntryInline,
         DefendantInline,
-        IncidentNarrativeInline,
-        RightsViolatedInline,
-        WitnessInline,
+        GovernmentEntityInline,
+        ConstitutionalClaimInline,
         EvidenceInline,
+        WitnessInline,
         DamagesInline,
         PriorComplaintsInline,
         ReliefSoughtInline,
     ]
+
+
+@admin.register(WizardSession)
+class WizardSessionAdmin(admin.ModelAdmin):
+    list_display = ['document', 'status', 'current_step', 'ai_extraction_succeeded', 'updated_at']
+    list_filter = ['status', 'ai_extraction_succeeded']
+    readonly_fields = ['ai_extraction_attempted', 'created_at', 'updated_at']
+    search_fields = ['document__slug', 'document__user__email']
 
 
 @admin.register(AIPrompt)

@@ -1,3 +1,92 @@
+"""
+Documents app models — Section 1983 Complaint Wizard
+
+WIZARD FLOW
+-----------
+Step 0 (Story):  User types or speaks their story on web or mobile.
+                 Raw text stored in WizardSession.story_text.
+                 AI parses it and writes structured output to WizardSession.ai_analysis (JSON).
+                 That JSON is then used to pre-populate every model below.
+
+Step 1:  Plaintiff Information      → PlaintiffInfo
+Step 2:  Incident Overview          → IncidentOverview + TimelineEntry
+Step 3:  Defendants                 → Defendant + GovernmentEntity
+Step 4:  Constitutional Claims      → ConstitutionalClaim
+Step 5:  Evidence & Witnesses       → Evidence + Witness
+Step 6:  Damages & Relief           → Damages + ReliefSought
+Step 7:  Review & Finalize
+
+AI ANALYSIS JSON SHAPE (WizardSession.ai_analysis)
+---------------------------------------------------
+{
+  "document": {
+    "title": str,
+    "jury_trial_demand": bool
+  },
+  "plaintiff": {
+    "full_name": str, "address": str, "city": str, "state": str,
+    "zip_code": str, "phone": str, "email": str,
+    "filing_pro_se": bool,
+    "attorney_name": str, "attorney_bar_number": str, "attorney_address": str
+  },
+  "incident": {
+    "incident_date": "YYYY-MM-DD", "incident_time": "HH:MM",
+    "address": str, "city": str, "state": str, "county": str,
+    "location_description": str, "location_type": str,
+    "is_public_forum": bool,
+    "plaintiff_activity": str,
+    "plaintiff_identified_themselves": bool, "identification_description": str,
+    "force_used": bool, "equipment_seized_or_damaged": bool,
+    "federal_district_court": str
+  },
+  "timeline": [
+    {"order": int, "time_approximate": str, "actor": str, "action_description": str}
+  ],
+  "defendants": [
+    {
+      "full_name": str, "badge_number": str, "rank_title": str,
+      "agency_name": str, "parent_government_entity": str, "agency_address": str,
+      "capacity_sued": str, "acting_under_color_of_law": bool,
+      "color_of_law_basis": str, "is_supervisor": bool
+    }
+  ],
+  "government_entity": {
+    "entity_name": str, "entity_address": str,
+    "policy_or_custom_description": str
+  },
+  "constitutional_claims": [
+    {"amendment": str, "how_violated": str}
+  ],
+  "evidence": [
+    {
+      "evidence_type": str, "description": str,
+      "date_and_time": str, "recorded_by": str,
+      "storage_location": str, "public_url": str,
+      "defendant_aware_of_recording": bool
+    }
+  ],
+  "witnesses": [
+    {
+      "full_name": str, "contact_info": str, "relationship_to_plaintiff": str,
+      "what_they_witnessed": str, "has_video": bool, "willing_to_testify": bool
+    }
+  ],
+  "damages": {
+    "physical_injury_description": str, "emotional_distress_description": str,
+    "lost_wages": str, "property_damage_amount": str, "punitive_basis": str
+  },
+  "relief": {
+    "compensatory_damages": bool, "compensatory_amount": str,
+    "punitive_damages": bool, "declaratory_judgment": bool,
+    "injunctive_relief": bool, "attorney_fees": bool,
+    "costs_of_suit": bool, "other_relief": str
+  },
+  "prior_complaints": {
+    "filed_complaints": bool, "description": str, "outcomes": str
+  }
+}
+"""
+
 import secrets
 from django.conf import settings
 from django.db import models
@@ -5,12 +94,11 @@ from django.utils import timezone
 
 
 def generate_document_slug():
-    """Generate a short random slug, e.g. nP27cOkr. Collision-checked at save time."""
     return secrets.token_urlsafe(6)
 
 
 # ---------------------------------------------------------------------------
-# Document (root object)
+# Document — root record, owns the slug and payment state
 # ---------------------------------------------------------------------------
 
 class Document(models.Model):
@@ -30,6 +118,10 @@ class Document(models.Model):
     title = models.CharField(max_length=255, blank=True)
     payment_status = models.CharField(
         max_length=20, choices=PAYMENT_STATUS_CHOICES, default='draft'
+    )
+    jury_trial_demand = models.BooleanField(
+        default=True,
+        help_text='Whether to include a jury trial demand in the complaint'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -54,14 +146,14 @@ class Document(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# WizardSession — tracks where the user is in the 7-step wizard
+# WizardSession — story input, AI output, step tracking
 # ---------------------------------------------------------------------------
 
 class WizardSession(models.Model):
     STATUS_CHOICES = [
         ('not_started', 'Not Started'),
         ('in_progress', 'In Progress'),
-        ('analyzed', 'Analyzed'),
+        ('analyzed', 'Analyzed'),     # AI has parsed story, fields pre-filled
         ('completed', 'Completed'),
     ]
 
@@ -71,9 +163,27 @@ class WizardSession(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='not_started'
     )
-    current_step = models.PositiveSmallIntegerField(default=1)
-    story_text = models.TextField(blank=True, help_text='Raw story entered by user — AI parses this into fields')
-    ai_analysis = models.JSONField(default=dict, blank=True, help_text='Parsed AI output from story analysis')
+    current_step = models.PositiveSmallIntegerField(default=0)  # 0 = story input
+
+    # Step 0: user's raw story (typed or transcribed from voice)
+    story_text = models.TextField(
+        blank=True,
+        help_text='Raw story entered or dictated by user — AI parses this to pre-fill all wizard steps'
+    )
+
+    # AI extraction output — structured JSON matching the shape documented at top of file.
+    # After AI runs, each wizard step reads from this to pre-populate its form.
+    # User edits are saved directly to the related models, not back into this JSON.
+    ai_analysis = models.JSONField(
+        default=dict, blank=True,
+        help_text='Structured data extracted by AI from story_text — used to pre-fill wizard steps'
+    )
+
+    # Track whether AI extraction has run and succeeded
+    ai_extraction_attempted = models.BooleanField(default=False)
+    ai_extraction_succeeded = models.BooleanField(default=False)
+    ai_extraction_error = models.TextField(blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,7 +192,7 @@ class WizardSession(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 2 — Plaintiff Information
+# Step 1 — Plaintiff Information
 # ---------------------------------------------------------------------------
 
 class PlaintiffInfo(models.Model):
@@ -90,34 +200,76 @@ class PlaintiffInfo(models.Model):
         Document, on_delete=models.CASCADE, related_name='plaintiff_info'
     )
     full_name = models.CharField(max_length=255, blank=True)
-    address_line1 = models.CharField(max_length=255, blank=True)
-    address_line2 = models.CharField(max_length=255, blank=True)
+    address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     zip_code = models.CharField(max_length=20, blank=True)
     phone = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
 
+    # Pro se or represented
+    filing_pro_se = models.BooleanField(
+        default=True,
+        help_text='Filing without an attorney'
+    )
+    attorney_name = models.CharField(max_length=255, blank=True)
+    attorney_bar_number = models.CharField(max_length=100, blank=True)
+    attorney_address = models.CharField(max_length=500, blank=True)
+
     def __str__(self):
         return f'Plaintiff: {self.full_name or "Unknown"}'
 
 
 # ---------------------------------------------------------------------------
-# Step 3 — Incident Overview
+# Step 2 — Incident Overview
 # ---------------------------------------------------------------------------
 
 class IncidentOverview(models.Model):
+    LOCATION_TYPE_CHOICES = [
+        ('public_sidewalk', 'Public Sidewalk'),
+        ('public_building', 'Public Building'),
+        ('park', 'Park'),
+        ('roadway', 'Roadway'),
+        ('private_residence', 'Private Residence'),
+        ('vehicle', 'Vehicle'),
+        ('other', 'Other'),
+    ]
+
     document = models.OneToOneField(
         Document, on_delete=models.CASCADE, related_name='incident_overview'
     )
     incident_date = models.DateField(null=True, blank=True)
     incident_time = models.TimeField(null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
     county = models.CharField(max_length=100, blank=True)
+    location_description = models.TextField(blank=True)
+    location_type = models.CharField(
+        max_length=30, choices=LOCATION_TYPE_CHOICES, blank=True
+    )
+    is_public_forum = models.BooleanField(
+        null=True, blank=True,
+        help_text='Relevant to First Amendment forum analysis'
+    )
+
+    # What the plaintiff was doing — key for 1st Amendment and 4th Amendment framing
+    plaintiff_activity = models.TextField(
+        blank=True,
+        help_text='What was the plaintiff doing at the time of the incident?'
+    )
+    plaintiff_identified_themselves = models.BooleanField(null=True, blank=True)
+    identification_description = models.TextField(blank=True)
+
+    # Force / property
+    force_used = models.BooleanField(null=True, blank=True)
+    equipment_seized_or_damaged = models.BooleanField(null=True, blank=True)
+
+    # Court — populated via court lookup service or AI fallback
     federal_district_court = models.CharField(max_length=255, blank=True)
     court_confirmed = models.BooleanField(
-        default=False, help_text='True once user has confirmed the court lookup result'
+        default=False,
+        help_text='True once user has confirmed the court lookup result'
     )
 
     def __str__(self):
@@ -125,66 +277,154 @@ class IncidentOverview(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Defendants (multiple per document)
+# Step 2 — Timeline Entries (ordered sequence of events)
 # ---------------------------------------------------------------------------
 
-class Defendant(models.Model):
+class TimelineEntry(models.Model):
+    """
+    Ordered list of what happened. AI extracts these from the story.
+    User can add, edit, reorder in the wizard.
+    These become the factual allegations section of the complaint.
+    """
     document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name='defendants'
+        Document, on_delete=models.CASCADE, related_name='timeline_entries'
     )
-    name = models.CharField(max_length=255, blank=True)
-    title = models.CharField(max_length=255, blank=True, help_text='e.g. Officer, Detective, Warden')
-    agency = models.CharField(max_length=255, blank=True, help_text='e.g. NYPD, Rikers Island DOC')
-    badge_number = models.CharField(max_length=50, blank=True)
-    order = models.PositiveSmallIntegerField(default=0, help_text='Display order')
+    order = models.PositiveSmallIntegerField(default=0)
+    time_approximate = models.CharField(
+        max_length=100, blank=True,
+        help_text='e.g. "approximately 2:30 PM" or "after the arrest"'
+    )
+    actor = models.CharField(
+        max_length=255, blank=True,
+        help_text='Who performed this action — defendant name, "officers", "plaintiff", etc.'
+    )
+    action_description = models.TextField(
+        help_text='What happened — one discrete event per entry'
+    )
 
     class Meta:
         ordering = ['order', 'id']
 
     def __str__(self):
-        return f'{self.name or "Unknown"} ({self.agency})'
+        return f'[{self.order}] {self.actor}: {self.action_description[:60]}'
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Incident Narrative
+# Step 3 — Defendants (multiple per document)
 # ---------------------------------------------------------------------------
 
-class IncidentNarrative(models.Model):
-    document = models.OneToOneField(
-        Document, on_delete=models.CASCADE, related_name='incident_narrative'
+class Defendant(models.Model):
+    CAPACITY_CHOICES = [
+        ('individual', 'Individual Capacity'),
+        ('official', 'Official Capacity'),
+        ('both', 'Both Individual and Official Capacity'),
+    ]
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name='defendants'
     )
-    narrative = models.TextField(blank=True, help_text='Detailed description of what happened')
+    full_name = models.CharField(max_length=255, blank=True)
+    badge_number = models.CharField(max_length=50, blank=True)
+    rank_title = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. Officer, Detective, Sergeant, Warden'
+    )
+    agency_name = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. NYPD, Rikers Island DOC'
+    )
+    parent_government_entity = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. City of New York, Cook County'
+    )
+    agency_address = models.CharField(max_length=500, blank=True)
+
+    # Legal capacity and color-of-law basis
+    capacity_sued = models.CharField(
+        max_length=20, choices=CAPACITY_CHOICES, default='both'
+    )
+    acting_under_color_of_law = models.BooleanField(
+        default=True,
+        help_text='The central element of a 1983 claim — defendant acted under state authority'
+    )
+    color_of_law_basis = models.TextField(
+        blank=True,
+        help_text='How this defendant was acting under color of law'
+    )
+    is_supervisor = models.BooleanField(
+        default=False,
+        help_text='Supervisor liability — knew of and failed to prevent subordinate violations'
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
 
     def __str__(self):
-        return f'Narrative for {self.document.slug}'
+        return f'{self.full_name or "Unknown"} — {self.agency_name}'
 
 
 # ---------------------------------------------------------------------------
-# Step 5 — Rights Violated (multiple per document)
+# Step 3 — Government Entity (Monell claim)
 # ---------------------------------------------------------------------------
 
-class RightsViolated(models.Model):
+class GovernmentEntity(models.Model):
     """
-    Each record is one constitutional right/amendment the plaintiff is asserting.
-    The wizard presents a checklist; AI pre-selects based on story analysis.
+    Monell v. Department of Social Services — municipal liability.
+    Plaintiff must show the constitutional violation resulted from
+    an official policy, custom, or practice of the government entity.
     """
+    document = models.OneToOneField(
+        Document, on_delete=models.CASCADE, related_name='government_entity'
+    )
+    entity_name = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. City of Chicago, Los Angeles County Sheriff\'s Department'
+    )
+    entity_address = models.CharField(max_length=500, blank=True)
+    policy_or_custom_description = models.TextField(
+        blank=True,
+        help_text='Describe the policy, custom, or practice that caused the violation'
+    )
+
+    class Meta:
+        verbose_name = 'Government Entity (Monell)'
+        verbose_name_plural = 'Government Entities (Monell)'
+
+    def __str__(self):
+        return f'Gov Entity: {self.entity_name or "Unknown"}'
+
+
+# ---------------------------------------------------------------------------
+# Step 4 — Constitutional Claims (multiple per document)
+# ---------------------------------------------------------------------------
+
+class ConstitutionalClaim(models.Model):
     AMENDMENT_CHOICES = [
-        ('1st', 'First Amendment — Freedom of Speech, Religion, Assembly'),
-        ('4th', 'Fourth Amendment — Unreasonable Search and Seizure'),
-        ('5th', 'Fifth Amendment — Due Process / Self-Incrimination'),
-        ('6th', 'Sixth Amendment — Right to Counsel / Fair Trial'),
-        ('8th', 'Eighth Amendment — Cruel and Unusual Punishment'),
+        ('1st', 'First Amendment — Freedom of Speech, Religion, Assembly, Press'),
+        ('1st_retaliation', 'First Amendment — Retaliation for Protected Activity'),
+        ('1st_prior_restraint', 'First Amendment — Prior Restraint'),
+        ('1st_viewpoint', 'First Amendment — Viewpoint Discrimination'),
+        ('4th_search', 'Fourth Amendment — Unreasonable Search'),
+        ('4th_seizure', 'Fourth Amendment — Unreasonable Seizure of Person'),
+        ('4th_property', 'Fourth Amendment — Unreasonable Seizure of Property'),
+        ('4th_excessive_force', 'Fourth Amendment — Excessive Force'),
+        ('5th_due_process', 'Fifth Amendment — Due Process'),
+        ('5th_self_incrimination', 'Fifth Amendment — Self-Incrimination'),
+        ('6th_counsel', 'Sixth Amendment — Right to Counsel'),
+        ('8th_cruel', 'Eighth Amendment — Cruel and Unusual Punishment'),
         ('14th_due_process', 'Fourteenth Amendment — Due Process'),
         ('14th_equal_protection', 'Fourteenth Amendment — Equal Protection'),
         ('other', 'Other'),
     ]
 
     document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name='rights_violated'
+        Document, on_delete=models.CASCADE, related_name='constitutional_claims'
     )
     amendment = models.CharField(max_length=30, choices=AMENDMENT_CHOICES)
-    description = models.TextField(
-        blank=True, help_text='Optional detail about how this right was violated'
+    how_violated = models.TextField(
+        blank=True,
+        help_text='Describe specifically how this right was violated'
     )
 
     class Meta:
@@ -195,43 +435,47 @@ class RightsViolated(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 6 — Witnesses (multiple per document)
-# ---------------------------------------------------------------------------
-
-class Witness(models.Model):
-    document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name='witnesses'
-    )
-    name = models.CharField(max_length=255, blank=True)
-    contact_info = models.CharField(max_length=255, blank=True)
-    description = models.TextField(blank=True, help_text='What did this witness observe?')
-    order = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        ordering = ['order', 'id']
-
-    def __str__(self):
-        return f'Witness: {self.name or "Unknown"}'
-
-
-# ---------------------------------------------------------------------------
-# Step 6 — Evidence (multiple per document)
+# Step 5 — Evidence (multiple per document)
 # ---------------------------------------------------------------------------
 
 class Evidence(models.Model):
     EVIDENCE_TYPE_CHOICES = [
-        ('photo', 'Photo'),
         ('video', 'Video'),
-        ('document', 'Document'),
+        ('photo', 'Photo'),
+        ('police_report', 'Police Report'),
+        ('body_cam', 'Body Camera Footage'),
+        ('foia_request', 'FOIA Request / Response'),
+        ('citation', 'Citation / Summons'),
         ('medical_record', 'Medical Record'),
+        ('physical', 'Physical Evidence'),
+        ('document', 'Document'),
         ('other', 'Other'),
     ]
 
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name='evidence'
     )
-    evidence_type = models.CharField(max_length=30, choices=EVIDENCE_TYPE_CHOICES, default='other')
+    evidence_type = models.CharField(
+        max_length=30, choices=EVIDENCE_TYPE_CHOICES, default='other'
+    )
     description = models.TextField(blank=True)
+    date_and_time = models.CharField(
+        max_length=100, blank=True,
+        help_text='Approximate date/time this evidence was created or captured'
+    )
+    recorded_by = models.CharField(max_length=255, blank=True)
+    storage_location = models.CharField(
+        max_length=500, blank=True,
+        help_text='Where is this evidence stored? e.g. phone, cloud, attorney office'
+    )
+    public_url = models.URLField(
+        blank=True,
+        help_text='Public URL if evidence is accessible online (e.g. YouTube)'
+    )
+    defendant_aware_of_recording = models.BooleanField(
+        null=True, blank=True,
+        help_text='Relevant to First Amendment retaliation claims'
+    )
     file = models.FileField(upload_to='evidence/', blank=True, null=True)
     order = models.PositiveSmallIntegerField(default=0)
 
@@ -244,17 +488,54 @@ class Evidence(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 7 — Damages
+# Step 5 — Witnesses (multiple per document)
+# ---------------------------------------------------------------------------
+
+class Witness(models.Model):
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name='witnesses'
+    )
+    full_name = models.CharField(max_length=255, blank=True)
+    contact_info = models.CharField(max_length=255, blank=True)
+    relationship_to_plaintiff = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. bystander, friend, fellow protestor, coworker'
+    )
+    what_they_witnessed = models.TextField(blank=True)
+    has_video = models.BooleanField(
+        null=True, blank=True,
+        help_text='Did this witness capture video of the incident?'
+    )
+    willing_to_testify = models.BooleanField(null=True, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f'Witness: {self.full_name or "Unknown"}'
+
+
+# ---------------------------------------------------------------------------
+# Step 6 — Damages
 # ---------------------------------------------------------------------------
 
 class Damages(models.Model):
     document = models.OneToOneField(
         Document, on_delete=models.CASCADE, related_name='damages'
     )
-    physical_injuries = models.TextField(blank=True)
-    emotional_distress = models.TextField(blank=True)
-    financial_losses = models.TextField(blank=True)
-    other_damages = models.TextField(blank=True)
+    physical_injury_description = models.TextField(blank=True)
+    emotional_distress_description = models.TextField(blank=True)
+    lost_wages = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    property_damage_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    punitive_basis = models.TextField(
+        blank=True,
+        help_text='Basis for punitive damages — describe the malicious or reckless conduct'
+    )
 
     class Meta:
         verbose_name_plural = 'Damages'
@@ -264,7 +545,7 @@ class Damages(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 7 — Prior Complaints
+# Step 6 — Prior Complaints
 # ---------------------------------------------------------------------------
 
 class PriorComplaints(models.Model):
@@ -272,10 +553,11 @@ class PriorComplaints(models.Model):
         Document, on_delete=models.CASCADE, related_name='prior_complaints'
     )
     filed_complaints = models.BooleanField(
-        default=False, help_text='Has the plaintiff previously filed complaints about this or related incidents?'
+        default=False,
+        help_text='Has the plaintiff previously filed complaints about this or related incidents?'
     )
-    description = models.TextField(blank=True, help_text='Describe prior complaints filed')
-    outcomes = models.TextField(blank=True, help_text='What were the outcomes?')
+    description = models.TextField(blank=True)
+    outcomes = models.TextField(blank=True)
 
     class Meta:
         verbose_name_plural = 'Prior Complaints'
@@ -285,18 +567,23 @@ class PriorComplaints(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Step 7 — Relief Sought
+# Step 6 — Relief Sought
 # ---------------------------------------------------------------------------
 
 class ReliefSought(models.Model):
     document = models.OneToOneField(
         Document, on_delete=models.CASCADE, related_name='relief_sought'
     )
-    monetary_damages = models.BooleanField(default=False)
+    compensatory_damages = models.BooleanField(default=False)
+    compensatory_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    punitive_damages = models.BooleanField(default=False)
+    declaratory_judgment = models.BooleanField(default=False)
     injunctive_relief = models.BooleanField(default=False)
-    declaratory_relief = models.BooleanField(default=False)
     attorney_fees = models.BooleanField(default=False)
-    other_relief = models.TextField(blank=True, help_text='Any additional relief requested')
+    costs_of_suit = models.BooleanField(default=False)
+    other_relief = models.TextField(blank=True)
 
     def __str__(self):
         return f'Relief Sought for {self.document.slug}'
@@ -308,12 +595,13 @@ class ReliefSought(models.Model):
 
 class AIPrompt(models.Model):
     TASK_CHOICES = [
-        ('story_parse', 'Story Parsing — extract fields from user story'),
-        ('narrative_gen', 'Narrative Generation'),
-        ('rights_analysis', 'Rights Violated Analysis'),
+        ('story_parse', 'Story Parsing — extract all fields from user story'),
+        ('narrative_gen', 'Narrative / Factual Allegations Generation'),
+        ('claims_analysis', 'Constitutional Claims Analysis'),
         ('damages_gen', 'Damages Section Generation'),
         ('relief_gen', 'Relief Sought Generation'),
         ('court_lookup', 'Federal Court Lookup Fallback'),
+        ('monell_gen', 'Monell / Government Entity Section Generation'),
         ('section_gen', 'Generic Section Generation'),
     ]
 
@@ -330,7 +618,7 @@ class AIPrompt(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Promo Codes / Referral System
+# Promo Codes / Referral / Payouts
 # ---------------------------------------------------------------------------
 
 class PromoCode(models.Model):
