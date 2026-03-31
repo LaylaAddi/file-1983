@@ -59,11 +59,15 @@ def user_logout(request):
 
 @login_required
 def profile(request):
+    next_url = request.GET.get('next', '')
     if request.method == 'POST':
         form = ProfileForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated.')
+            next_url = request.POST.get('next', '')
+            if next_url:
+                return redirect(next_url)
             return redirect('accounts:profile')
     else:
         form = ProfileForm(instance=request.user)
@@ -75,4 +79,6 @@ def profile(request):
         'form': form,
         'subscriptions': subscriptions,
         'packs': packs,
+        'next': next_url,
+        'profile_incomplete': not request.user.has_complete_profile(),
     })

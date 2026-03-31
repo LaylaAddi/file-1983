@@ -9,7 +9,10 @@ Build everything from this spec. Nothing is copied from an old codebase.
 ## The App
 A Django web app at **file1983.com** that guides users through building a **Section 1983 civil rights complaint**
 against government officials. Users tell their story, the AI analyzes it, and the wizard walks
-them through 7 steps to produce a complete legal document (PDF).
+them through steps to produce a complete legal document (PDF).
+
+Target users: **First Amendment auditors** and citizens documenting civil rights violations
+(police misconduct, unlawful arrest, excessive force, retaliation for recording in public).
 
 ---
 
@@ -41,7 +44,7 @@ The front end design and logo carry over from the old app. Do not redesign.
 ```
 
 ### Logo / Icons
-Stored in `static/` in the old repo:
+Stored in `static/images/`:
 - `gavel-icon.svg` — navbar icon (24x24 in a rounded box)
 - `gavel-logo.svg` — full logo
 - `gavel.svg` — standalone gavel
@@ -49,172 +52,173 @@ Stored in `static/` in the old repo:
 
 ### Fonts
 - **Headings:** Playfair Display (600, 700) — loaded from Google Fonts
-- **Body:** system-ui stack (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto...`)
-
-### Navbar
-Dark patriot-blue gradient, gavel icon + app name as brand. Copy `navbar-patriot` styles
-from `static/css/app-theme.css` in the old repo.
+- **Body:** system-ui stack
 
 ### Theme CSS
-`static/css/app-theme.css` in the old repo is the master theme file — copy it directly.
+`static/css/app-theme.css` is the master theme file. Already in place.
 
 ---
 
-## Django Apps to Build (in this order)
+## Django Apps
 
-### 1. Project Setup
-- Django project named `config` (settings in `config/settings.py`)
-- Apps: `accounts`, `documents`, `public_pages`
-- Dynamic admin URL: `ADMIN_URL = os.getenv('ADMIN_URL', 'manage-dev/')` in `config/urls.py`
-  - Set `ADMIN_URL` as env var on Render with a secret path
-- Context processor: `config/context_processors.py` — injects `app_name`, `header_app_name`,
-  `user` into all templates (pulled from `SiteSettings` model)
-- `base.html` template with navbar, footer, dark mode toggle, Bootstrap 5.3 + Bootstrap Icons
+### `config/`
+- Settings in `config/settings.py`
+- Dynamic admin URL: `ADMIN_URL = os.getenv('ADMIN_URL', 'manage-dev/')`
+- Context processor: `config/context_processors.py` — injects `app_name`, `header_app_name`, `user`, `ADMIN_URL`
+- `base.html` with navbar, footer, dark mode toggle, Bootstrap 5.3 + Alpine.js
 
-### 2. `accounts` app
-Models:
-- `User` — custom, email-based (no username field), `AUTH_USER_MODEL = 'accounts.User'`
-- `Subscription` — tracks Stripe subscription (monthly/annual), status, period dates
-- `DocumentPack` — one-time purchase credits (e.g. 3-pack)
-- `SiteSettings` — singleton: `app_name`, `header_app_name`, pricing values, feature flags
-- `LegalDocument` — terms/privacy/disclaimer pages managed via admin (CKEditor)
+### `accounts/`
+**Models** (all built, migrated):
+- `User` — custom email-based auth. Fields include `first_name`, `last_name`, `phone`, `address`, `city`, `state`, `zip_code`, `user_type` (plaintiff/attorney), `referral_code`, `referred_by`
+  - `get_plaintiff_defaults()` → dict that maps to `PlaintiffInfo` fields, used to pre-populate on document creation
+  - `has_complete_profile()` → bool, gates document creation
+  - `has_active_subscription()`, `has_unlimited_access()`, `get_ai_uses_remaining()`, `can_create_document()`
+- `Subscription` — Stripe subscription tracking
+- `DocumentPack` — one-time purchase credits
+- `SiteSettings` — singleton (app_name, pricing, feature flags)
+- `LegalDocument` — terms/privacy pages
 
-Key user methods needed:
-- `has_active_subscription` → bool
-- `has_unlimited_access` → bool (staff/admin override)
-- `get_ai_uses_remaining` → int
-- `can_create_document` → bool
+**Views** (all built):
+- `register`, `user_login`, `user_logout`, `profile`
+- Profile view accepts `?next=` param — redirects there after save (used for profile gate)
+- Password reset flow (Django built-ins)
 
-Views: login, register, logout, profile, password reset, pricing page, subscription management
+**Forms:** `RegisterForm`, `LoginForm`, `ProfileForm` (includes all address fields), `CustomPasswordResetForm`, `CustomSetPasswordForm`
 
-Stripe integration:
-- Checkout session creation (one-time + subscription)
-- Webhook handler at `/accounts/subscription/webhook/`
-- Plans: Single doc $49, 3-pack $99, Monthly sub $29, Annual sub $249
+**Templates** (all built): login, register, profile (with incomplete profile banner), password reset flow
 
-### 3. `documents` app
-This is the core of the app. Build in this sub-order:
+**Still needed in accounts:**
+- `pricing` view and template (Stripe checkout)
+- Stripe webhook handler at `/accounts/subscription/webhook/`
 
-**3a. Models (clean schema)**
-- `Document` — belongs to user, has `slug`, `payment_status` (draft/paid/finalized/expired),
-  `created_at`, `updated_at`, `title`
-- `WizardSession` — tracks wizard progress: `status` (not_started/in_progress/analyzed/completed),
-  `current_step` (1-7), `story_text`, `ai_analysis` (JSON)
-- `PlaintiffInfo` — name, address, contact
-- `IncidentOverview` — date, time, city, state, county, federal_district_court (confirmed bool)
-- `Defendant` — name, title, agency, badge_number (multiple per document)
-- `IncidentNarrative` — detailed narrative text
-- `RightsViolated` — amendments/rights checked (multiple)
-- `Witness` — name, contact, description (multiple)
-- `Evidence` — type, description, file reference (multiple)
-- `Damages` — physical, emotional, financial, other
-- `PriorComplaints` — prior complaints filed, outcomes
-- `ReliefSought` — what the plaintiff is asking for
-- `AIPrompt` — admin-managed prompts for each AI generation task
-- `PromoCode` / `PromoCodeUsage` — referral/discount system
-- `PayoutRequest` — referral payout tracking
+---
 
-**3b. The Wizard (7 steps)**
-The wizard is the entire UX. It's a single-page Alpine.js interface at `/documents/<slug>/wizard/`.
+### `documents/`
 
-Steps:
-1. Your Story (free-text, AI parses into fields)
-2. Plaintiff Information
-3. Incident Overview (date, location → triggers court lookup)
-4. Defendants
-5. Rights Violated
-6. Evidence & Witnesses
-7. Damages & Relief
+**Models** (all built — `documents/migrations/0001_initial.py`, `0002_examplestory.py`):
 
-Flow: Story → Steps 1-7 → "Analyze My Case" (AI) → Review → "Build Complaint" → Final Review → PDF
+| Model | Relation | Description |
+|---|---|---|
+| `Document` | root | slug (short random, URL-safe), user FK, title, payment_status, jury_trial_demand |
+| `WizardSession` | 1-to-1 | story_text, ai_analysis (JSON), current_step, status, ai_extraction flags |
+| `PlaintiffInfo` | 1-to-1 | name, address, phone, email, filing_pro_se, attorney fields |
+| `IncidentOverview` | 1-to-1 | date, time, address, location_type, is_public_forum, plaintiff_activity, force_used, court fields |
+| `TimelineEntry` | FK (multiple) | ordered events extracted from story (order, time_approximate, actor, action_description) |
+| `Defendant` | FK (multiple) | name, badge, rank, agency, parent_gov_entity, capacity_sued, acting_under_color_of_law, is_supervisor |
+| `GovernmentEntity` | 1-to-1 | Monell claim — entity name/address, policy_or_custom_description |
+| `ConstitutionalClaim` | FK (multiple) | amendment (detailed choices incl. retaliation, prior restraint), how_violated |
+| `Evidence` | FK (multiple) | type, description, recorded_by, public_url, defendant_aware_of_recording, file upload |
+| `Witness` | FK (multiple) | name, contact, relationship, what_they_witnessed, has_video, willing_to_testify |
+| `Damages` | 1-to-1 | physical, emotional, lost_wages (decimal), property_damage (decimal), punitive_basis |
+| `PriorComplaints` | 1-to-1 | filed_complaints (bool), description, outcomes |
+| `ReliefSought` | 1-to-1 | checkboxes + compensatory_amount, costs_of_suit |
+| `AIPrompt` | standalone | admin-managed prompts per AI task (task_name, system_prompt, user_prompt_template) |
+| `PromoCode` | standalone | discount codes with expiry and use limits |
+| `PromoCodeUsage` | FK | tracks which user used which code |
+| `PayoutRequest` | FK | referral payout tracking |
+| `ExampleStory` | standalone | test scenarios for staff/DEBUG dropdown on story input page |
 
-**3c. Services**
-- `openai_service.py` — all AI calls (story parsing, section generation, court lookup fallback)
-- `court_lookup_service.py` — static lookup by city/state → GPT fallback
-  - Copy `documents/services/court_data/` directory from old repo directly (50 state files, clean data)
-- `pdf_service.py` — WeasyPrint document generation
-- `youtube_service.py` — Supadata API for video transcript extraction
+**AI Analysis JSON shape** is documented at the top of `documents/models.py`. The `WizardSession.ai_analysis` field stores AI extraction output keyed to match every model above. When AI runs, it returns this shape; wizard steps read from it to pre-populate forms.
 
-**3d. URLs**
-- `/documents/` — list
-- `/documents/new/` — create
-- `/documents/<slug>/` — detail/hub page
-- `/documents/<slug>/wizard/` — the wizard
-- `/documents/<slug>/final/` — final review + edit
-- `/documents/<slug>/final/download-pdf/` — generate and download
-- `/documents/<slug>/video-analysis/` — video evidence (subscribers only)
-- AJAX endpoints for wizard saves, AI calls, court lookup, PDF status polling
+**Views** (partially built):
+- `document_list` — lists user's documents
+- `document_create` — gates on `has_complete_profile()`, creates Document + WizardSession + PlaintiffInfo (pre-populated from user profile), redirects to wizard_story
+- `wizard_story` — Step 0: story input page, saves story_text to WizardSession
 
-### 4. `public_pages` app
-- CMS for landing page and info pages
+**URLs:**
+- `/documents/` → `document_list`
+- `/documents/new/` → `document_create`
+- `/documents/<slug>/wizard/` → `wizard_story`
+
+**Templates:**
+- `documents/list.html` — stub, needs building
+- `documents/wizard_story.html` — **built**: story textarea, word count, example stories dropdown (staff/DEBUG only), "Analyze My Story" submit button
+
+**Example Stories fixture:** `documents/fixtures/example_stories.json`
+Load with: `python manage.py loaddata example_stories`
+10 First Amendment auditor scenarios: recording at police station, library, city hall, courthouse, DMV, city council meeting, traffic stop, protest, park. Each detailed enough to exercise full AI extraction.
+
+**Still needed in documents (build in this order):**
+1. AI extraction service (`documents/services/openai_service.py`) — called after story submit, writes to `WizardSession.ai_analysis`, creates/updates related models
+2. Wizard steps 1–7 views + templates (review/edit what AI extracted)
+3. Court lookup service (`documents/services/court_lookup_service.py`) — city+state → federal district court
+4. Final review view + template
+5. PDF generation (`documents/services/pdf_service.py` — WeasyPrint)
+6. Video evidence view (Supadata API, subscribers only)
+7. AJAX endpoints for step saves and AI calls
+
+**Wizard flow (complete picture):**
+```
+/documents/new/
+  → profile gate (redirect to profile if incomplete)
+  → create Document + WizardSession + PlaintiffInfo
+  → redirect to /documents/<slug>/wizard/
+
+/documents/<slug>/wizard/  (Step 0 — built)
+  → user types or dictates story
+  → staff/DEBUG: example story dropdown pre-fills textarea
+  → submit → save story_text → trigger AI extraction
+  → redirect to Step 1
+
+Steps 1–7 (not yet built — one URL each or single Alpine.js SPA):
+  Step 1: Review/edit Plaintiff Info
+  Step 2: Review/edit Incident Overview + Timeline
+  Step 3: Review/edit Defendants + Government Entity
+  Step 4: Review/edit Constitutional Claims
+  Step 5: Review/edit Evidence + Witnesses
+  Step 6: Review/edit Damages + Relief
+  Step 7: Final review → "Build Complaint" → PDF
+```
+
+---
+
+### `public_pages/`
+- Not yet built
 - Models: `CivilRightsPage`, `PageSection`
 - Section types: hero, cards, quotes, CTAs, accordions
-- SEO fields per page, publishing controls
-- URL: `/` (home), `/page/<slug>/`
+- URLs: `/` (home), `/page/<slug>/`
 
 ---
 
 ## Federal Court Lookup
-Two-tier system — copy logic from old repo:
-1. **Static lookup** — `court_lookup_service.py` dynamically imports state module from
-   `documents/services/court_data/states/` and calls `lookup_court_by_city(city)`
-2. **GPT fallback** — if city not in static data, calls `openai_service.lookup_federal_court(city, state)`
-3. Recreate or stub `court_data/` — static city→court mappings per state; GPT fallback covers any gaps
+Two-tier:
+1. Static lookup — `court_lookup_service.py` imports state module from `documents/services/court_data/states/`
+2. GPT fallback — if city not found, calls `openai_service.lookup_federal_court(city, state)`
+- Not yet built. Stub `court_data/` or rely on GPT fallback initially.
 
 ---
 
 ## Slugs
-Every `Document` uses a **short random slug** (e.g. `nP27cOkr`) as its URL identifier — never expose
-the database integer PK in URLs.
-
-- Generate on save using `secrets.token_urlsafe(6)` or similar, check for collisions
-- All document URLs use `<str:document_slug>/` — not `<int:pk>/`
-- `CivilRightsPage` (public_pages) also uses a human-readable slug from the title
-- Slugs are immutable once set — do not regenerate on update
+- `Document` uses short random slug (`secrets.token_urlsafe(6)`), collision-checked, set on first save, never regenerated
+- All document URLs use `<str:document_slug>/`
 
 ---
 
-## Mobile API (Build Later — Wire Now)
-The web app comes first. Mobile app comes after. But the API layer needs to be set up
-from the start so it doesn't require structural changes later.
-
-**Add to project from Step 1:**
-- Install `djangorestframework` and `djangorestframework-simplejwt`
-- Add to `INSTALLED_APPS`: `rest_framework`, `rest_framework_simplejwt`
-- Create `/api/v1/` URL namespace in `config/urls.py` (can be empty to start)
-- JWT settings in `settings.py`:
-  ```python
-  REST_FRAMEWORK = {
-      'DEFAULT_AUTHENTICATION_CLASSES': (
-          'rest_framework_simplejwt.authentication.JWTAuthentication',
-      ),
-  }
-  ```
-- Add token endpoints: `/api/v1/token/`, `/api/v1/token/refresh/`
-
-**API endpoints to build alongside each web feature** (stub them, implement fully later):
-- `POST /api/v1/auth/register/`
-- `POST /api/v1/auth/login/` (returns JWT)
-- `GET/POST /api/v1/documents/` — list + create
-- `GET /api/v1/documents/<slug>/` — detail
-- `POST /api/v1/documents/<slug>/wizard/save/` — save wizard step
-- `POST /api/v1/documents/<slug>/wizard/analyze/` — trigger AI analysis
-
-Mobile will be a React Native or similar app consuming these endpoints.
-All API views use JWT auth. All web views use session auth. They share the same models.
+## Mobile API (wired, not yet built out)
+- `rest_framework` + `simplejwt` installed and in INSTALLED_APPS
+- `/api/v1/` namespace in `config/urls.py`
+- JWT settings in `settings.py`
+- Token endpoints: `/api/v1/token/`, `/api/v1/token/refresh/`
+- API views to build alongside web features (stub → implement):
+  - `POST /api/v1/auth/register/`
+  - `POST /api/v1/auth/login/`
+  - `GET/POST /api/v1/documents/`
+  - `GET /api/v1/documents/<slug>/`
+  - `POST /api/v1/documents/<slug>/wizard/save/`
+  - `POST /api/v1/documents/<slug>/wizard/analyze/`
 
 ---
 
 ## Security
-- Dynamic admin URL via `ADMIN_URL` env var (never hardcode in repo)
+- Dynamic admin URL via `ADMIN_URL` env var
 - CSRF on all forms
 - Login required on all document views
-- Document ownership checks on every view (user can only access their own docs)
-- Stripe webhook signature verification
+- Document ownership check: `get_object_or_404(Document, slug=slug, user=request.user)`
+- Stripe webhook signature verification (not yet built)
 
 ---
 
-## Environment Variables (Render)
+## Environment Variables
 ```
 SECRET_KEY=
 DEBUG=0
@@ -238,32 +242,42 @@ SUPADATA_API_KEY=
 
 ---
 
-## Build Order (Step by Step)
-Work through these one at a time. Do not jump ahead.
+## Build Status
 
-- [ ] Step 1 — Project scaffold (Django project, apps, settings, base template, theme CSS, logo, DRF + JWT wired up, `/api/v1/` namespace)
-- [ ] Step 2 — `accounts` app: User model, auth views, login/register templates
-- [ ] Step 3 — `accounts` app: SiteSettings, pricing page, Stripe checkout + webhooks
-- [ ] Step 4 — `documents` app: All models, migrations, admin registration
-- [ ] Step 5 — `documents` app: Document list, create, detail/hub views + templates
-- [ ] Step 6 — `documents` app: Wizard (Alpine.js, 7 steps, story parsing)
-- [ ] Step 7 — `documents` app: AI services (OpenAI integration, prompts)
-- [ ] Step 8 — `documents` app: Court lookup (copy court_data/, wire into wizard step 3)
-- [ ] Step 9 — `documents` app: Final review + PDF generation (WeasyPrint)
-- [ ] Step 10 — `documents` app: Video evidence (subscribers only)
-- [ ] Step 11 — `public_pages` app: CMS, landing page, info pages
-- [ ] Step 12 — Polish: dark mode, SEO, sitemaps, Render deploy config
+- [x] Step 1 — Project scaffold (Django project, apps, settings, base template, theme CSS, DRF + JWT)
+- [x] Step 2 — `accounts` app: User model (with address/profile fields), auth views, login/register/profile templates
+- [ ] Step 3 — `accounts` app: Stripe pricing page + checkout + webhooks ← **NEXT**
+- [x] Step 4a — `documents` app: All models + migrations + admin
+- [x] Step 4b — `documents` app: document_create view (profile gate), wizard_story view + template, example stories fixture
+- [ ] Step 4c — `documents` app: AI extraction service (openai_service.py) — story → structured JSON → populate models
+- [ ] Step 4d — `documents` app: Wizard steps 1–7 (review/edit forms, Alpine.js)
+- [ ] Step 4e — `documents` app: Court lookup service
+- [ ] Step 4f — `documents` app: Document list + detail/hub views + templates
+- [ ] Step 5 — `documents` app: Final review + PDF generation (WeasyPrint)
+- [ ] Step 6 — `documents` app: Video evidence (Supadata, subscribers only)
+- [ ] Step 7 — `public_pages` app: CMS, landing page, info pages
+- [ ] Step 8 — Polish: SEO, sitemaps, Render deploy config
+
+---
+
+## Key Decisions Made
+- Root model is `Document` (not `Complaint`) — owns the slug and payment state
+- `WizardSession` stores raw story + AI JSON — separate from the structured models it populates
+- All wizard models have `blank=True` / `null=True` on most fields — AI partial extraction must not break the form
+- `User` stores address/contact directly (no separate Profile model) — `get_plaintiff_defaults()` maps to `PlaintiffInfo`
+- `user_type` field on User (`plaintiff` / `attorney`) future-proofs attorney account flow
+- `ExampleStory` model is admin-managed; fixture has 10 auditor scenarios; dropdown only shown to `is_staff` or `DEBUG=True`
+- `TimelineEntry` (ordered events) replaces single narrative blob — better for AI extraction and PDF factual allegations section
+- `ConstitutionalClaim` has granular amendment choices including 1st Amendment retaliation, prior restraint, viewpoint discrimination
+- `GovernmentEntity` model handles Monell municipal liability theory
 
 ---
 
 ## Reference Repo
-No reference repo is available in this environment. Build everything from this spec.
+No reference repo available. Build from this spec.
 
-When the spec says "copy from old repo", interpret it as:
-- **Theme CSS** — recreate `static/css/app-theme.css` using the color palette and design notes above
-- **SVG logos** — recreate simple SVG gavel icons (gavel-icon.svg, gavel-logo.svg, gavel.svg, favicon.svg)
-- **Court data** — recreate `documents/services/court_data/` with static city→court mappings per state, or stub it and rely on the GPT fallback until data is sourced
-- **Context processor** — build from the spec description above
-- **AI service** — build from the spec description above
-
-Do not copy old wizard templates or section_edit templates — those are the old process being replaced.
+When spec says "copy from old repo":
+- **Theme CSS** — `static/css/app-theme.css` already in place
+- **SVG logos** — `static/images/` already has gavel SVGs
+- **Court data** — recreate or stub `documents/services/court_data/` with city→court mappings; GPT fallback covers gaps
+- **AI service** — build from spec description

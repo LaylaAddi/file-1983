@@ -4,42 +4,95 @@
 
 {% block content %}
 <div class="container py-5">
+
+    {% if profile_incomplete %}
+    <div class="alert alert-warning d-flex align-items-start gap-3 mb-4 shadow-sm">
+        <i class="bi bi-exclamation-triangle-fill fs-4 flex-shrink-0 mt-1"></i>
+        <div>
+            <strong>Your profile is incomplete.</strong>
+            Your full name, address, city, and state are required before you can start a complaint —
+            they appear on the document as the plaintiff's information.
+            Fill them in below and save.
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row g-4">
 
-        <!-- Profile info -->
+        <!-- Profile form -->
         <div class="col-lg-5">
-            <div class="card card-patriot shadow-sm h-100">
+            <div class="card card-patriot shadow-sm">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Profile</h5>
                 </div>
                 <div class="card-body p-4">
                     <form method="post" novalidate>
                         {% csrf_token %}
+                        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.first_name.label }}</label>
-                            {{ form.first_name }}
+                        <!-- Name -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">{{ form.first_name.label }}</label>
+                                {{ form.first_name }}
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">{{ form.last_name.label }}</label>
+                                {{ form.last_name }}
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.last_name.label }}</label>
-                            {{ form.last_name }}
-                        </div>
+
+                        <!-- Email -->
                         <div class="mb-3">
                             <label class="form-label fw-semibold">{{ form.email.label }}</label>
                             {{ form.email }}
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{{ form.phone.label }}</label>
+                            {{ form.phone }}
+                        </div>
+
+                        <hr class="my-3">
+                        <p class="small text-muted mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Your address appears on the complaint as the plaintiff's address.
+                        </p>
+
+                        <!-- Address -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">{{ form.address.label }}</label>
+                            {{ form.address }}
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-5">
+                                <label class="form-label fw-semibold">{{ form.city.label }}</label>
+                                {{ form.city }}
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label fw-semibold">{{ form.state.label }}</label>
+                                {{ form.state }}
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label fw-semibold">{{ form.zip_code.label }}</label>
+                                {{ form.zip_code }}
+                            </div>
                         </div>
 
                         {% if form.errors %}
                             <div class="alert alert-danger py-2 small">Please correct the errors above.</div>
                         {% endif %}
 
-                        <div class="d-grid mt-3">
-                            <button type="submit" class="btn btn-patriot-primary">Save Changes</button>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-patriot-primary">
+                                <i class="bi bi-check-lg me-1"></i>Save Changes
+                            </button>
                         </div>
                     </form>
 
                     <hr class="my-4">
-
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="small text-muted mb-1">Your referral code</div>
@@ -53,10 +106,9 @@
             </div>
         </div>
 
-        <!-- Subscription & packs -->
+        <!-- Access & billing -->
         <div class="col-lg-7">
 
-            <!-- Access status -->
             <div class="card card-patriot shadow-sm mb-4">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Access</h5>
@@ -87,7 +139,6 @@
                 </div>
             </div>
 
-            <!-- Active subscriptions -->
             {% if subscriptions %}
             <div class="card card-patriot shadow-sm mb-4">
                 <div class="card-header py-3">
@@ -104,9 +155,7 @@
                                 </span>
                             </div>
                             {% if sub.current_period_end %}
-                            <div class="text-muted small">
-                                Renews {{ sub.current_period_end|date:"M j, Y" }}
-                            </div>
+                            <div class="text-muted small">Renews {{ sub.current_period_end|date:"M j, Y" }}</div>
                             {% endif %}
                         </div>
                     </div>
@@ -115,7 +164,6 @@
             </div>
             {% endif %}
 
-            <!-- Document packs -->
             {% if packs %}
             <div class="card card-patriot shadow-sm">
                 <div class="card-header py-3">
@@ -127,9 +175,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <span class="fw-semibold text-capitalize">{{ pack.get_pack_type_display }}</span>
-                                <span class="text-muted small ms-2">
-                                    {{ pack.ai_uses_used }}/{{ pack.ai_uses_total }} used
-                                </span>
+                                <span class="text-muted small ms-2">{{ pack.ai_uses_used }}/{{ pack.ai_uses_total }} used</span>
                             </div>
                             <div class="text-muted small">{{ pack.created_at|date:"M j, Y" }}</div>
                         </div>
