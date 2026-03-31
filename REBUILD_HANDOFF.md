@@ -1,204 +1,283 @@
-# File 1983 — Session Handoff
+# 1983 Law — Clean Rebuild Handoff
 
-## Picking Up This Project
-
-Read this entire document before writing a single line of code.
-Work on branch `claude/review-handoff-AeJJC`. Push there. Never push to master directly.
+## What This Is
+A step-by-step rebuild of 1983law.org from scratch. Same stack, clean database, cleaner code.
+Build everything from this spec. Nothing is copied from an old codebase.
 
 ---
 
 ## The App
+A Django web app at **file1983.com** that guides users through building a **Section 1983 civil rights complaint**
+against government officials. Users tell their story, the AI analyzes it, and the wizard walks
+them through steps to produce a complete legal document (PDF).
 
-A Django web app at **file1983.com** that guides users through building a
-**Section 1983 civil rights complaint** against government officials.
-Users describe their incident, fill out a 7-step wizard, and receive a
-complete legal document (PDF).
+Target users: **First Amendment auditors** and citizens documenting civil rights violations
+(police misconduct, unlawful arrest, excessive force, retaliation for recording in public).
 
 ---
 
 ## Stack
-
-- **Backend:** Django 4.2, PostgreSQL (prod), SQLite (dev)
-- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display, Alpine.js
-- **Theme:** American flag color palette, dark mode via `data-theme="dark"` on `<html>`
-- **Auth:** Custom email-based User model (`accounts.User`)
-- **AI:** OpenAI (deferred — not yet)
-- **Payments:** Stripe (deferred — not yet)
-- **PDF:** WeasyPrint (deferred — not yet)
-- **Hosting:** Render (not yet deployed)
+- **Backend:** Django 4.2+, PostgreSQL (prod), SQLite (dev)
+- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display (Google Font), Alpine.js (wizard)
+- **AI:** OpenAI API (GPT-4) — story parsing, section generation, court lookup fallback
+- **Payments:** Stripe — one-time purchases + subscriptions + webhooks
+- **PDF:** WeasyPrint
+- **Video Evidence:** Supadata API (YouTube transcript extraction)
+- **Hosting:** Render (gunicorn + whitenoise)
+- **Auth:** Custom user model, email-based (no username)
 
 ---
 
-## What Is Already Built
+## Design — Keep As-Is
+The front end design and logo carry over from the old app. Do not redesign.
 
-### accounts app ✓
-- `User` — email-based, no username, has `referral_code`, `referred_by`
-- `Subscription` — Stripe subscription tracking (monthly/annual)
+### Color Palette (American flag theme)
+```css
+--patriot-blue: #002868
+--patriot-blue-light: #003d99
+--patriot-blue-dark: #001a4d
+--patriot-red: #BF0A30
+--patriot-red-light: #d4213f
+--patriot-white: #FFFFFF
+--patriot-cream: #F8F9FA
+--patriot-gold: #B8860B
+```
+
+### Logo / Icons
+Stored in `static/images/`:
+- `gavel-icon.svg` — navbar icon (24x24 in a rounded box)
+- `gavel-logo.svg` — full logo
+- `gavel.svg` — standalone gavel
+- `favicon.svg` — browser tab icon
+
+### Fonts
+- **Headings:** Playfair Display (600, 700) — loaded from Google Fonts
+- **Body:** system-ui stack
+
+### Theme CSS
+`static/css/app-theme.css` is the master theme file. Already in place.
+
+---
+
+## Django Apps
+
+### `config/`
+- Settings in `config/settings.py`
+- Dynamic admin URL: `ADMIN_URL = os.getenv('ADMIN_URL', 'manage-dev/')`
+- Context processor: `config/context_processors.py` — injects `app_name`, `header_app_name`, `user`, `ADMIN_URL`
+- `base.html` with navbar, footer, dark mode toggle, Bootstrap 5.3 + Alpine.js
+
+### `accounts/`
+**Models** (all built, migrated):
+- `User` — custom email-based auth. Fields include `first_name`, `last_name`, `phone`, `address`, `city`, `state`, `zip_code`, `user_type` (plaintiff/attorney), `referral_code`, `referred_by`
+  - `get_plaintiff_defaults()` → dict that maps to `PlaintiffInfo` fields, used to pre-populate on document creation
+  - `has_complete_profile()` → bool, gates document creation
+  - `has_active_subscription()`, `has_unlimited_access()`, `get_ai_uses_remaining()`, `can_create_document()`
+- `Subscription` — Stripe subscription tracking
 - `DocumentPack` — one-time purchase credits
-- `SiteSettings` — singleton (app_name, header_app_name, pricing, feature flags)
-- `LegalDocument` — terms/privacy/disclaimer content
-- Views: login, register, logout, profile, password reset
-- Migration: `accounts/migrations/0001_initial.py`
+- `SiteSettings` — singleton (app_name, pricing, feature flags)
+- `LegalDocument` — terms/privacy pages
 
-### public_pages app ✓
-- `CivilRightsPage` + `PageSection` CMS models
-- All public pages: home, know your rights, section 1983, amendments, right to record, etc.
-- Legal pages: terms, privacy, disclaimer, cookies at `/legal/*/`
-- Dynamic CMS pages at `/page/<slug>/`
-- Migration: `public_pages/migrations/0001_initial.py`
+**Views** (all built):
+- `register`, `user_login`, `user_logout`, `profile`
+- Profile view accepts `?next=` param — redirects there after save (used for profile gate)
+- Password reset flow (Django built-ins)
 
-### documents app — STUB ONLY
-- `documents/views.py` — placeholder list/create views only
-- `documents/urls.py` — only has `list` and `create` stub routes
-- `documents/models.py` — empty
-- **No migration exists yet for documents**
+**Forms:** `RegisterForm`, `LoginForm`, `ProfileForm` (includes all address fields), `CustomPasswordResetForm`, `CustomSetPasswordForm`
 
-### Frontend / Design ✓
-- `templates/base.html` — exact original design, navbar, footer, dark mode toggle
-- `static/css/app-theme.css` — full patriot theme (2764 lines, exact original)
-- `static/css/public-pages.css` — public pages styles (exact original)
-- `static/images/` — all 4 SVGs (exact originals from old repo)
-- All templates use `data-theme="dark"` for dark mode (NOT Bootstrap's `data-bs-theme`)
+**Templates** (all built): login, register, profile (with incomplete profile banner), password reset flow
 
-### Infrastructure ✓
-- `config/settings.py` — all env vars wired, `AUTH_USER_MODEL = 'accounts.User'`
-- `config/urls.py` — ADMIN_URL dynamic, all apps routed
-- `config/context_processors.py` — injects `app_name`, `header_app_name`, `ADMIN_URL`
-- `Dockerfile` + `docker-compose.yml` — working locally
-- `requirements.txt` — all deps listed
+**Still needed in accounts:**
+- `pricing` view and template (Stripe checkout)
+- Stripe webhook handler at `/accounts/subscription/webhook/`
 
 ---
 
-## Running Locally
+### `documents/`
 
-```bash
-docker-compose up --build -d
-docker-compose exec web python manage.py migrate
-docker-compose exec web python manage.py createsuperuser
+**Models** (all built — `documents/migrations/0001_initial.py`, `0002_examplestory.py`):
+
+| Model | Relation | Description |
+|---|---|---|
+| `Document` | root | slug (short random, URL-safe), user FK, title, payment_status, jury_trial_demand |
+| `WizardSession` | 1-to-1 | story_text, ai_analysis (JSON), current_step, status, ai_extraction flags |
+| `PlaintiffInfo` | 1-to-1 | name, address, phone, email, filing_pro_se, attorney fields |
+| `IncidentOverview` | 1-to-1 | date, time, address, location_type, is_public_forum, plaintiff_activity, force_used, court fields |
+| `TimelineEntry` | FK (multiple) | ordered events extracted from story (order, time_approximate, actor, action_description) |
+| `Defendant` | FK (multiple) | name, badge, rank, agency, parent_gov_entity, capacity_sued, acting_under_color_of_law, is_supervisor |
+| `GovernmentEntity` | 1-to-1 | Monell claim — entity name/address, policy_or_custom_description |
+| `ConstitutionalClaim` | FK (multiple) | amendment (detailed choices incl. retaliation, prior restraint), how_violated |
+| `Evidence` | FK (multiple) | type, description, recorded_by, public_url, defendant_aware_of_recording, file upload |
+| `Witness` | FK (multiple) | name, contact, relationship, what_they_witnessed, has_video, willing_to_testify |
+| `Damages` | 1-to-1 | physical, emotional, lost_wages (decimal), property_damage (decimal), punitive_basis |
+| `PriorComplaints` | 1-to-1 | filed_complaints (bool), description, outcomes |
+| `ReliefSought` | 1-to-1 | checkboxes + compensatory_amount, costs_of_suit |
+| `AIPrompt` | standalone | admin-managed prompts per AI task (task_name, system_prompt, user_prompt_template) |
+| `PromoCode` | standalone | discount codes with expiry and use limits |
+| `PromoCodeUsage` | FK | tracks which user used which code |
+| `PayoutRequest` | FK | referral payout tracking |
+| `ExampleStory` | standalone | test scenarios for staff/DEBUG dropdown on story input page |
+
+**AI Analysis JSON shape** is documented at the top of `documents/models.py`. The `WizardSession.ai_analysis` field stores AI extraction output keyed to match every model above. When AI runs, it returns this shape; wizard steps read from it to pre-populate forms.
+
+**Views** (partially built):
+- `document_list` — lists user's documents
+- `document_create` — gates on `has_complete_profile()`, creates Document + WizardSession + PlaintiffInfo (pre-populated from user profile), redirects to wizard_story
+- `wizard_story` — Step 0: story input page, saves story_text to WizardSession
+
+**URLs:**
+- `/documents/` → `document_list`
+- `/documents/new/` → `document_create`
+- `/documents/<slug>/wizard/` → `wizard_story`
+
+**Templates:**
+- `documents/list.html` — stub, needs building
+- `documents/wizard_story.html` — **built**: story textarea, word count, example stories dropdown (staff/DEBUG only), "Analyze My Story" submit button
+
+**Example Stories fixture:** `documents/fixtures/example_stories.json`
+Load with: `python manage.py loaddata example_stories`
+10 First Amendment auditor scenarios: recording at police station, library, city hall, courthouse, DMV, city council meeting, traffic stop, protest, park. Each detailed enough to exercise full AI extraction.
+
+**Still needed in documents (build in this order):**
+1. AI extraction service (`documents/services/openai_service.py`) — called after story submit, writes to `WizardSession.ai_analysis`, creates/updates related models
+2. Wizard steps 1–7 views + templates (review/edit what AI extracted)
+3. Court lookup service (`documents/services/court_lookup_service.py`) — city+state → federal district court
+4. Final review view + template
+5. PDF generation (`documents/services/pdf_service.py` — WeasyPrint)
+6. Video evidence view (Supadata API, subscribers only)
+7. AJAX endpoints for step saves and AI calls
+
+**Wizard flow (complete picture):**
+```
+/documents/new/
+  → profile gate (redirect to profile if incomplete)
+  → create Document + WizardSession + PlaintiffInfo
+  → redirect to /documents/<slug>/wizard/
+
+/documents/<slug>/wizard/  (Step 0 — built)
+  → user types or dictates story
+  → staff/DEBUG: example story dropdown pre-fills textarea
+  → submit → save story_text → trigger AI extraction
+  → redirect to Step 1
+
+Steps 1–7 (not yet built — one URL each or single Alpine.js SPA):
+  Step 1: Review/edit Plaintiff Info
+  Step 2: Review/edit Incident Overview + Timeline
+  Step 3: Review/edit Defendants + Government Entity
+  Step 4: Review/edit Constitutional Claims
+  Step 5: Review/edit Evidence + Witnesses
+  Step 6: Review/edit Damages + Relief
+  Step 7: Final review → "Build Complaint" → PDF
 ```
 
-`.env` minimum:
+---
+
+### `public_pages/`
+- Not yet built
+- Models: `CivilRightsPage`, `PageSection`
+- Section types: hero, cards, quotes, CTAs, accordions
+- URLs: `/` (home), `/page/<slug>/`
+
+---
+
+## Federal Court Lookup
+Two-tier:
+1. Static lookup — `court_lookup_service.py` imports state module from `documents/services/court_data/states/`
+2. GPT fallback — if city not found, calls `openai_service.lookup_federal_court(city, state)`
+- Not yet built. Stub `court_data/` or rely on GPT fallback initially.
+
+---
+
+## Slugs
+- `Document` uses short random slug (`secrets.token_urlsafe(6)`), collision-checked, set on first save, never regenerated
+- All document URLs use `<str:document_slug>/`
+
+---
+
+## Mobile API (wired, not yet built out)
+- `rest_framework` + `simplejwt` installed and in INSTALLED_APPS
+- `/api/v1/` namespace in `config/urls.py`
+- JWT settings in `settings.py`
+- Token endpoints: `/api/v1/token/`, `/api/v1/token/refresh/`
+- API views to build alongside web features (stub → implement):
+  - `POST /api/v1/auth/register/`
+  - `POST /api/v1/auth/login/`
+  - `GET/POST /api/v1/documents/`
+  - `GET /api/v1/documents/<slug>/`
+  - `POST /api/v1/documents/<slug>/wizard/save/`
+  - `POST /api/v1/documents/<slug>/wizard/analyze/`
+
+---
+
+## Security
+- Dynamic admin URL via `ADMIN_URL` env var
+- CSRF on all forms
+- Login required on all document views
+- Document ownership check: `get_object_or_404(Document, slug=slug, user=request.user)`
+- Stripe webhook signature verification (not yet built)
+
+---
+
+## Environment Variables
 ```
-SECRET_KEY=any-dev-secret
-DEBUG=1
-ALLOWED_HOSTS=localhost,127.0.0.1
+SECRET_KEY=
+DEBUG=0
+ALLOWED_HOSTS=file1983.com,www.file1983.com
+DATABASE_URL=
 ADMIN_URL=your-secret-path/
+OPENAI_API_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_SINGLE=
+STRIPE_PRICE_3PACK=
+STRIPE_PRICE_MONTHLY=
+STRIPE_PRICE_ANNUAL=
+EMAIL_HOST=
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+DEFAULT_FROM_EMAIL=
+SUPADATA_API_KEY=
 ```
 
 ---
 
-## URL Structure (current)
+## Build Status
 
-```
-/                           public_pages:home
-/rights/                    public_pages:know_your_rights
-/rights/section-1983/       public_pages:section_1983
-/rights/record-police/      public_pages:right_to_record
-/rights/fourth-amendment/   public_pages:fourth_amendment
-/rights/fifth-amendment/    public_pages:fifth_amendment
-/rights/violated/           public_pages:rights_violated
-/rights/first-amendment-auditors/  public_pages:first_amendment_auditors
-/page/<slug>/               public_pages:cms_page
-/legal/terms/               public_pages:terms
-/legal/privacy/             public_pages:privacy
-/legal/disclaimer/          public_pages:disclaimer
-/legal/cookies/             public_pages:cookies
-/accounts/login/            accounts:login
-/accounts/register/         accounts:register
-/accounts/logout/           accounts:logout
-/accounts/profile/          accounts:profile
-/accounts/password-reset/   accounts:password_reset
-/documents/                 documents:list  (stub)
-/documents/new/             documents:create (stub)
-/<ADMIN_URL>/               Django admin
-/api/v1/token/              JWT token
-/api/v1/token/refresh/      JWT refresh
-```
+- [x] Step 1 — Project scaffold (Django project, apps, settings, base template, theme CSS, DRF + JWT)
+- [x] Step 2 — `accounts` app: User model (with address/profile fields), auth views, login/register/profile templates
+- [ ] Step 3 — `accounts` app: Stripe pricing page + checkout + webhooks ← **NEXT**
+- [x] Step 4a — `documents` app: All models + migrations + admin
+- [x] Step 4b — `documents` app: document_create view (profile gate), wizard_story view + template, example stories fixture
+- [ ] Step 4c — `documents` app: AI extraction service (openai_service.py) — story → structured JSON → populate models
+- [ ] Step 4d — `documents` app: Wizard steps 1–7 (review/edit forms, Alpine.js)
+- [ ] Step 4e — `documents` app: Court lookup service
+- [ ] Step 4f — `documents` app: Document list + detail/hub views + templates
+- [ ] Step 5 — `documents` app: Final review + PDF generation (WeasyPrint)
+- [ ] Step 6 — `documents` app: Video evidence (Supadata, subscribers only)
+- [ ] Step 7 — `public_pages` app: CMS, landing page, info pages
+- [ ] Step 8 — Polish: SEO, sitemaps, Render deploy config
 
 ---
 
-## What To Build Next — Document Creation
-
-The user will describe the exact fields they want before you write any models.
-**Wait for that description before writing code.**
-
-The intended build order is strictly:
-
-### Sub-step A — Models + Migration
-Wait for the user to describe their desired fields, then build all `documents` models cleanly.
-Key models needed (details TBD by user):
-- `Document` — the top-level record, belongs to user, short random slug
-- `WizardSession` — tracks progress through the 7-step wizard
-- Per-step data models (plaintiff, incident, defendants, rights, evidence, damages, relief)
-- `AIPrompt` — admin-managed prompts
-
-Slug rule: generate on `Document.save()` using `secrets.token_urlsafe(6)` only if blank.
-Never regenerate. Never expose database PK in URLs.
-
-### Sub-step B — Document List + Create + Detail Views
-After models are confirmed and migrated:
-- `/documents/` — list user's documents
-- `/documents/new/` — create new document
-- `/documents/<slug>/` — document hub/detail page
-- All views require login
-- All views check document ownership
-
-### Sub-step C — The 7-Step Wizard
-- Alpine.js single-page interface at `/documents/<slug>/wizard/`
-- One step at a time — no AI yet, just save form data
-- AJAX saves per step
-
-### Sub-step D — AI Integration (deferred)
-### Sub-step E — Court Lookup (deferred)
-### Sub-step F — PDF Generation (deferred)
-### Sub-step G — Stripe Payments (deferred)
+## Key Decisions Made
+- Root model is `Document` (not `Complaint`) — owns the slug and payment state
+- `WizardSession` stores raw story + AI JSON — separate from the structured models it populates
+- All wizard models have `blank=True` / `null=True` on most fields — AI partial extraction must not break the form
+- `User` stores address/contact directly (no separate Profile model) — `get_plaintiff_defaults()` maps to `PlaintiffInfo`
+- `user_type` field on User (`plaintiff` / `attorney`) future-proofs attorney account flow
+- `ExampleStory` model is admin-managed; fixture has 10 auditor scenarios; dropdown only shown to `is_staff` or `DEBUG=True`
+- `TimelineEntry` (ordered events) replaces single narrative blob — better for AI extraction and PDF factual allegations section
+- `ConstitutionalClaim` has granular amendment choices including 1st Amendment retaliation, prior restraint, viewpoint discrimination
+- `GovernmentEntity` model handles Monell municipal liability theory
 
 ---
 
-## Key Rules For This Project
+## Reference Repo
+No reference repo available. Build from this spec.
 
-1. **One sub-step at a time.** Do not jump ahead.
-2. **Ask before building models.** The user will define the exact fields.
-3. **No Stripe yet.** The pricing template exists but checkout is not wired.
-4. **No AI yet.** Wizard saves plain form data first.
-5. **Slugs are immutable.** Generate once, never overwrite.
-6. **Login required** on all document views.
-7. **Ownership check** on every document view.
-8. **Branch:** always work on `claude/review-handoff-AeJJC`
-9. **Push format:** `git push -u origin claude/review-handoff-AeJJC`
-10. **Dark mode:** uses `data-theme="dark"` on `<html>`, not `data-bs-theme`
-
----
-
-## Important File Locations
-
-| File | Purpose |
-|------|---------|
-| `config/settings.py` | All settings + env vars |
-| `config/urls.py` | Root URL config |
-| `config/context_processors.py` | Injects app_name, ADMIN_URL into templates |
-| `accounts/models.py` | User + auth models |
-| `documents/models.py` | EMPTY — build here next |
-| `documents/views.py` | Stub only — replace in Sub-step B |
-| `documents/urls.py` | Stub only — replace in Sub-step B |
-| `templates/base.html` | Master layout — do not redesign |
-| `static/css/app-theme.css` | Master CSS — do not replace |
-
----
-
-## Git Commands (for every session)
-
-```bash
-# Start of session — get latest
-git fetch origin
-git checkout claude/review-handoff-AeJJC
-git pull origin claude/review-handoff-AeJJC
-
-# Push work
-git push -u origin claude/review-handoff-AeJJC
-
-# User merges to master locally
-git fetch origin
-git merge origin/claude/review-handoff-AeJJC
-git push origin master
-```
+When spec says "copy from old repo":
+- **Theme CSS** — `static/css/app-theme.css` already in place
+- **SVG logos** — `static/images/` already has gavel SVGs
+- **Court data** — recreate or stub `documents/services/court_data/` with city→court mappings; GPT fallback covers gaps
+- **AI service** — build from spec description

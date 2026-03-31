@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Tell Your Story — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="storyWizard()">
+
+    <!-- Progress header -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <a href="{% url 'documents:list' %}" class="text-muted text-decoration-none small">
+                    <i class="bi bi-arrow-left me-1"></i>My Documents
+                </a>
+            </div>
+            <h2 class="mb-1" style="font-family: 'Playfair Display', serif;">Tell Us What Happened</h2>
+            <p class="text-muted">
+                Describe the incident in your own words — speak or type freely.
+                Our AI will read your story and fill in the complaint details for you to review.
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- Example stories dropdown (staff / DEBUG only) -->
+            {% if example_stories %}
+            <div class="card border-warning mb-4 shadow-sm">
+                <div class="card-body py-3 px-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-flask text-warning fs-5"></i>
+                        <span class="fw-semibold text-warning">Test Mode</span>
+                        <span class="badge bg-warning text-dark ms-1">Staff Only</span>
+                    </div>
+                    <label class="form-label small text-muted mb-2">Load an example scenario to test AI extraction:</label>
+                    <select class="form-select form-select-sm"
+                            @change="loadExample($event.target.value)"
+                            x-ref="exampleSelect">
+                        <option value="">— Choose an example story —</option>
+                        {% for story in example_stories %}
+                        <option value="{{ story.pk }}">{{ story.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Hidden story data for Alpine to read -->
+            <script>window.EXAMPLE_STORIES = {{ example_stories_json }};</script>
+            {% endif %}
+
+            <!-- Story form -->
+            <div class="card card-patriot shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post" id="storyForm">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="story_text" class="form-label fw-semibold">
+                                <i class="bi bi-mic me-1"></i>Your Story
+                            </label>
+                            <textarea
+                                id="story_text"
+                                name="story_text"
+                                class="form-control"
+                                rows="14"
+                                placeholder="Describe what happened. Include where you were, what you were doing, who approached you, what they said and did, and what happened after. Don't worry about legal language — just tell it like you'd tell a friend."
+                                x-model="storyText"
+                                required>{{ session.story_text }}</textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <div class="form-text">The more detail, the better the AI can fill in your complaint.</div>
+                                <div class="text-muted small" x-text="wordCount + ' words'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Saved indicator -->
+                        {% if session.story_text %}
+                        <div class="alert alert-success py-2 small mb-3">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Story saved. You can update it below and continue.
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Back
+                            </a>
+                            <button type="submit" class="btn btn-patriot-primary px-4"
+                                    :disabled="storyText.trim().length < 50">
+                                <i class="bi bi-stars me-2"></i>
+                                Analyze My Story
+                                <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                        <div class="text-center mt-2">
+                            <small class="text-muted" x-show="storyText.trim().length < 50">
+                                Please add more detail before continuing (minimum 50 characters).
+                            </small>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+            <!-- What happens next -->
+            <div class="card bg-light border-0 mt-4">
+                <div class="card-body px-4 py-3">
+                    <h6 class="mb-3"><i class="bi bi-stars me-2 text-primary"></i>What happens when you click Analyze</h6>
+                    <div class="row g-3 text-sm">
+                        <div class="col-sm-4 text-center">
+                            <i class="bi bi-cpu fs-4 text-primary d-block mb-1"></i>
+                            <small>AI reads your story and identifies defendants, dates, location, and rights violated</small>
+                        </div>
+                        <div class="col-sm-4 text-center">
+                            <i class="bi bi-pencil-square fs-4 text-primary d-block mb-1"></i>
+                            <small>Each section of the complaint is pre-filled for you to review and edit</small>
+                        </div>
+                        <div class="col-sm-4 text-center">
+                            <i class="bi bi-file-earmark-pdf fs-4 text-primary d-block mb-1"></i>
+                            <small>You review, approve, and download your completed complaint as a PDF</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function storyWizard() {
+    return {
+        storyText: document.getElementById('story_text') ? document.getElementById('story_text').value : '',
+
+        get wordCount() {
+            return this.storyText.trim() === '' ? 0 : this.storyText.trim().split(/\s+/).length;
+        },
+
+        loadExample(pk) {
+            if (!pk || !window.EXAMPLE_STORIES) return;
+            const stories = window.EXAMPLE_STORIES;
+            if (stories[pk]) {
+                this.storyText = stories[pk];
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

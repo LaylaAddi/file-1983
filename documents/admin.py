@@ -3,7 +3,7 @@ from .models import (
     Document, WizardSession, PlaintiffInfo, IncidentOverview,
     TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
     Evidence, Witness, Damages, PriorComplaints, ReliefSought,
-    AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest,
+    AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest, ExampleStory,
 )
 
 
@@ -123,3 +123,10 @@ class PayoutRequestAdmin(admin.ModelAdmin):
     list_display = ['user', 'amount', 'status', 'requested_at']
     list_filter = ['status']
     search_fields = ['user__email']
+
+
+@admin.register(ExampleStory)
+class ExampleStoryAdmin(admin.ModelAdmin):
+    list_display = ['title', 'order', 'is_active']
+    list_editable = ['order', 'is_active']
+    search_fields = ['title']
