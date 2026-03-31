@@ -58,6 +58,11 @@ def user_logout(request):
 
 
 @login_required
+def pricing(request):
+    return render(request, 'accounts/pricing.html')
+
+
+@login_required
 def profile(request):
     next_url = request.GET.get('next', '')
     if request.method == 'POST':
