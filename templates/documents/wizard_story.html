@@ -82,13 +82,17 @@
                         {% endif %}
 
                         <div class="d-flex justify-content-between align-items-center mt-4">
-                            <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left me-1"></i>Back
-                            </a>
-                            <button type="submit" class="btn btn-lg px-4 fw-semibold"
-                                    style="background-color: var(--patriot-red); color: #fff; border-color: var(--patriot-red);"
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary wizard-btn-secondary">
+                                    <i class="bi bi-arrow-left me-1"></i>Back
+                                </a>
+                                <button type="submit" name="action" value="save" class="btn btn-outline-secondary wizard-btn-secondary">
+                                    <i class="bi bi-floppy me-1"></i>Save
+                                </button>
+                            </div>
+                            <button type="submit" name="action" value="analyze" class="btn btn-lg px-4 fw-semibold wizard-btn-analyze"
                                     :disabled="storyText.trim().length < 50"
-                                    :style="storyText.trim().length < 50 ? 'opacity:0.5;' : 'opacity:1;'">
+                                    :style="storyText.trim().length < 50 ? 'opacity:0.5;cursor:not-allowed;' : 'opacity:1;'">
                                 <i class="bi bi-stars me-2"></i>
                                 Analyze My Story
                                 <i class="bi bi-arrow-right ms-1"></i>

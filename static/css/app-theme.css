@@ -2768,3 +2768,54 @@ a:hover {
     color: var(--dark-text) !important;
 }
 
+
+/* =========================================
+   Wizard Story Page Buttons
+   ========================================= */
+.wizard-btn-analyze {
+    background-color: var(--patriot-red);
+    color: #fff;
+    border-color: var(--patriot-red);
+}
+
+.wizard-btn-analyze:hover {
+    background-color: var(--patriot-red-light);
+    border-color: var(--patriot-red-light);
+    color: #fff;
+}
+
+.wizard-btn-secondary {
+    color: var(--patriot-blue);
+    border-color: var(--patriot-blue);
+    background: transparent;
+}
+
+.wizard-btn-secondary:hover {
+    background-color: var(--patriot-blue);
+    border-color: var(--patriot-blue);
+    color: #fff;
+}
+
+[data-theme="dark"] .wizard-btn-secondary {
+    color: #a8c4e8;
+    border-color: #a8c4e8;
+    background: transparent;
+}
+
+[data-theme="dark"] .wizard-btn-secondary:hover {
+    background-color: #a8c4e8;
+    border-color: #a8c4e8;
+    color: #1a1a2e;
+}
+
+[data-theme="dark"] .wizard-btn-analyze {
+    background-color: var(--patriot-red);
+    border-color: var(--patriot-red);
+    color: #fff;
+}
+
+[data-theme="dark"] .wizard-btn-analyze:hover {
+    background-color: var(--patriot-red-light);
+    border-color: var(--patriot-red-light);
+    color: #fff;
+}
