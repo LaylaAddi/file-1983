@@ -5,15 +5,19 @@ from .models import User, Subscription, DocumentPack, SiteSettings, LegalDocumen
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('is_staff', 'is_superuser', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_staff', 'is_active', 'date_joined')
+    list_filter = ('user_type', 'is_staff', 'is_superuser', 'is_active')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
     readonly_fields = ('date_joined', 'referral_code')
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('first_name', 'last_name')}),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'user_type')}),
+        ('Contact & Address', {
+            'description': 'Used to pre-populate plaintiff information on new complaints.',
+            'fields': ('phone', 'address', 'city', 'state', 'zip_code'),
+        }),
         ('Referral', {'fields': ('referral_code', 'referred_by')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates', {'fields': ('date_joined', 'last_login')}),
@@ -21,9 +25,13 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'password1', 'password2', 'first_name', 'last_name', 'is_staff'),
+            'fields': ('email', 'password1', 'password2', 'first_name', 'last_name', 'user_type', 'is_staff'),
         }),
     )
+
+    @admin.display(boolean=True, description='Profile complete?')
+    def has_complete_profile(self, obj):
+        return obj.has_complete_profile()
 
 
 @admin.register(Subscription)

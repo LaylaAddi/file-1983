@@ -21,12 +21,29 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    USER_TYPE_CHOICES = [
+        ('plaintiff', 'Plaintiff / Self-Represented'),
+        ('attorney', 'Attorney'),
+    ]
+
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
+
+    # User type — plaintiff (self-represented) or attorney (future)
+    user_type = models.CharField(
+        max_length=20, choices=USER_TYPE_CHOICES, default='plaintiff'
+    )
+
+    # Contact / address — used to pre-populate PlaintiffInfo on new complaints
+    phone = models.CharField(max_length=30, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=100, blank=True)
+    zip_code = models.CharField(max_length=20, blank=True)
 
     # Referral
     referral_code = models.CharField(max_length=16, unique=True, blank=True)
@@ -49,6 +66,26 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_full_name(self):
         full = f'{self.first_name} {self.last_name}'.strip()
         return full or self.email
+
+    def get_plaintiff_defaults(self):
+        """
+        Returns a dict that maps directly onto PlaintiffInfo fields.
+        Called when creating a new Document to pre-populate Step 1 of the wizard.
+        """
+        return {
+            'full_name': self.get_full_name(),
+            'address': self.address,
+            'city': self.city,
+            'state': self.state,
+            'zip_code': self.zip_code,
+            'phone': self.phone,
+            'email': self.email,
+            'filing_pro_se': self.user_type == 'plaintiff',
+        }
+
+    def has_complete_profile(self):
+        """Returns True if the user has filled in enough info to start a complaint."""
+        return bool(self.first_name and self.last_name and self.address and self.city and self.state)
 
     def save(self, *args, **kwargs):
         if not self.referral_code:
