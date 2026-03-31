@@ -695,3 +695,28 @@ class PayoutRequest(models.Model):
 
     def __str__(self):
         return f'Payout {self.amount} for {self.user.email} ({self.status})'
+
+
+# ---------------------------------------------------------------------------
+# Example Stories — for testing/demo (staff-only dropdown in wizard)
+# ---------------------------------------------------------------------------
+
+class ExampleStory(models.Model):
+    """
+    Pre-written auditor scenarios shown as a dropdown on the story input step.
+    Only visible to staff users and in DEBUG mode — for testing the AI extraction
+    pipeline without having to type a story every time.
+    Admin-managed so new scenarios can be added without a code deploy.
+    """
+    title = models.CharField(max_length=200, help_text='Short label shown in the dropdown')
+    story_text = models.TextField(help_text='Full story text — loaded into the story textarea when selected')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'title']
+        verbose_name = 'Example Story'
+        verbose_name_plural = 'Example Stories'
+
+    def __str__(self):
+        return self.title
