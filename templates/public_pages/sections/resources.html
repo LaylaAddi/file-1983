@@ -1,0 +1,40 @@
+{% comment %}
+Resources/links section template partial.
+Data format: [{"name": "...", "url": "...", "description": "..."}]
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} {{ section.css_class }}">
+    <div class="container">
+        {% if section.title %}
+        <h2 class="section-title mb-4">
+            <i class="bi bi-bookmarks me-2"></i>{{ section.title }}
+        </h2>
+        {% endif %}
+
+        {% if section.subtitle %}
+        <p class="section-subtitle mb-4">{{ section.subtitle }}</p>
+        {% endif %}
+
+        {% if section.data %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    {% for resource in section.data %}
+                    <div class="col-md-6">
+                        <a href="{{ resource.url }}" target="_blank" rel="noopener" class="resource-item d-block text-decoration-none">
+                            <i class="bi bi-link-45deg"></i>
+                            <div>
+                                <h6 class="mb-0">{{ resource.name }}</h6>
+                                {% if resource.description %}
+                                <p class="mb-0">{{ resource.description }}</p>
+                                {% endif %}
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>

@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Privacy Policy - {{ settings.app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <h1 class="mb-4">Privacy Policy</h1>
+
+            {% if settings.privacy_effective_date %}
+            <p class="text-muted mb-4"><strong>Effective Date:</strong> {{ settings.privacy_effective_date|date:"F j, Y" }}</p>
+            {% endif %}
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <p>{{ settings.app_name }} ("we," "us," or "our") respects your privacy and is committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at {{ request.get_host }} (the "Service").</p>
+                </div>
+            </div>
+
+            <h2 class="h4 mt-5">1. Information We Collect</h2>
+
+            <h3 class="h5 mt-4">Personal Information You Provide</h3>
+            <p>When you use our Service, we may collect:</p>
+            <ul>
+                <li><strong>Account Information:</strong> Email address, password</li>
+                <li><strong>Profile Information:</strong> Name, address, phone number</li>
+                <li><strong>Case Information:</strong> Details about your legal matter, including incident descriptions, dates, locations, names of parties involved, and other information necessary to generate legal documents</li>
+                <li><strong>Payment Information:</strong> Payment card details are processed securely by {{ settings.payment_processor }} and are not stored on our servers</li>
+                <li><strong>Communications:</strong> Any messages you send to us</li>
+            </ul>
+
+            <h3 class="h5 mt-4">Information Collected Automatically</h3>
+            <p>When you access our Service, we automatically collect:</p>
+            <ul>
+                <li><strong>Device Information:</strong> Browser type, operating system, device type</li>
+                <li><strong>Usage Information:</strong> Pages viewed, time spent, links clicked</li>
+                <li><strong>Log Data:</strong> IP address, access times, referring URLs</li>
+                {% if settings.uses_google_analytics %}
+                <li><strong>Analytics Data:</strong> We use Google Analytics to understand how users interact with our Service</li>
+                {% endif %}
+            </ul>
+
+            <h2 class="h4 mt-5">2. How We Use Your Information</h2>
+            <p>We use the information we collect to:</p>
+            <ul>
+                <li>Provide, maintain, and improve our Service</li>
+                <li>Generate legal documents based on your input</li>
+                <li>Process payments and send transaction confirmations</li>
+                <li>Send you technical notices and support messages</li>
+                <li>Respond to your comments and questions</li>
+                <li>Protect against fraudulent or unauthorized activity</li>
+                <li>Comply with legal obligations</li>
+            </ul>
+
+            {% if settings.uses_openai %}
+            <h2 class="h4 mt-5">3. AI Processing</h2>
+            <p>Our Service uses artificial intelligence (OpenAI) to assist in document generation and analysis. When you use AI-powered features:</p>
+            <ul>
+                <li>Your input is sent to OpenAI's servers for processing</li>
+                <li>OpenAI processes this data according to their privacy policy</li>
+                <li>We do not use your data to train AI models</li>
+                <li>AI-generated content should be reviewed for accuracy</li>
+            </ul>
+            {% endif %}
+
+            <h2 class="h4 mt-5">4. How We Share Your Information</h2>
+            <p>We may share your information in the following circumstances:</p>
+            <ul>
+                <li><strong>Service Providers:</strong> With third parties who perform services on our behalf (payment processing, hosting, analytics)</li>
+                <li><strong>Legal Requirements:</strong> If required by law, court order, or governmental authority</li>
+                <li><strong>Protection of Rights:</strong> To protect our rights, privacy, safety, or property</li>
+                <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
+            </ul>
+            <p><strong>We do not sell your personal information to third parties.</strong></p>
+
+            <h2 class="h4 mt-5">5. Third-Party Services</h2>
+            <p>Our Service uses the following third-party services:</p>
+            <ul>
+                <li><strong>{{ settings.payment_processor }}:</strong> Payment processing</li>
+                {% if settings.uses_google_analytics %}
+                <li><strong>Google Analytics:</strong> Website analytics</li>
+                {% endif %}
+                {% if settings.uses_openai %}
+                <li><strong>OpenAI:</strong> AI-powered document assistance</li>
+                {% endif %}
+                <li><strong>{{ settings.hosting_provider }}:</strong> Web hosting</li>
+            </ul>
+            <p>Each of these services has their own privacy policy governing their use of your data.</p>
+
+            <h2 class="h4 mt-5">6. Data Retention</h2>
+            <p>We retain your information for as long as:</p>
+            <ul>
+                <li>Your account remains active</li>
+                <li>Necessary to provide our services</li>
+                <li>Required by law or for legitimate business purposes</li>
+            </ul>
+            <p>You may request deletion of your account and associated data by contacting us.</p>
+
+            <h2 class="h4 mt-5">7. Data Security</h2>
+            <p>We implement appropriate technical and organizational measures to protect your personal information, including:</p>
+            <ul>
+                <li>Encryption of data in transit (HTTPS/TLS)</li>
+                <li>Secure password hashing</li>
+                <li>Regular security assessments</li>
+                <li>Limited access to personal data on a need-to-know basis</li>
+            </ul>
+            <p>However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.</p>
+
+            <h2 class="h4 mt-5">8. Your Rights and Choices</h2>
+            <p>Depending on your location, you may have the following rights:</p>
+            <ul>
+                <li><strong>Access:</strong> Request a copy of your personal information</li>
+                <li><strong>Correction:</strong> Request correction of inaccurate information</li>
+                <li><strong>Deletion:</strong> Request deletion of your personal information</li>
+                <li><strong>Portability:</strong> Request your data in a portable format</li>
+                <li><strong>Opt-Out:</strong> Opt out of marketing communications</li>
+            </ul>
+            <p>To exercise these rights, contact us at <a href="mailto:{{ settings.contact_email }}">{{ settings.contact_email }}</a>.</p>
+
+            <h2 class="h4 mt-5">9. California Privacy Rights (CCPA)</h2>
+            <p>If you are a California resident, you have additional rights under the California Consumer Privacy Act (CCPA):</p>
+            <ul>
+                <li>Right to know what personal information we collect</li>
+                <li>Right to delete your personal information</li>
+                <li>Right to opt-out of the sale of personal information (we do not sell your data)</li>
+                <li>Right to non-discrimination for exercising your rights</li>
+            </ul>
+
+            <h2 class="h4 mt-5">10. Children's Privacy</h2>
+            <p>Our Service is not intended for children under {{ settings.minimum_age }} years of age. We do not knowingly collect personal information from children. If we learn we have collected information from a child under {{ settings.minimum_age }}, we will delete it promptly.</p>
+
+            <h2 class="h4 mt-5">11. Cookies and Tracking</h2>
+            <p>We use cookies and similar technologies. For details, please see our <a href="{% url 'public_pages:cookies' %}">Cookie Policy</a>.</p>
+
+            <h2 class="h4 mt-5">12. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify you of material changes by posting the updated policy on the Service and updating the "Effective Date." Your continued use of the Service after changes constitutes acceptance.</p>
+
+            <h2 class="h4 mt-5">13. Contact Us</h2>
+            <p>If you have questions about this Privacy Policy or our privacy practices, please contact us:</p>
+            <p>
+                <strong>{{ settings.app_name }}</strong><br>
+                Email: <a href="mailto:{{ settings.contact_email }}">{{ settings.contact_email }}</a><br>
+                {% if settings.company_address %}
+                {{ settings.company_address|linebreaksbr }}
+                {% endif %}
+            </p>
+
+            <hr class="my-5">
+            <p class="text-muted small">Last updated: {% now "F j, Y" %}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

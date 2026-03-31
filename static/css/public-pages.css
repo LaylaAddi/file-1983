@@ -1,0 +1,575 @@
+/* =========================================
+   Public Pages - American Flag Color Theme
+   ========================================= */
+
+/* Color Variables */
+:root {
+    --patriot-blue: #002868;
+    --patriot-blue-light: #003d99;
+    --patriot-blue-dark: #001a4d;
+    --patriot-red: #BF0A30;
+    --patriot-red-light: #d4213f;
+    --patriot-red-dark: #8c0723;
+    --patriot-white: #FFFFFF;
+    --patriot-cream: #F8F9FA;
+    --patriot-gray: #6c757d;
+    --patriot-dark: #212529;
+    --patriot-light-blue: #E8EEF5;
+    --patriot-gold: #B8860B;
+}
+
+/* =========================================
+   Hero Section
+   ========================================= */
+.hero-section {
+    background: linear-gradient(135deg, var(--patriot-blue) 0%, var(--patriot-blue-dark) 100%);
+    color: var(--patriot-white);
+    padding: 5rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle American flag background on right side */
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -5%;
+    transform: translateY(-50%);
+    width: 55%;
+    height: 120%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 190 100'%3E%3Crect width='190' height='100' fill='%23BF0A30'/%3E%3Crect y='7.69' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect y='23.08' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect y='38.46' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect y='53.85' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect y='69.23' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect y='84.62' width='190' height='7.69' fill='%23FFFFFF'/%3E%3Crect width='76' height='53.85' fill='%23002868'/%3E%3Cg fill='%23FFFFFF'%3E%3Ccircle cx='8' cy='5' r='2'/%3E%3Ccircle cx='22' cy='5' r='2'/%3E%3Ccircle cx='36' cy='5' r='2'/%3E%3Ccircle cx='50' cy='5' r='2'/%3E%3Ccircle cx='64' cy='5' r='2'/%3E%3Ccircle cx='15' cy='11' r='2'/%3E%3Ccircle cx='29' cy='11' r='2'/%3E%3Ccircle cx='43' cy='11' r='2'/%3E%3Ccircle cx='57' cy='11' r='2'/%3E%3Ccircle cx='8' cy='17' r='2'/%3E%3Ccircle cx='22' cy='17' r='2'/%3E%3Ccircle cx='36' cy='17' r='2'/%3E%3Ccircle cx='50' cy='17' r='2'/%3E%3Ccircle cx='64' cy='17' r='2'/%3E%3Ccircle cx='15' cy='23' r='2'/%3E%3Ccircle cx='29' cy='23' r='2'/%3E%3Ccircle cx='43' cy='23' r='2'/%3E%3Ccircle cx='57' cy='23' r='2'/%3E%3Ccircle cx='8' cy='29' r='2'/%3E%3Ccircle cx='22' cy='29' r='2'/%3E%3Ccircle cx='36' cy='29' r='2'/%3E%3Ccircle cx='50' cy='29' r='2'/%3E%3Ccircle cx='64' cy='29' r='2'/%3E%3Ccircle cx='15' cy='35' r='2'/%3E%3Ccircle cx='29' cy='35' r='2'/%3E%3Ccircle cx='43' cy='35' r='2'/%3E%3Ccircle cx='57' cy='35' r='2'/%3E%3Ccircle cx='8' cy='41' r='2'/%3E%3Ccircle cx='22' cy='41' r='2'/%3E%3Ccircle cx='36' cy='41' r='2'/%3E%3Ccircle cx='50' cy='41' r='2'/%3E%3Ccircle cx='64' cy='41' r='2'/%3E%3Ccircle cx='15' cy='47' r='2'/%3E%3Ccircle cx='29' cy='47' r='2'/%3E%3Ccircle cx='43' cy='47' r='2'/%3E%3Ccircle cx='57' cy='47' r='2'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Gradient overlay to ensure text remains readable */
+.hero-section::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, var(--patriot-blue) 0%, var(--patriot-blue) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Hero content sits above the overlays */
+.hero-section .container {
+    position: relative;
+    z-index: 3;
+}
+
+.hero-section h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.hero-section .lead {
+    font-size: 1.35rem;
+    opacity: 0.95;
+    max-width: 700px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+}
+
+.hero-section .btn-light {
+    background: var(--patriot-white);
+    color: var(--patriot-blue);
+    border: none;
+    padding: 0.85rem 2rem;
+    font-weight: 600;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+}
+
+.hero-section .btn-light:hover {
+    background: var(--patriot-cream);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.hero-section .btn-outline-light {
+    border: 2px solid rgba(255,255,255,0.8);
+    padding: 0.85rem 2rem;
+    font-weight: 600;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+}
+
+.hero-section .btn-outline-light:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--patriot-white);
+}
+
+/* =========================================
+   Section Styling
+   ========================================= */
+.section-light {
+    background: var(--patriot-white);
+    padding: 5rem 0;
+}
+
+.section-cream {
+    background: var(--patriot-cream);
+    padding: 5rem 0;
+}
+
+.section-blue {
+    background: var(--patriot-light-blue);
+    padding: 5rem 0;
+}
+
+.section-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--patriot-blue);
+    margin-bottom: 1rem;
+}
+
+.section-subtitle {
+    font-size: 1.15rem;
+    color: var(--patriot-gray);
+    margin-bottom: 3rem;
+    max-width: 600px;
+}
+
+.section-subtitle.centered {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* =========================================
+   Rights Cards
+   ========================================= */
+.rights-card {
+    background: var(--patriot-white);
+    border-radius: 12px;
+    padding: 2rem;
+    height: 100%;
+    border: 1px solid rgba(0,40,104,0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.rights-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,40,104,0.12);
+}
+
+.rights-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--patriot-red);
+}
+
+.rights-card .amendment-badge {
+    display: inline-block;
+    background: var(--patriot-blue);
+    color: var(--patriot-white);
+    padding: 0.35rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.rights-card .card-icon {
+    font-size: 2.5rem;
+    color: var(--patriot-blue);
+    margin-bottom: 1rem;
+}
+
+.rights-card h4 {
+    color: var(--patriot-dark);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.rights-card p {
+    color: var(--patriot-gray);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.rights-card .read-more {
+    color: var(--patriot-blue);
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rights-card:hover .read-more {
+    color: var(--patriot-red);
+}
+
+.rights-card .read-more i {
+    transition: transform 0.3s ease;
+}
+
+.rights-card:hover .read-more i {
+    transform: translateX(4px);
+}
+
+/* =========================================
+   Article Cards
+   ========================================= */
+.article-card {
+    background: var(--patriot-white);
+    border-radius: 12px;
+    padding: 1.75rem;
+    height: 100%;
+    border: 1px solid rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.article-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    border-color: var(--patriot-blue);
+}
+
+.article-card .category-badge {
+    display: inline-block;
+    background: var(--patriot-light-blue);
+    color: var(--patriot-blue);
+    padding: 0.3rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.article-card .card-icon {
+    font-size: 2rem;
+    color: var(--patriot-red);
+    margin-bottom: 1rem;
+}
+
+.article-card h5 {
+    color: var(--patriot-dark);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.article-card p {
+    color: var(--patriot-gray);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.article-card .read-more {
+    color: var(--patriot-blue);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.article-card .read-more:hover {
+    color: var(--patriot-red);
+}
+
+.article-card .read-more i {
+    transition: transform 0.3s ease;
+}
+
+.article-card .read-more:hover i {
+    transform: translateX(4px);
+}
+
+/* =========================================
+   News Widget
+   ========================================= */
+.news-widget {
+    background: var(--patriot-white);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.news-widget-header {
+    background: var(--patriot-red);
+    color: var(--patriot-white);
+    padding: 1rem 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.news-widget-header i {
+    font-size: 1.1rem;
+}
+
+.news-item {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    transition: background 0.2s ease;
+}
+
+.news-item:last-child {
+    border-bottom: none;
+}
+
+.news-item:hover {
+    background: var(--patriot-cream);
+}
+
+.news-item a {
+    text-decoration: none;
+}
+
+.news-item h6 {
+    color: var(--patriot-dark);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.news-item h6:hover {
+    color: var(--patriot-blue);
+}
+
+.news-item .news-meta {
+    font-size: 0.8rem;
+    color: var(--patriot-gray);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.news-item .news-source {
+    font-weight: 600;
+    color: var(--patriot-blue);
+}
+
+/* =========================================
+   Resources Section
+   ========================================= */
+.resource-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 1.25rem;
+    background: var(--patriot-white);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(0,0,0,0.06);
+    transition: all 0.3s ease;
+}
+
+.resource-item:hover {
+    border-color: var(--patriot-blue);
+    box-shadow: 0 4px 12px rgba(0,40,104,0.1);
+}
+
+.resource-item i {
+    font-size: 1.5rem;
+    color: var(--patriot-blue);
+    margin-right: 1rem;
+    margin-top: 0.25rem;
+}
+
+.resource-item h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.resource-item h6 a {
+    color: var(--patriot-dark);
+    text-decoration: none;
+}
+
+.resource-item h6 a:hover {
+    color: var(--patriot-blue);
+}
+
+.resource-item p {
+    font-size: 0.85rem;
+    color: var(--patriot-gray);
+    margin-bottom: 0;
+}
+
+/* =========================================
+   CTA Section
+   ========================================= */
+.cta-section {
+    background: linear-gradient(135deg, var(--patriot-red) 0%, var(--patriot-red-dark) 100%);
+    color: var(--patriot-white);
+    padding: 4rem 0;
+    text-align: center;
+}
+
+.cta-section h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.cta-section p {
+    font-size: 1.15rem;
+    opacity: 0.95;
+    margin-bottom: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cta-section .btn-light {
+    background: var(--patriot-white);
+    color: var(--patriot-red);
+    border: none;
+    padding: 1rem 2.5rem;
+    font-weight: 600;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.cta-section .btn-light:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+/* =========================================
+   Quote/Highlight Box
+   ========================================= */
+.quote-box {
+    background: var(--patriot-light-blue);
+    border-left: 4px solid var(--patriot-blue);
+    padding: 1.5rem 2rem;
+    border-radius: 0 8px 8px 0;
+    margin: 2rem 0;
+}
+
+.quote-box p {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--patriot-dark);
+    margin-bottom: 0.5rem;
+}
+
+.quote-box .quote-source {
+    font-size: 0.9rem;
+    color: var(--patriot-gray);
+    font-style: normal;
+}
+
+/* =========================================
+   Stats Section
+   ========================================= */
+.stat-item {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--patriot-blue);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 1rem;
+    color: var(--patriot-gray);
+    font-weight: 500;
+}
+
+/* =========================================
+   Responsive Adjustments
+   ========================================= */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 3rem 0;
+    }
+
+    .hero-section h1 {
+        font-size: 2rem;
+    }
+
+    .hero-section .lead {
+        font-size: 1.1rem;
+    }
+
+    .section-light,
+    .section-cream,
+    .section-blue {
+        padding: 3rem 0;
+    }
+
+    .section-title {
+        font-size: 1.75rem;
+    }
+
+    .cta-section {
+        padding: 3rem 0;
+    }
+
+    .cta-section h2 {
+        font-size: 1.5rem;
+    }
+
+    .stat-number {
+        font-size: 2.25rem;
+    }
+}
+
+/* =========================================
+   Utility Classes
+   ========================================= */
+.text-patriot-blue {
+    color: var(--patriot-blue) !important;
+}
+
+.text-patriot-red {
+    color: var(--patriot-red) !important;
+}
+
+.bg-patriot-blue {
+    background-color: var(--patriot-blue) !important;
+}
+
+.bg-patriot-red {
+    background-color: var(--patriot-red) !important;
+}
+
+.btn-patriot-blue {
+    background-color: var(--patriot-blue);
+    color: var(--patriot-white);
+    border: none;
+}
+
+.btn-patriot-blue:hover {
+    background-color: var(--patriot-blue-light);
+    color: var(--patriot-white);
+}
+
+.btn-patriot-red {
+    background-color: var(--patriot-red);
+    color: var(--patriot-white);
+    border: none;
+}
+
+.btn-patriot-red:hover {
+    background-color: var(--patriot-red-light);
+    color: var(--patriot-white);
+}

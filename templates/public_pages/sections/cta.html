@@ -1,0 +1,30 @@
+{% comment %}
+Call to Action section template partial.
+{% endcomment %}
+
+<section class="cta-section {{ section.css_class }}">
+    <div class="container">
+        {% if section.title %}
+        <h2>{{ section.title }}</h2>
+        {% endif %}
+        {% if section.subtitle %}
+        <p>{{ section.subtitle }}</p>
+        {% endif %}
+        {% if section.content %}
+        <p>{{ section.content|safe }}</p>
+        {% endif %}
+
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            {% if section.cta_text %}
+            <a href="{{ section.cta_url|default:'#' }}" class="btn btn-light btn-lg">
+                {% if section.cta_icon %}<i class="bi {{ section.cta_icon }} me-2"></i>{% endif %}{{ section.cta_text }}
+            </a>
+            {% endif %}
+            {% if section.cta_secondary_text %}
+            <a href="{{ section.cta_secondary_url|default:'#' }}" class="btn btn-outline-light btn-lg">
+                {{ section.cta_secondary_text }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>

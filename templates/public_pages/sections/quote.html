@@ -1,0 +1,18 @@
+{% comment %}
+Quote/blockquote section template partial.
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} {{ section.css_class }}">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="quote-box">
+                    <p>{{ section.content|safe }}</p>
+                    {% if section.quote_source %}
+                    <span class="quote-source">— {{ section.quote_source }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

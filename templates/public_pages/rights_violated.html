@@ -1,0 +1,426 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}What to Do If Your Rights Are Violated - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}Step-by-step guide on what to do when your constitutional rights have been violated by police or government officials. Document your case, preserve evidence, and understand your options.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>What to Do If Your Rights Are Violated</h1>
+        <p class="lead">
+            We understand how overwhelming it can feel when your constitutional rights are violated.
+            You're not alone, and there are steps you can take. We're here to help guide you through this process.
+        </p>
+    </div>
+</section>
+
+<!-- Empathy Section -->
+<section class="section-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="alert alert-info border-0 shadow-sm">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-heart text-patriot-blue me-3" style="font-size: 2rem;"></i>
+                        <div>
+                            <h5 class="alert-heading mb-2">First, Take a Breath</h5>
+                            <p class="mb-0">
+                                If you're reading this because something happened to you, we want you to know:
+                                <strong>what happened wasn't okay</strong>. Your rights matter. Your experience matters.
+                                Whatever you're feeling right now—anger, fear, confusion, helplessness—those feelings are valid.
+                                Many people have been where you are, and many have successfully sought justice.
+                                You can too.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Immediate Steps -->
+<section class="section-cream">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Immediate Steps (Within 24-48 Hours)</h2>
+            <p class="section-subtitle centered">
+                The actions you take in the first hours and days after an incident can significantly impact your case.
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <span class="amendment-badge">Step 1</span>
+                            <h4>Ensure Your Safety</h4>
+                            <p>
+                                Your physical and emotional safety comes first. If you need medical attention,
+                                seek it immediately—and make sure your injuries are documented in medical records.
+                                If you're in danger, remove yourself from the situation and get to a safe place.
+                            </p>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                Medical records can be important evidence later.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <span class="amendment-badge">Step 2</span>
+                            <h4>Write Everything Down</h4>
+                            <p>
+                                As soon as possible, write down everything you remember about the incident:
+                            </p>
+                            <ul class="small">
+                                <li>Date, time, and exact location</li>
+                                <li>Names, badge numbers, and descriptions of officers</li>
+                                <li>What was said (as close to verbatim as possible)</li>
+                                <li>What actions were taken</li>
+                                <li>Names and contact info of any witnesses</li>
+                            </ul>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                Details fade quickly—write them down now.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <span class="amendment-badge">Step 3</span>
+                            <h4>Preserve All Evidence</h4>
+                            <p>
+                                Protect any evidence you have:
+                            </p>
+                            <ul class="small">
+                                <li>Back up any videos or photos to cloud storage immediately</li>
+                                <li>Save text messages, emails, or voicemails</li>
+                                <li>Keep clothing worn during the incident (unwashed) if there was physical contact</li>
+                                <li>Take photos of any injuries or property damage</li>
+                                <li>Screenshot any relevant social media posts</li>
+                            </ul>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                Evidence can disappear—secure it right away.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <span class="amendment-badge">Step 4</span>
+                            <h4>Identify Witnesses</h4>
+                            <p>
+                                Witnesses can be crucial to your case:
+                            </p>
+                            <ul class="small">
+                                <li>Get names and contact information of anyone who saw what happened</li>
+                                <li>Ask if they recorded any video</li>
+                                <li>Check if nearby businesses might have security camera footage</li>
+                                <li>Note if there were other officers or officials present</li>
+                            </ul>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                Independent witnesses add credibility to your account.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Request Records -->
+<section class="section-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Request Official Records</h2>
+            <p class="section-subtitle centered">
+                Government agencies create records of their actions. You have a right to request these.
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="article-card h-100">
+                            <div class="card-icon">
+                                <i class="bi bi-camera-video"></i>
+                            </div>
+                            <h5>Body Camera Footage</h5>
+                            <p>
+                                Many police departments require officers to wear body cameras.
+                                Submit a written request for any body camera footage from the incident.
+                                <strong>Do this quickly</strong>—some departments only retain footage for 30-90 days.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="article-card h-100">
+                            <div class="card-icon">
+                                <i class="bi bi-file-text"></i>
+                            </div>
+                            <h5>Police Reports</h5>
+                            <p>
+                                Request a copy of any police reports filed about the incident.
+                                Compare it to your own account—discrepancies can be important evidence
+                                of false statements or misconduct.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="article-card h-100">
+                            <div class="card-icon">
+                                <i class="bi bi-telephone"></i>
+                            </div>
+                            <h5>911/Dispatch Recordings</h5>
+                            <p>
+                                Request 911 call recordings and dispatch logs.
+                                These can show what information officers had (or didn't have)
+                                before they contacted you.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quote-box mt-5">
+                    <p><strong>How to Make a Records Request:</strong> Most agencies accept FOIA (Freedom of Information Act) or state public records requests. Send your request in writing, be specific about what you want, and keep a copy for your records. Many agencies have online portals for submitting requests.</p>
+                    <span class="quote-source">— Based on ACLU guidance on public records requests</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Know Your Options -->
+<section class="section-blue">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Know Your Options</h2>
+            <p class="section-subtitle centered">
+                You have several paths available to you. They're not mutually exclusive—you can pursue multiple options.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge bg-patriot-red">Legal Action</span>
+                    <h4>Section 1983 Civil Rights Lawsuit</h4>
+                    <p>
+                        Under 42 U.S.C. Section 1983, you can sue government officials who violated
+                        your constitutional rights. This is the most powerful tool for holding
+                        officials accountable and recovering damages.
+                    </p>
+                    <p><strong>You can recover:</strong></p>
+                    <ul>
+                        <li>Compensatory damages (medical bills, lost wages, pain and suffering)</li>
+                        <li>Punitive damages (to punish particularly bad conduct)</li>
+                        <li>Declaratory relief (official recognition that your rights were violated)</li>
+                        <li>Injunctive relief (court orders to change policies)</li>
+                        <li>Attorney's fees (if you win)</li>
+                    </ul>
+                    <a href="{% url 'public_pages:section_1983' %}" class="btn btn-primary">
+                        Learn More About Section 1983 <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">Administrative</span>
+                    <h4>Internal Affairs Complaint</h4>
+                    <p>
+                        You can file a complaint with the police department's internal affairs division
+                        or civilian oversight board. While this may not result in compensation for you,
+                        it creates an official record and may lead to discipline or policy changes.
+                    </p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>Creates official documentation of the incident</li>
+                        <li>May trigger an internal investigation</li>
+                        <li>Can establish a pattern if the officer has prior complaints</li>
+                        <li>May lead to discipline, retraining, or termination</li>
+                    </ul>
+                    <p class="text-muted small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Note: Internal investigations have mixed results, but the documentation can
+                        support other legal actions.
+                    </p>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">Federal</span>
+                    <h4>DOJ Civil Rights Complaint</h4>
+                    <p>
+                        The U.S. Department of Justice Civil Rights Division investigates
+                        patterns of civil rights violations by police departments.
+                        Individual complaints help identify systemic problems.
+                    </p>
+                    <p>
+                        <strong>File online at:</strong>
+                        <a href="https://civilrights.justice.gov/" target="_blank" rel="noopener">civilrights.justice.gov</a>
+                    </p>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">Support</span>
+                    <h4>Contact Civil Rights Organizations</h4>
+                    <p>
+                        Organizations like the ACLU, NAACP, and local legal aid societies
+                        may be able to help with your case, provide referrals, or take on
+                        cases that have broader implications for civil rights.
+                    </p>
+                    <ul>
+                        <li><a href="https://www.aclu.org/affiliates" target="_blank" rel="noopener">Find your local ACLU</a></li>
+                        <li><a href="https://www.nlada.org/node/21" target="_blank" rel="noopener">Legal Aid Directory</a></li>
+                        <li><a href="https://www.naacp.org/find-local-unit/" target="_blank" rel="noopener">Find your local NAACP</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Statute of Limitations Warning -->
+<section class="section-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="alert alert-warning border-0 shadow-sm">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-clock-history text-warning me-3" style="font-size: 2rem;"></i>
+                        <div>
+                            <h5 class="alert-heading mb-2">Important: Time Limits Apply</h5>
+                            <p>
+                                Section 1983 claims have a <strong>statute of limitations</strong>—a deadline
+                                by which you must file your lawsuit. This varies by state but is typically
+                                <strong>2-3 years</strong> from the date of the incident.
+                            </p>
+                            <p class="mb-0">
+                                <strong>Don't wait.</strong> The sooner you document your case and consult with
+                                an attorney, the better your chances of success. Evidence can disappear,
+                                memories fade, and witnesses become harder to locate over time.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- What NOT to Do -->
+<section class="section-cream">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">What NOT to Do</h2>
+            <p class="section-subtitle centered">
+                Avoiding these common mistakes can protect your case.
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-red"><i class="bi bi-x-circle me-2"></i>Don't Post on Social Media</h5>
+                            <p class="mb-0">
+                                As tempting as it is to share what happened, avoid posting details about
+                                the incident on social media. Defense attorneys will search your posts
+                                for anything they can use against you. If you must post, keep it vague
+                                and consult with an attorney first.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-red"><i class="bi bi-x-circle me-2"></i>Don't Destroy Evidence</h5>
+                            <p class="mb-0">
+                                Never delete videos, messages, or other potential evidence—even if it
+                                seems embarrassing or unhelpful. What seems irrelevant to you might be
+                                crucial to your case. Let an attorney decide what's useful.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-red"><i class="bi bi-x-circle me-2"></i>Don't Give Recorded Statements</h5>
+                            <p class="mb-0">
+                                If representatives from the agency that violated your rights contact you,
+                                don't give any recorded statements without consulting an attorney first.
+                                They may be gathering information to defend against your potential claim.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-red"><i class="bi bi-x-circle me-2"></i>Don't Accept Quick Settlements</h5>
+                            <p class="mb-0">
+                                Some agencies may offer quick settlements to make problems go away.
+                                Before accepting any offer, understand the full extent of your damages
+                                and what your case might be worth. Consult with an attorney.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Ready to Document Your Case?</h2>
+        <p>
+            Our guided tool helps you organize your information, document the incident,
+            and build your Section 1983 complaint step by step. You don't have to do this alone.
+        </p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+                <i class="bi bi-pencil-square me-2"></i>Start Documenting Now
+            </a>
+            <a href="{% url 'public_pages:section_1983' %}" class="btn btn-outline-light btn-lg">
+                <i class="bi bi-info-circle me-2"></i>Learn More First
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Final Encouragement -->
+<section class="section-light py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h4 class="text-patriot-blue mb-4">You Have the Right to Seek Justice</h4>
+                <p class="lead text-muted">
+                    The Constitution exists to protect you. When government officials violate your rights,
+                    Section 1983 gives you the power to hold them accountable. Many people have successfully
+                    pursued justice for civil rights violations—and you can too.
+                </p>
+                <p class="text-muted mb-0">
+                    Remember: seeking justice isn't just about you. Every successful civil rights case
+                    helps establish precedents that protect everyone's freedoms.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

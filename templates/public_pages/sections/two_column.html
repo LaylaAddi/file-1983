@@ -1,0 +1,30 @@
+{% comment %}
+Two column layout section template partial.
+Left column uses content field, right column uses content_secondary.
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} {{ section.css_class }}">
+    <div class="container">
+        {% if section.title %}
+        <div class="text-center mb-5">
+            <h2 class="section-title">{{ section.title }}</h2>
+            {% if section.subtitle %}
+            <p class="section-subtitle centered">{{ section.subtitle }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <div class="cms-content">
+                    {{ section.content|safe }}
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="bg-white p-4 rounded-3 shadow-sm">
+                    {{ section.content_secondary|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

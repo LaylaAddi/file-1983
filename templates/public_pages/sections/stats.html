@@ -1,0 +1,21 @@
+{% comment %}
+Statistics row section template partial.
+Data format: [{"number": "42", "label": "U.S.C. Section 1983"}]
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} py-4 {{ section.css_class }}">
+    <div class="container">
+        {% if section.data %}
+        <div class="row">
+            {% for stat in section.data %}
+            <div class="col-md-{{ 12|divisibleby:section.data|length }} col-6">
+                <div class="stat-item">
+                    <div class="stat-number">{{ stat.number }}</div>
+                    <div class="stat-label">{{ stat.label }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>

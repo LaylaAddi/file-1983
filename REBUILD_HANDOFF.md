@@ -1,269 +1,204 @@
-# 1983 Law — Clean Rebuild Handoff
+# File 1983 — Session Handoff
 
-## What This Is
-A step-by-step rebuild of 1983law.org from scratch. Same stack, clean database, cleaner code.
-Build everything from this spec. Nothing is copied from an old codebase.
+## Picking Up This Project
+
+Read this entire document before writing a single line of code.
+Work on branch `claude/review-handoff-AeJJC`. Push there. Never push to master directly.
 
 ---
 
 ## The App
-A Django web app at **file1983.com** that guides users through building a **Section 1983 civil rights complaint**
-against government officials. Users tell their story, the AI analyzes it, and the wizard walks
-them through 7 steps to produce a complete legal document (PDF).
+
+A Django web app at **file1983.com** that guides users through building a
+**Section 1983 civil rights complaint** against government officials.
+Users describe their incident, fill out a 7-step wizard, and receive a
+complete legal document (PDF).
 
 ---
 
 ## Stack
-- **Backend:** Django 4.2+, PostgreSQL (prod), SQLite (dev)
-- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display (Google Font), Alpine.js (wizard)
-- **AI:** OpenAI API (GPT-4) — story parsing, section generation, court lookup fallback
-- **Payments:** Stripe — one-time purchases + subscriptions + webhooks
-- **PDF:** WeasyPrint
-- **Video Evidence:** Supadata API (YouTube transcript extraction)
-- **Hosting:** Render (gunicorn + whitenoise)
-- **Auth:** Custom user model, email-based (no username)
+
+- **Backend:** Django 4.2, PostgreSQL (prod), SQLite (dev)
+- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display, Alpine.js
+- **Theme:** American flag color palette, dark mode via `data-theme="dark"` on `<html>`
+- **Auth:** Custom email-based User model (`accounts.User`)
+- **AI:** OpenAI (deferred — not yet)
+- **Payments:** Stripe (deferred — not yet)
+- **PDF:** WeasyPrint (deferred — not yet)
+- **Hosting:** Render (not yet deployed)
 
 ---
 
-## Design — Keep As-Is
-The front end design and logo carry over from the old app. Do not redesign.
+## What Is Already Built
 
-### Color Palette (American flag theme)
-```css
---patriot-blue: #002868
---patriot-blue-light: #003d99
---patriot-blue-dark: #001a4d
---patriot-red: #BF0A30
---patriot-red-light: #d4213f
---patriot-white: #FFFFFF
---patriot-cream: #F8F9FA
---patriot-gold: #B8860B
+### accounts app ✓
+- `User` — email-based, no username, has `referral_code`, `referred_by`
+- `Subscription` — Stripe subscription tracking (monthly/annual)
+- `DocumentPack` — one-time purchase credits
+- `SiteSettings` — singleton (app_name, header_app_name, pricing, feature flags)
+- `LegalDocument` — terms/privacy/disclaimer content
+- Views: login, register, logout, profile, password reset
+- Migration: `accounts/migrations/0001_initial.py`
+
+### public_pages app ✓
+- `CivilRightsPage` + `PageSection` CMS models
+- All public pages: home, know your rights, section 1983, amendments, right to record, etc.
+- Legal pages: terms, privacy, disclaimer, cookies at `/legal/*/`
+- Dynamic CMS pages at `/page/<slug>/`
+- Migration: `public_pages/migrations/0001_initial.py`
+
+### documents app — STUB ONLY
+- `documents/views.py` — placeholder list/create views only
+- `documents/urls.py` — only has `list` and `create` stub routes
+- `documents/models.py` — empty
+- **No migration exists yet for documents**
+
+### Frontend / Design ✓
+- `templates/base.html` — exact original design, navbar, footer, dark mode toggle
+- `static/css/app-theme.css` — full patriot theme (2764 lines, exact original)
+- `static/css/public-pages.css` — public pages styles (exact original)
+- `static/images/` — all 4 SVGs (exact originals from old repo)
+- All templates use `data-theme="dark"` for dark mode (NOT Bootstrap's `data-bs-theme`)
+
+### Infrastructure ✓
+- `config/settings.py` — all env vars wired, `AUTH_USER_MODEL = 'accounts.User'`
+- `config/urls.py` — ADMIN_URL dynamic, all apps routed
+- `config/context_processors.py` — injects `app_name`, `header_app_name`, `ADMIN_URL`
+- `Dockerfile` + `docker-compose.yml` — working locally
+- `requirements.txt` — all deps listed
+
+---
+
+## Running Locally
+
+```bash
+docker-compose up --build -d
+docker-compose exec web python manage.py migrate
+docker-compose exec web python manage.py createsuperuser
 ```
 
-### Logo / Icons
-Stored in `static/` in the old repo:
-- `gavel-icon.svg` — navbar icon (24x24 in a rounded box)
-- `gavel-logo.svg` — full logo
-- `gavel.svg` — standalone gavel
-- `favicon.svg` — browser tab icon
-
-### Fonts
-- **Headings:** Playfair Display (600, 700) — loaded from Google Fonts
-- **Body:** system-ui stack (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto...`)
-
-### Navbar
-Dark patriot-blue gradient, gavel icon + app name as brand. Copy `navbar-patriot` styles
-from `static/css/app-theme.css` in the old repo.
-
-### Theme CSS
-`static/css/app-theme.css` in the old repo is the master theme file — copy it directly.
-
----
-
-## Django Apps to Build (in this order)
-
-### 1. Project Setup
-- Django project named `config` (settings in `config/settings.py`)
-- Apps: `accounts`, `documents`, `public_pages`
-- Dynamic admin URL: `ADMIN_URL = os.getenv('ADMIN_URL', 'manage-dev/')` in `config/urls.py`
-  - Set `ADMIN_URL` as env var on Render with a secret path
-- Context processor: `config/context_processors.py` — injects `app_name`, `header_app_name`,
-  `user` into all templates (pulled from `SiteSettings` model)
-- `base.html` template with navbar, footer, dark mode toggle, Bootstrap 5.3 + Bootstrap Icons
-
-### 2. `accounts` app
-Models:
-- `User` — custom, email-based (no username field), `AUTH_USER_MODEL = 'accounts.User'`
-- `Subscription` — tracks Stripe subscription (monthly/annual), status, period dates
-- `DocumentPack` — one-time purchase credits (e.g. 3-pack)
-- `SiteSettings` — singleton: `app_name`, `header_app_name`, pricing values, feature flags
-- `LegalDocument` — terms/privacy/disclaimer pages managed via admin (CKEditor)
-
-Key user methods needed:
-- `has_active_subscription` → bool
-- `has_unlimited_access` → bool (staff/admin override)
-- `get_ai_uses_remaining` → int
-- `can_create_document` → bool
-
-Views: login, register, logout, profile, password reset, pricing page, subscription management
-
-Stripe integration:
-- Checkout session creation (one-time + subscription)
-- Webhook handler at `/accounts/subscription/webhook/`
-- Plans: Single doc $49, 3-pack $99, Monthly sub $29, Annual sub $249
-
-### 3. `documents` app
-This is the core of the app. Build in this sub-order:
-
-**3a. Models (clean schema)**
-- `Document` — belongs to user, has `slug`, `payment_status` (draft/paid/finalized/expired),
-  `created_at`, `updated_at`, `title`
-- `WizardSession` — tracks wizard progress: `status` (not_started/in_progress/analyzed/completed),
-  `current_step` (1-7), `story_text`, `ai_analysis` (JSON)
-- `PlaintiffInfo` — name, address, contact
-- `IncidentOverview` — date, time, city, state, county, federal_district_court (confirmed bool)
-- `Defendant` — name, title, agency, badge_number (multiple per document)
-- `IncidentNarrative` — detailed narrative text
-- `RightsViolated` — amendments/rights checked (multiple)
-- `Witness` — name, contact, description (multiple)
-- `Evidence` — type, description, file reference (multiple)
-- `Damages` — physical, emotional, financial, other
-- `PriorComplaints` — prior complaints filed, outcomes
-- `ReliefSought` — what the plaintiff is asking for
-- `AIPrompt` — admin-managed prompts for each AI generation task
-- `PromoCode` / `PromoCodeUsage` — referral/discount system
-- `PayoutRequest` — referral payout tracking
-
-**3b. The Wizard (7 steps)**
-The wizard is the entire UX. It's a single-page Alpine.js interface at `/documents/<slug>/wizard/`.
-
-Steps:
-1. Your Story (free-text, AI parses into fields)
-2. Plaintiff Information
-3. Incident Overview (date, location → triggers court lookup)
-4. Defendants
-5. Rights Violated
-6. Evidence & Witnesses
-7. Damages & Relief
-
-Flow: Story → Steps 1-7 → "Analyze My Case" (AI) → Review → "Build Complaint" → Final Review → PDF
-
-**3c. Services**
-- `openai_service.py` — all AI calls (story parsing, section generation, court lookup fallback)
-- `court_lookup_service.py` — static lookup by city/state → GPT fallback
-  - Copy `documents/services/court_data/` directory from old repo directly (50 state files, clean data)
-- `pdf_service.py` — WeasyPrint document generation
-- `youtube_service.py` — Supadata API for video transcript extraction
-
-**3d. URLs**
-- `/documents/` — list
-- `/documents/new/` — create
-- `/documents/<slug>/` — detail/hub page
-- `/documents/<slug>/wizard/` — the wizard
-- `/documents/<slug>/final/` — final review + edit
-- `/documents/<slug>/final/download-pdf/` — generate and download
-- `/documents/<slug>/video-analysis/` — video evidence (subscribers only)
-- AJAX endpoints for wizard saves, AI calls, court lookup, PDF status polling
-
-### 4. `public_pages` app
-- CMS for landing page and info pages
-- Models: `CivilRightsPage`, `PageSection`
-- Section types: hero, cards, quotes, CTAs, accordions
-- SEO fields per page, publishing controls
-- URL: `/` (home), `/page/<slug>/`
-
----
-
-## Federal Court Lookup
-Two-tier system — copy logic from old repo:
-1. **Static lookup** — `court_lookup_service.py` dynamically imports state module from
-   `documents/services/court_data/states/` and calls `lookup_court_by_city(city)`
-2. **GPT fallback** — if city not in static data, calls `openai_service.lookup_federal_court(city, state)`
-3. Recreate or stub `court_data/` — static city→court mappings per state; GPT fallback covers any gaps
-
----
-
-## Slugs
-Every `Document` uses a **short random slug** (e.g. `nP27cOkr`) as its URL identifier — never expose
-the database integer PK in URLs.
-
-- Generate on save using `secrets.token_urlsafe(6)` or similar, check for collisions
-- All document URLs use `<str:document_slug>/` — not `<int:pk>/`
-- `CivilRightsPage` (public_pages) also uses a human-readable slug from the title
-- Slugs are immutable once set — do not regenerate on update
-
----
-
-## Mobile API (Build Later — Wire Now)
-The web app comes first. Mobile app comes after. But the API layer needs to be set up
-from the start so it doesn't require structural changes later.
-
-**Add to project from Step 1:**
-- Install `djangorestframework` and `djangorestframework-simplejwt`
-- Add to `INSTALLED_APPS`: `rest_framework`, `rest_framework_simplejwt`
-- Create `/api/v1/` URL namespace in `config/urls.py` (can be empty to start)
-- JWT settings in `settings.py`:
-  ```python
-  REST_FRAMEWORK = {
-      'DEFAULT_AUTHENTICATION_CLASSES': (
-          'rest_framework_simplejwt.authentication.JWTAuthentication',
-      ),
-  }
-  ```
-- Add token endpoints: `/api/v1/token/`, `/api/v1/token/refresh/`
-
-**API endpoints to build alongside each web feature** (stub them, implement fully later):
-- `POST /api/v1/auth/register/`
-- `POST /api/v1/auth/login/` (returns JWT)
-- `GET/POST /api/v1/documents/` — list + create
-- `GET /api/v1/documents/<slug>/` — detail
-- `POST /api/v1/documents/<slug>/wizard/save/` — save wizard step
-- `POST /api/v1/documents/<slug>/wizard/analyze/` — trigger AI analysis
-
-Mobile will be a React Native or similar app consuming these endpoints.
-All API views use JWT auth. All web views use session auth. They share the same models.
-
----
-
-## Security
-- Dynamic admin URL via `ADMIN_URL` env var (never hardcode in repo)
-- CSRF on all forms
-- Login required on all document views
-- Document ownership checks on every view (user can only access their own docs)
-- Stripe webhook signature verification
-
----
-
-## Environment Variables (Render)
+`.env` minimum:
 ```
-SECRET_KEY=
-DEBUG=0
-ALLOWED_HOSTS=file1983.com,www.file1983.com
-DATABASE_URL=
+SECRET_KEY=any-dev-secret
+DEBUG=1
+ALLOWED_HOSTS=localhost,127.0.0.1
 ADMIN_URL=your-secret-path/
-OPENAI_API_KEY=
-STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_SINGLE=
-STRIPE_PRICE_3PACK=
-STRIPE_PRICE_MONTHLY=
-STRIPE_PRICE_ANNUAL=
-EMAIL_HOST=
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-DEFAULT_FROM_EMAIL=
-SUPADATA_API_KEY=
 ```
 
 ---
 
-## Build Order (Step by Step)
-Work through these one at a time. Do not jump ahead.
+## URL Structure (current)
 
-- [ ] Step 1 — Project scaffold (Django project, apps, settings, base template, theme CSS, logo, DRF + JWT wired up, `/api/v1/` namespace)
-- [ ] Step 2 — `accounts` app: User model, auth views, login/register templates
-- [ ] Step 3 — `accounts` app: SiteSettings, pricing page, Stripe checkout + webhooks
-- [ ] Step 4 — `documents` app: All models, migrations, admin registration
-- [ ] Step 5 — `documents` app: Document list, create, detail/hub views + templates
-- [ ] Step 6 — `documents` app: Wizard (Alpine.js, 7 steps, story parsing)
-- [ ] Step 7 — `documents` app: AI services (OpenAI integration, prompts)
-- [ ] Step 8 — `documents` app: Court lookup (copy court_data/, wire into wizard step 3)
-- [ ] Step 9 — `documents` app: Final review + PDF generation (WeasyPrint)
-- [ ] Step 10 — `documents` app: Video evidence (subscribers only)
-- [ ] Step 11 — `public_pages` app: CMS, landing page, info pages
-- [ ] Step 12 — Polish: dark mode, SEO, sitemaps, Render deploy config
+```
+/                           public_pages:home
+/rights/                    public_pages:know_your_rights
+/rights/section-1983/       public_pages:section_1983
+/rights/record-police/      public_pages:right_to_record
+/rights/fourth-amendment/   public_pages:fourth_amendment
+/rights/fifth-amendment/    public_pages:fifth_amendment
+/rights/violated/           public_pages:rights_violated
+/rights/first-amendment-auditors/  public_pages:first_amendment_auditors
+/page/<slug>/               public_pages:cms_page
+/legal/terms/               public_pages:terms
+/legal/privacy/             public_pages:privacy
+/legal/disclaimer/          public_pages:disclaimer
+/legal/cookies/             public_pages:cookies
+/accounts/login/            accounts:login
+/accounts/register/         accounts:register
+/accounts/logout/           accounts:logout
+/accounts/profile/          accounts:profile
+/accounts/password-reset/   accounts:password_reset
+/documents/                 documents:list  (stub)
+/documents/new/             documents:create (stub)
+/<ADMIN_URL>/               Django admin
+/api/v1/token/              JWT token
+/api/v1/token/refresh/      JWT refresh
+```
 
 ---
 
-## Reference Repo
-No reference repo is available in this environment. Build everything from this spec.
+## What To Build Next — Document Creation
 
-When the spec says "copy from old repo", interpret it as:
-- **Theme CSS** — recreate `static/css/app-theme.css` using the color palette and design notes above
-- **SVG logos** — recreate simple SVG gavel icons (gavel-icon.svg, gavel-logo.svg, gavel.svg, favicon.svg)
-- **Court data** — recreate `documents/services/court_data/` with static city→court mappings per state, or stub it and rely on the GPT fallback until data is sourced
-- **Context processor** — build from the spec description above
-- **AI service** — build from the spec description above
+The user will describe the exact fields they want before you write any models.
+**Wait for that description before writing code.**
 
-Do not copy old wizard templates or section_edit templates — those are the old process being replaced.
+The intended build order is strictly:
+
+### Sub-step A — Models + Migration
+Wait for the user to describe their desired fields, then build all `documents` models cleanly.
+Key models needed (details TBD by user):
+- `Document` — the top-level record, belongs to user, short random slug
+- `WizardSession` — tracks progress through the 7-step wizard
+- Per-step data models (plaintiff, incident, defendants, rights, evidence, damages, relief)
+- `AIPrompt` — admin-managed prompts
+
+Slug rule: generate on `Document.save()` using `secrets.token_urlsafe(6)` only if blank.
+Never regenerate. Never expose database PK in URLs.
+
+### Sub-step B — Document List + Create + Detail Views
+After models are confirmed and migrated:
+- `/documents/` — list user's documents
+- `/documents/new/` — create new document
+- `/documents/<slug>/` — document hub/detail page
+- All views require login
+- All views check document ownership
+
+### Sub-step C — The 7-Step Wizard
+- Alpine.js single-page interface at `/documents/<slug>/wizard/`
+- One step at a time — no AI yet, just save form data
+- AJAX saves per step
+
+### Sub-step D — AI Integration (deferred)
+### Sub-step E — Court Lookup (deferred)
+### Sub-step F — PDF Generation (deferred)
+### Sub-step G — Stripe Payments (deferred)
+
+---
+
+## Key Rules For This Project
+
+1. **One sub-step at a time.** Do not jump ahead.
+2. **Ask before building models.** The user will define the exact fields.
+3. **No Stripe yet.** The pricing template exists but checkout is not wired.
+4. **No AI yet.** Wizard saves plain form data first.
+5. **Slugs are immutable.** Generate once, never overwrite.
+6. **Login required** on all document views.
+7. **Ownership check** on every document view.
+8. **Branch:** always work on `claude/review-handoff-AeJJC`
+9. **Push format:** `git push -u origin claude/review-handoff-AeJJC`
+10. **Dark mode:** uses `data-theme="dark"` on `<html>`, not `data-bs-theme`
+
+---
+
+## Important File Locations
+
+| File | Purpose |
+|------|---------|
+| `config/settings.py` | All settings + env vars |
+| `config/urls.py` | Root URL config |
+| `config/context_processors.py` | Injects app_name, ADMIN_URL into templates |
+| `accounts/models.py` | User + auth models |
+| `documents/models.py` | EMPTY — build here next |
+| `documents/views.py` | Stub only — replace in Sub-step B |
+| `documents/urls.py` | Stub only — replace in Sub-step B |
+| `templates/base.html` | Master layout — do not redesign |
+| `static/css/app-theme.css` | Master CSS — do not replace |
+
+---
+
+## Git Commands (for every session)
+
+```bash
+# Start of session — get latest
+git fetch origin
+git checkout claude/review-handoff-AeJJC
+git pull origin claude/review-handoff-AeJJC
+
+# Push work
+git push -u origin claude/review-handoff-AeJJC
+
+# User merges to master locally
+git fetch origin
+git merge origin/claude/review-handoff-AeJJC
+git push origin master
+```
