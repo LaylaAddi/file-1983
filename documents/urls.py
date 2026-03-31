@@ -1,7 +1,9 @@
 from django.urls import path
+from . import views
 
 app_name = 'documents'
 
 urlpatterns = [
-    # Document views added in Step 5
+    path('', views.document_list, name='list'),
+    path('new/', views.document_create, name='create'),
 ]
