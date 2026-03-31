@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Legal Disclaimer - {{ settings.app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <h1 class="mb-4">Legal Disclaimer</h1>
+
+            <div class="alert alert-danger mb-5">
+                <h4 class="alert-heading"><i class="bi bi-exclamation-octagon me-2"></i>Important Notice</h4>
+                <p class="mb-0 lead"><strong>{{ settings.app_name }} is NOT a law firm and does NOT provide legal advice.</strong></p>
+            </div>
+
+            <h2 class="h4 mt-5">No Attorney-Client Relationship</h2>
+            <p>Use of {{ settings.app_name }} does not create an attorney-client relationship between you and {{ settings.app_name }}{% if settings.has_attorneys %}, or any attorneys associated with {{ settings.app_name }}{% endif %}. The information and documents provided through this Service are for informational purposes only and should not be construed as legal advice.</p>
+
+            <h2 class="h4 mt-5">Not Legal Advice</h2>
+            <p>The documents, templates, and information provided by {{ settings.app_name }} are:</p>
+            <ul>
+                <li><strong>Not a substitute</strong> for professional legal advice from a licensed attorney</li>
+                <li><strong>General in nature</strong> and may not address your specific legal situation</li>
+                <li><strong>Not guaranteed</strong> to be suitable for any particular purpose or jurisdiction</li>
+                <li><strong>Not reviewed</strong> by an attorney for your specific circumstances</li>
+            </ul>
+
+            <div class="card border-warning mb-4">
+                <div class="card-body bg-warning bg-opacity-10">
+                    <h5 class="card-title"><i class="bi bi-lightbulb me-2"></i>Recommendation</h5>
+                    <p class="card-text">We strongly recommend that you consult with a licensed attorney in your jurisdiction before filing any legal documents. An attorney can:</p>
+                    <ul class="mb-0">
+                        <li>Review your specific situation and advise on the best course of action</li>
+                        <li>Ensure documents comply with local court rules and procedures</li>
+                        <li>Identify potential legal issues you may not be aware of</li>
+                        <li>Represent you in court proceedings if needed</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h2 class="h4 mt-5">Document Accuracy</h2>
+            <p>You are solely responsible for:</p>
+            <ul>
+                <li>The accuracy and completeness of all information you provide</li>
+                <li>Reviewing and verifying all generated documents before use</li>
+                <li>Understanding the legal implications of any documents you file</li>
+                <li>Ensuring documents comply with applicable court rules and deadlines</li>
+            </ul>
+
+            <h2 class="h4 mt-5">AI-Generated Content</h2>
+            <p>Some content on this Service is generated using artificial intelligence. AI-generated content:</p>
+            <ul>
+                <li>May contain errors or inaccuracies</li>
+                <li>Should be carefully reviewed before use</li>
+                <li>Does not constitute legal advice</li>
+                <li>May not reflect the most current laws or procedures</li>
+            </ul>
+
+            <h2 class="h4 mt-5">No Guarantee of Outcomes</h2>
+            <p>{{ settings.app_name }} makes no guarantees regarding:</p>
+            <ul>
+                <li>The outcome of any legal proceeding</li>
+                <li>The acceptance of documents by any court</li>
+                <li>The accuracy or completeness of generated documents</li>
+                <li>The suitability of documents for your specific needs</li>
+            </ul>
+
+            <h2 class="h4 mt-5">Jurisdictional Limitations</h2>
+            <p>Legal requirements vary by jurisdiction. The documents and information provided by this Service:</p>
+            <ul>
+                <li>Are designed for use in United States federal courts</li>
+                <li>May not comply with state or local court requirements</li>
+                <li>May not be suitable for all types of cases or claims</li>
+                <li>Should be reviewed for compliance with your specific court's rules</li>
+            </ul>
+
+            {% if settings.has_attorneys %}
+            <h2 class="h4 mt-5">Attorney Information</h2>
+            <p>{{ settings.app_name }} works with licensed attorneys in certain jurisdictions. However:</p>
+            <ul>
+                <li>Attorney involvement does not create an attorney-client relationship with users</li>
+                <li>Attorneys do not review individual user documents unless specifically engaged</li>
+                <li>Attorney licensing is limited to specific states: {{ settings.attorney_states }}</li>
+            </ul>
+            {% endif %}
+
+            <h2 class="h4 mt-5">Pro Se Litigants</h2>
+            <p>If you choose to represent yourself (pro se) in legal proceedings:</p>
+            <ul>
+                <li>You are held to the same standards as licensed attorneys</li>
+                <li>Courts generally cannot provide legal advice</li>
+                <li>Procedural errors may have serious consequences</li>
+                <li>Many jurisdictions have legal aid organizations that may help</li>
+            </ul>
+
+            <h2 class="h4 mt-5">Limitation of Liability</h2>
+            <p>To the maximum extent permitted by law, {{ settings.app_name }} shall not be liable for any damages arising from:</p>
+            <ul>
+                <li>Your use of documents generated by this Service</li>
+                <li>Any errors or omissions in generated documents</li>
+                <li>Any legal proceedings or their outcomes</li>
+                <li>Your reliance on information provided by this Service</li>
+            </ul>
+
+            <h2 class="h4 mt-5">Contact Us</h2>
+            <p>If you have questions about this disclaimer, please contact us:</p>
+            <p>
+                <strong>{{ settings.app_name }}</strong><br>
+                Email: <a href="mailto:{{ settings.contact_email }}">{{ settings.contact_email }}</a>
+            </p>
+
+            <hr class="my-5">
+            <p class="text-muted small">Last updated: {% now "F j, Y" %}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

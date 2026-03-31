@@ -1,0 +1,38 @@
+{% comment %}
+Rights cards section with amendment badges.
+Data format: [{"amendment": "1st", "title": "...", "icon": "bi-...", "description": "..."}]
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} {{ section.css_class }}">
+    <div class="container">
+        {% if section.title %}
+        <div class="text-center mb-5">
+            <h2 class="section-title">{{ section.title }}</h2>
+            {% if section.subtitle %}
+            <p class="section-subtitle centered">{{ section.subtitle }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if section.data %}
+        <div class="row g-4">
+            {% for card in section.data %}
+            <div class="col-md-6 col-lg-3">
+                <div class="rights-card h-100">
+                    {% if card.amendment %}
+                    <span class="amendment-badge">{{ card.amendment }} Amendment</span>
+                    {% endif %}
+                    {% if card.icon %}
+                    <div class="card-icon">
+                        <i class="bi {{ card.icon }}"></i>
+                    </div>
+                    {% endif %}
+                    <h4>{{ card.title }}</h4>
+                    <p>{{ card.description }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>

@@ -1,0 +1,45 @@
+{% comment %}
+Article cards section with category badges.
+Data format: [{"category": "...", "title": "...", "icon": "bi-...", "summary": "...", "url": "..."}]
+{% endcomment %}
+
+<section class="{{ section.get_background_class }} {{ section.css_class }}">
+    <div class="container">
+        {% if section.title %}
+        <div class="text-center mb-5">
+            <h2 class="section-title">{{ section.title }}</h2>
+            {% if section.subtitle %}
+            <p class="section-subtitle centered">{{ section.subtitle }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if section.data %}
+        <div class="row g-4">
+            {% for card in section.data %}
+            <div class="col-md-6 col-lg-3">
+                <div class="article-card h-100">
+                    {% if card.category %}
+                    <span class="category-badge">{{ card.category }}</span>
+                    {% endif %}
+                    {% if card.icon %}
+                    <div class="card-icon">
+                        <i class="bi {{ card.icon }}"></i>
+                    </div>
+                    {% endif %}
+                    <h5>{{ card.title }}</h5>
+                    {% if card.summary %}
+                    <p>{{ card.summary }}</p>
+                    {% endif %}
+                    {% if card.url %}
+                    <a href="{{ card.url }}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</section>

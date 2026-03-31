@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fourth Amendment Rights - Search & Seizure - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}Understand your Fourth Amendment rights against unreasonable searches and seizures. Learn when police can search you, your car, and your home.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>Fourth Amendment Rights</h1>
+        <p class="lead">
+            Protection against unreasonable searches and seizures is a cornerstone of American freedom.
+        </p>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="section-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="quote-box mb-5">
+                    <p>"The right of the people to be secure in their persons, houses, papers, and effects, against unreasonable searches and seizures, shall not be violated, and no Warrants shall issue, but upon probable cause..."</p>
+                    <span class="quote-source">— Fourth Amendment to the United States Constitution</span>
+                </div>
+
+                <h2 class="section-title">Your Right to Be Free from Unreasonable Searches</h2>
+                <p class="lead text-muted mb-4">
+                    The Fourth Amendment protects you from arbitrary government intrusion into your
+                    private life, your home, your belongings, and your person.
+                </p>
+
+                <div class="row g-4 mt-4">
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <h4>When Police Need a Warrant</h4>
+                            <ul>
+                                <li>Searching your home (with limited exceptions)</li>
+                                <li>Searching your phone or electronic devices</li>
+                                <li>Accessing your private communications</li>
+                                <li>Conducting invasive searches of your person</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <h4>Exceptions to the Warrant Requirement</h4>
+                            <ul>
+                                <li><strong>Consent:</strong> If you voluntarily agree to a search</li>
+                                <li><strong>Plain view:</strong> Evidence in plain sight</li>
+                                <li><strong>Search incident to arrest:</strong> Immediate area when arrested</li>
+                                <li><strong>Exigent circumstances:</strong> Emergency situations</li>
+                                <li><strong>Automobile exception:</strong> Probable cause to search vehicles</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-5">
+                    <h5><i class="bi bi-lightbulb me-2"></i>Key Point: Consent Matters</h5>
+                    <p class="mb-0">
+                        You have the right to <strong>refuse consent</strong> to any search. Clearly state:
+                        "I do not consent to a search." Even if police search anyway, your refusal
+                        preserves your rights if the search is later challenged in court.
+                    </p>
+                </div>
+
+                <h3 class="mt-5 mb-4">Traffic Stops</h3>
+                <p>
+                    During a traffic stop, police can order the driver and passengers out of the vehicle.
+                    However, they cannot search your vehicle without:
+                </p>
+                <ul>
+                    <li>Your consent</li>
+                    <li>Probable cause to believe the vehicle contains evidence of a crime</li>
+                    <li>A valid search warrant</li>
+                    <li>An arrest of an occupant (limited search incident to arrest)</li>
+                </ul>
+
+                <h3 class="mt-5 mb-4">Excessive Force</h3>
+                <p>
+                    The Fourth Amendment also protects you from <strong>excessive force</strong> during
+                    arrests and other seizures. Police may only use force that is objectively reasonable
+                    under the circumstances. Excessive force violates your constitutional rights.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Were Your Fourth Amendment Rights Violated?</h2>
+        <p>
+            If you were subjected to an illegal search, false arrest, or excessive force,
+            you may have a Section 1983 civil rights claim.
+        </p>
+        <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+            <i class="bi bi-shield-check me-2"></i>Document Your Case
+        </a>
+    </div>
+</section>
+
+<!-- Resources -->
+<section class="section-light py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <a href="https://www.aclu.org/know-your-rights/stopped-by-police" target="_blank" rel="noopener" class="resource-item d-block text-decoration-none">
+                            <i class="bi bi-link-45deg"></i>
+                            <div>
+                                <h6 class="mb-0">ACLU: Stopped by Police</h6>
+                                <p class="mb-0">Your rights during police encounters</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'public_pages:section_1983' %}" class="resource-item d-block text-decoration-none">
+                            <i class="bi bi-link-45deg"></i>
+                            <div>
+                                <h6 class="mb-0">Understanding Section 1983</h6>
+                                <p class="mb-0">How to hold officials accountable</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

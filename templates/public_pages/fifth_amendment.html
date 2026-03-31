@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Fifth Amendment Rights - Right to Remain Silent - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}Understand your Fifth Amendment right to remain silent and protection against self-incrimination. Learn how to invoke your rights during police encounters.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>Fifth Amendment Rights</h1>
+        <p class="lead">
+            You have the right to remain silent. You cannot be forced to incriminate yourself.
+        </p>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="section-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="quote-box mb-5">
+                    <p>"No person... shall be compelled in any criminal case to be a witness against himself, nor be deprived of life, liberty, or property, without due process of law..."</p>
+                    <span class="quote-source">— Fifth Amendment to the United States Constitution</span>
+                </div>
+
+                <h2 class="section-title">Your Right to Remain Silent</h2>
+                <p class="lead text-muted mb-4">
+                    The Fifth Amendment protects you from being forced to provide evidence against yourself.
+                    This protection applies during police questioning, court proceedings, and any government investigation.
+                </p>
+
+                <div class="row g-4 mt-4">
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <h4>What the Right Protects</h4>
+                            <ul>
+                                <li>You cannot be forced to answer police questions</li>
+                                <li>You cannot be compelled to testify against yourself</li>
+                                <li>Your silence cannot be used as evidence of guilt</li>
+                                <li>You have the right to consult an attorney before speaking</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rights-card h-100">
+                            <h4>How to Invoke Your Rights</h4>
+                            <p>To invoke your Fifth Amendment rights, clearly state:</p>
+                            <ul>
+                                <li>"I invoke my right to remain silent."</li>
+                                <li>"I want to speak to a lawyer."</li>
+                                <li>"I am not going to answer questions."</li>
+                            </ul>
+                            <p class="text-muted small">
+                                <em>Simply staying silent may not be enough—courts have held you should
+                                affirmatively invoke your rights.</em>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="mt-5 mb-4">Miranda Rights</h3>
+                <p>
+                    You've probably heard "You have the right to remain silent..." on TV. These are your
+                    <strong>Miranda rights</strong>, which police must read to you before custodial interrogation:
+                </p>
+                <div class="bg-patriot-light p-4 rounded-3 mb-4">
+                    <ul class="mb-0">
+                        <li>You have the right to remain silent</li>
+                        <li>Anything you say can and will be used against you in a court of law</li>
+                        <li>You have the right to an attorney</li>
+                        <li>If you cannot afford an attorney, one will be appointed for you</li>
+                    </ul>
+                </div>
+                <p>
+                    <strong>Important:</strong> Miranda warnings are only required during <em>custodial interrogation</em>
+                    (when you're not free to leave and police are asking questions designed to elicit incriminating responses).
+                    Your Fifth Amendment rights exist whether or not Miranda warnings are given.
+                </p>
+
+                <div class="alert alert-warning mt-5">
+                    <h5><i class="bi bi-exclamation-triangle me-2"></i>Identification Requirements</h5>
+                    <p class="mb-0">
+                        Some states have "stop and identify" laws that may require you to provide your name
+                        when lawfully detained. However, you still cannot be required to answer questions
+                        about alleged criminal activity. Check your state's specific laws.
+                    </p>
+                </div>
+
+                <h3 class="mt-5 mb-4">Due Process</h3>
+                <p>
+                    The Fifth Amendment also guarantees <strong>due process of law</strong>—the government
+                    cannot deprive you of life, liberty, or property without following fair legal procedures.
+                    This protection applies to everything from criminal trials to administrative hearings.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Were Your Fifth Amendment Rights Violated?</h2>
+        <p>
+            If you were coerced into making statements, denied access to an attorney,
+            or subjected to improper interrogation, you may have legal recourse.
+        </p>
+        <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+            <i class="bi bi-shield-check me-2"></i>Document Your Case
+        </a>
+    </div>
+</section>
+
+<!-- Resources -->
+<section class="section-light py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <a href="https://www.aclu.org/know-your-rights/what-do-when-encountering-law-enforcement-questioning" target="_blank" rel="noopener" class="resource-item d-block text-decoration-none">
+                            <i class="bi bi-link-45deg"></i>
+                            <div>
+                                <h6 class="mb-0">ACLU: Police Questioning</h6>
+                                <p class="mb-0">What to do during questioning</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'public_pages:rights_violated' %}" class="resource-item d-block text-decoration-none">
+                            <i class="bi bi-link-45deg"></i>
+                            <div>
+                                <h6 class="mb-0">What to Do If Violated</h6>
+                                <p class="mb-0">Step-by-step guide</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -1,92 +1,76 @@
 {% extends 'base.html' %}
 
-{% block title %}Create Account — {{ app_name }}{% endblock %}
+{% block title %}Create Account — {{ header_app_name }}{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-sm-10 col-md-8 col-lg-6">
+<div class="auth-card">
+    <div class="card shadow">
+        <div class="card-header text-center py-3">
+            <h4 class="mb-0"><i class="bi bi-shield-plus me-2"></i>Create Account</h4>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
 
-            <div class="card card-patriot shadow-sm">
-                <div class="card-header py-3">
-                    <h4 class="mb-0"><i class="bi bi-person-plus me-2"></i>Create Your Account</h4>
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
                 </div>
-                <div class="card-body p-4">
+                {% endif %}
 
-                    <form method="post" novalidate>
-                        {% csrf_token %}
-
-                        <div class="row">
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label fw-semibold">{{ form.first_name.label }}</label>
-                                {{ form.first_name }}
-                                {% if form.first_name.errors %}
-                                    <div class="text-danger small mt-1">{{ form.first_name.errors|join:", " }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label fw-semibold">{{ form.last_name.label }}</label>
-                                {{ form.last_name }}
-                                {% if form.last_name.errors %}
-                                    <div class="text-danger small mt-1">{{ form.last_name.errors|join:", " }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.email.label }}</label>
-                            {{ form.email }}
-                            {% if form.email.errors %}
-                                <div class="text-danger small mt-1">{{ form.email.errors|join:", " }}</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.password1.label }}</label>
-                            {{ form.password1 }}
-                            {% if form.password1.errors %}
-                                <div class="text-danger small mt-1">{{ form.password1.errors|join:", " }}</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.password2.label }}</label>
-                            {{ form.password2 }}
-                            {% if form.password2.errors %}
-                                <div class="text-danger small mt-1">{{ form.password2.errors|join:", " }}</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">{{ form.referral_code.label }}</label>
-                            {{ form.referral_code }}
-                        </div>
-
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger py-2">{{ form.non_field_errors|join:", " }}</div>
-                        {% endif %}
-
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-patriot-primary btn-lg">
-                                <i class="bi bi-person-check me-1"></i>Create Account
-                            </button>
-                        </div>
-
-                        <p class="text-muted small text-center mt-3 mb-0">
-                            By creating an account you agree to our
-                            <a href="#" class="text-muted">Terms of Service</a> and
-                            <a href="#" class="text-muted">Privacy Policy</a>.
-                        </p>
-                    </form>
-
+                <div class="row">
+                    <div class="col-sm-6 mb-3">
+                        <label class="form-label">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}<div class="invalid-feedback d-block">{{ form.first_name.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    <div class="col-sm-6 mb-3">
+                        <label class="form-label">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}<div class="invalid-feedback d-block">{{ form.last_name.errors|join:", " }}</div>{% endif %}
+                    </div>
                 </div>
-            </div>
 
-            <div class="text-center mt-3">
-                <span class="text-muted small">Already have an account?</span>
-                <a href="{% url 'accounts:login' %}" class="small fw-semibold ms-1">Log In</a>
-            </div>
+                <div class="mb-3">
+                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors|join:", " }}</div>{% endif %}
+                </div>
 
+                <div class="mb-3">
+                    <label class="form-label">Password <span class="text-danger">*</span></label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}<div class="invalid-feedback d-block">{{ form.password1.errors|join:", " }}</div>{% endif %}
+                    <div class="form-text">Must be at least 8 characters.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}<div class="invalid-feedback d-block">{{ form.password2.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Referral Code <span class="text-muted">(optional)</span></label>
+                    {{ form.referral_code }}
+                </div>
+
+                <div class="border rounded p-3 mb-4 bg-light">
+                    <p class="small text-muted mb-0">
+                        By creating an account you agree to our
+                        <a href="{% url 'public_pages:terms' %}" target="_blank">Terms of Service</a> and
+                        <a href="{% url 'public_pages:privacy' %}" target="_blank">Privacy Policy</a>.
+                    </p>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2">
+                    <i class="bi bi-shield-plus me-2"></i>Create Account
+                </button>
+            </form>
+        </div>
+        <div class="card-footer text-center py-3 bg-light">
+            <span class="text-muted">Already have an account?</span>
+            <a href="{% url 'accounts:login' %}" class="text-decoration-none ms-1">Login here</a>
         </div>
     </div>
 </div>

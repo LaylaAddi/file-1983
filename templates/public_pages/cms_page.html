@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page.title }} - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}{{ page.meta_description|default:block.super }}{% endblock %}
+{% block meta_keywords %}{{ page.meta_keywords|default:block.super }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+{# Always render hero section first if page has hero content #}
+{% if page.hero_title or page.hero_subtitle %}
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>{{ page.get_hero_title }}</h1>
+        {% if page.hero_subtitle %}
+        <p class="lead">{{ page.hero_subtitle }}</p>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{# Loop through all visible sections and render them #}
+{% for section in sections %}
+    {% if section.is_visible %}
+        {# Include the appropriate template partial based on section type #}
+        {% if section.section_type == 'hero' %}
+            {% include 'public_pages/sections/hero.html' %}
+        {% elif section.section_type == 'content' %}
+            {% include 'public_pages/sections/content.html' %}
+        {% elif section.section_type == 'cards' %}
+            {% include 'public_pages/sections/cards.html' %}
+        {% elif section.section_type == 'rights_cards' %}
+            {% include 'public_pages/sections/rights_cards.html' %}
+        {% elif section.section_type == 'article_cards' %}
+            {% include 'public_pages/sections/article_cards.html' %}
+        {% elif section.section_type == 'quote' %}
+            {% include 'public_pages/sections/quote.html' %}
+        {% elif section.section_type == 'cta' %}
+            {% include 'public_pages/sections/cta.html' %}
+        {% elif section.section_type == 'resources' %}
+            {% include 'public_pages/sections/resources.html' %}
+        {% elif section.section_type == 'stats' %}
+            {% include 'public_pages/sections/stats.html' %}
+        {% elif section.section_type == 'two_column' %}
+            {% include 'public_pages/sections/two_column.html' %}
+        {% elif section.section_type == 'checklist' %}
+            {% include 'public_pages/sections/checklist.html' %}
+        {% elif section.section_type == 'alert' %}
+            {% include 'public_pages/sections/alert.html' %}
+        {% elif section.section_type == 'accordion' %}
+            {% include 'public_pages/sections/accordion.html' %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+{% endblock %}

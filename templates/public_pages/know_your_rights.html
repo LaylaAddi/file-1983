@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Know Your Rights - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}Learn your constitutional rights protected by the First, Fourth, Fifth, and Fourteenth Amendments. Guides on recording police, search and seizure, and what to do when your rights are violated.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>Know Your Rights</h1>
+        <p class="lead">
+            The Constitution protects your fundamental freedoms. Understanding your rights
+            is the first step to protecting them.
+        </p>
+    </div>
+</section>
+
+<!-- Rights Overview -->
+<section class="section-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <p class="lead text-muted text-center mb-5">
+                    Every American is protected by the Constitution. These rights cannot be taken away
+                    by government officials—and when they're violated, you have the power to seek justice.
+                </p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">1st Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-megaphone"></i>
+                    </div>
+                    <h4>Freedom of Expression</h4>
+                    <p>
+                        Speech, press, assembly, petition, and religion. This includes your right to
+                        record police and government officials in public.
+                    </p>
+                    <a href="{% url 'public_pages:right_to_record' %}" class="btn btn-outline-primary btn-sm">
+                        Learn More <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">4th Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+                    <h4>Search & Seizure</h4>
+                    <p>
+                        Protection against unreasonable searches and seizures. Police generally need
+                        a warrant, and you can refuse consent.
+                    </p>
+                    <a href="{% url 'public_pages:fourth_amendment' %}" class="btn btn-outline-primary btn-sm">
+                        Learn More <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">5th Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-chat-square-dots"></i>
+                    </div>
+                    <h4>Right to Silence</h4>
+                    <p>
+                        You cannot be forced to incriminate yourself. You have the right to remain
+                        silent during police encounters.
+                    </p>
+                    <a href="{% url 'public_pages:fifth_amendment' %}" class="btn btn-outline-primary btn-sm">
+                        Learn More <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="rights-card h-100">
+                    <span class="amendment-badge">14th Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-balance-scale"></i>
+                    </div>
+                    <h4>Equal Protection</h4>
+                    <p>
+                        Government must treat you fairly and cannot discriminate. You have the right
+                        to due process of law.
+                    </p>
+                    <a href="{% url 'public_pages:section_1983' %}" class="btn btn-outline-primary btn-sm">
+                        Learn More <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Articles -->
+<section class="section-cream">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">In-Depth Guides</h2>
+            <p class="section-subtitle centered">
+                Comprehensive information to help you understand and protect your rights.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">First Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-camera-video text-patriot-red"></i>
+                    </div>
+                    <h5>Your Right to Record Police</h5>
+                    <p>
+                        Federal courts have affirmed your First Amendment right to record police
+                        and government officials in public. Learn what the courts have said and
+                        how to protect yourself.
+                    </p>
+                    <a href="{% url 'public_pages:right_to_record' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">Legal Basics</span>
+                    <div class="card-icon">
+                        <i class="bi bi-journal-text text-patriot-red"></i>
+                    </div>
+                    <h5>Understanding Section 1983</h5>
+                    <p>
+                        Section 1983 is the federal law that allows you to sue government officials
+                        who violate your constitutional rights. Learn how it works and what you
+                        can recover.
+                    </p>
+                    <a href="{% url 'public_pages:section_1983' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">Take Action</span>
+                    <div class="card-icon">
+                        <i class="bi bi-shield-check text-patriot-red"></i>
+                    </div>
+                    <h5>What to Do If Violated</h5>
+                    <p>
+                        Step-by-step guide on documenting incidents, preserving evidence, and
+                        understanding your options when your rights are violated.
+                    </p>
+                    <a href="{% url 'public_pages:rights_violated' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">Freedom Fighters</span>
+                    <div class="card-icon">
+                        <i class="bi bi-people text-patriot-red"></i>
+                    </div>
+                    <h5>First Amendment Auditors</h5>
+                    <p>
+                        Meet the everyday Americans who test and protect our constitutional rights
+                        through peaceful audits. Learn about their mission and methods.
+                    </p>
+                    <a href="{% url 'public_pages:first_amendment_auditors' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">Fourth Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-search text-patriot-red"></i>
+                    </div>
+                    <h5>Search & Seizure Rights</h5>
+                    <p>
+                        Learn when police can and cannot search you, your car, or your home.
+                        Understand warrants, consent, and exceptions.
+                    </p>
+                    <a href="{% url 'public_pages:fourth_amendment' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="article-card h-100">
+                    <span class="category-badge">Fifth Amendment</span>
+                    <div class="card-icon">
+                        <i class="bi bi-mic-mute text-patriot-red"></i>
+                    </div>
+                    <h5>Right to Remain Silent</h5>
+                    <p>
+                        You cannot be forced to incriminate yourself. Learn how to invoke your
+                        right to silence and when it applies.
+                    </p>
+                    <a href="{% url 'public_pages:fifth_amendment' %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Tips -->
+<section class="section-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Quick Tips for Police Encounters</h2>
+            <p class="section-subtitle centered">
+                General guidance based on ACLU recommendations.
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-hand-thumbs-up me-2"></i>Stay Calm</h5>
+                            <p class="mb-0">
+                                Keep your hands visible. Don't argue, resist, or run—even if you believe
+                                your rights are being violated. Stay calm and remember details.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-question-circle me-2"></i>Ask If You're Free to Go</h5>
+                            <p class="mb-0">
+                                Politely ask "Am I being detained or am I free to go?" If they say you're
+                                free to go, calmly walk away.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-mic-mute me-2"></i>You Can Remain Silent</h5>
+                            <p class="mb-0">
+                                You have the right to remain silent. You may need to state you're invoking
+                                this right. You may be required to identify yourself in some states.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-x-circle me-2"></i>Refuse Consent to Search</h5>
+                            <p class="mb-0">
+                                You have the right to refuse consent to a search. Clearly say "I do not
+                                consent to a search." This preserves your rights if the search is unlawful.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-camera-video me-2"></i>You Can Record</h5>
+                            <p class="mb-0">
+                                You have the right to record police in public as long as you don't interfere
+                                with their activities. Keep a safe distance.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+                            <h5 class="text-patriot-blue"><i class="bi bi-pencil me-2"></i>Document Everything</h5>
+                            <p class="mb-0">
+                                After any encounter, write down everything you remember: officer names,
+                                badge numbers, patrol car numbers, and what happened.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-muted text-center mt-4 small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    This is general guidance, not legal advice. Every situation is different.
+                    Visit <a href="https://www.aclu.org/know-your-rights" target="_blank" rel="noopener">ACLU Know Your Rights</a> for more detailed information.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Have Your Rights Been Violated?</h2>
+        <p>
+            If your constitutional rights were violated by police or government officials,
+            you may be able to seek justice under Section 1983.
+        </p>
+        <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+            <i class="bi bi-shield-check me-2"></i>Document Your Case
+        </a>
+    </div>
+</section>
+
+{% endblock %}

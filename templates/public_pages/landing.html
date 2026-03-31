@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Know Your Rights - {{ header_app_name }}{% endblock %}
+
+{% block meta_description %}Know your constitutional rights under Section 1983. Learn about First Amendment recording rights, Fourth Amendment protections, and how to document civil rights violations.{% endblock %}
+
+{% block meta_keywords %}Section 1983, civil rights, constitutional rights, police misconduct, right to record police, First Amendment, Fourth Amendment, civil rights complaint, police accountability, know your rights{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/public-pages.css' %}">
+{% endblock %}
+
+{% block main_class %}{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>Know Your Rights.<br>Protect Your Freedom.</h1>
+        <p class="lead">
+            Every American has constitutional rights that cannot be violated by government officials.
+            When those rights are violated, Section 1983 gives you the power to hold them accountable.
+            We're here to help you understand your rights and take action.
+        </p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+                <i class="bi bi-shield-check me-2"></i>Document a Violation
+            </a>
+            <a href="#know-your-rights" class="btn btn-outline-light btn-lg">
+                <i class="bi bi-book me-2"></i>Learn Your Rights
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Stats -->
+<section class="section-light py-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">42</div>
+                    <div class="stat-label">U.S.C. Section 1983</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">1871</div>
+                    <div class="stat-label">Year Enacted</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">150+</div>
+                    <div class="stat-label">Years of Protection</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-item">
+                    <div class="stat-number">You</div>
+                    <div class="stat-label">Have Rights</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Know Your Rights Section -->
+<section id="know-your-rights" class="section-cream">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Know Your Constitutional Rights</h2>
+            <p class="section-subtitle centered">
+                These fundamental rights are protected by the United States Constitution.
+                When government officials violate them, you have the right to seek justice.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            {% for right in key_rights %}
+            <div class="col-md-6 col-lg-3">
+                <a href="{% url right.url %}" class="text-decoration-none">
+                    <div class="rights-card h-100">
+                        <span class="amendment-badge">{{ right.amendment }} Amendment</span>
+                        <div class="card-icon">
+                            <i class="bi {{ right.icon }}"></i>
+                        </div>
+                        <h4>{{ right.title }}</h4>
+                        <p>{{ right.description }}</p>
+                        <span class="read-more">
+                            Learn More <i class="bi bi-arrow-right"></i>
+                        </span>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Quote Box -->
+        <div class="quote-box mt-5">
+            <p>"Every person who, under color of any statute, ordinance, regulation, custom, or usage, of any State... subjects, or causes to be subjected, any citizen of the United States... to the deprivation of any rights, privileges, or immunities secured by the Constitution and laws, shall be liable to the party injured..."</p>
+            <span class="quote-source">— 42 U.S.C. Section 1983</span>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Articles Section -->
+<section class="section-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">Understanding Your Rights</h2>
+            <p class="section-subtitle centered">
+                In-depth guides to help you understand your constitutional protections
+                and what to do when they're violated.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            {% for article in featured_articles %}
+            <div class="col-md-6 col-lg-3">
+                <div class="article-card">
+                    <span class="category-badge">{{ article.category }}</span>
+                    <div class="card-icon">
+                        <i class="bi {{ article.icon }}"></i>
+                    </div>
+                    <h5>{{ article.title }}</h5>
+                    <p>{{ article.summary }}</p>
+                    <a href="{% url article.url %}" class="read-more">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- News and Resources Section -->
+<section class="section-blue">
+    <div class="container">
+        <div class="row">
+            <!-- News Widget -->
+            <div class="col-lg-7 mb-4 mb-lg-0">
+                <h2 class="section-title mb-4">
+                    <i class="bi bi-newspaper me-2"></i>Civil Rights News
+                </h2>
+                <div class="news-widget">
+                    <div class="news-widget-header">
+                        <i class="bi bi-broadcast"></i>
+                        Latest Updates
+                    </div>
+                    {% for news in news_items %}
+                    <div class="news-item">
+                        <a href="{{ news.url }}" target="_blank" rel="noopener">
+                            <h6>{{ news.title }}</h6>
+                        </a>
+                        <div class="news-meta">
+                            <span class="news-source">{{ news.source }}</span>
+                            <span><i class="bi bi-clock me-1"></i>{{ news.date|timesince }} ago</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="text-muted mt-3 small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    News aggregated from civil rights organizations and major news outlets.
+                </p>
+            </div>
+
+            <!-- Resources -->
+            <div class="col-lg-5">
+                <h2 class="section-title mb-4">
+                    <i class="bi bi-bookmarks me-2"></i>Resources
+                </h2>
+                {% for resource in resources %}
+                <div class="resource-item">
+                    <i class="bi bi-link-45deg"></i>
+                    <div>
+                        <h6><a href="{{ resource.url }}" target="_blank" rel="noopener">{{ resource.name }}</a></h6>
+                        <p>{{ resource.description }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Section 1983 -->
+<section class="section-light">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <h2 class="section-title">What is Section 1983?</h2>
+                <p class="lead text-muted mb-4">
+                    Section 1983 is a powerful federal law that allows citizens to sue government officials
+                    who violate their constitutional rights.
+                </p>
+                <p>
+                    Originally passed as part of the Civil Rights Act of 1871 (also known as the Ku Klux Klan Act),
+                    Section 1983 was designed to protect citizens from government overreach and abuse of power.
+                    Today, it remains one of the most important tools for holding police officers, government employees,
+                    and other officials accountable when they violate your rights.
+                </p>
+                <p>
+                    <strong>You can use Section 1983 when:</strong>
+                </p>
+                <ul>
+                    <li>Police use excessive force against you</li>
+                    <li>You're arrested without probable cause</li>
+                    <li>Your right to record in public is violated</li>
+                    <li>You're subjected to an illegal search or seizure</li>
+                    <li>Government officials retaliate against you for exercising free speech</li>
+                </ul>
+            </div>
+            <div class="col-lg-6">
+                <div class="bg-white p-4 rounded-3 shadow-sm">
+                    <h5 class="text-patriot-blue mb-3">
+                        <i class="bi bi-check-circle-fill me-2"></i>What You Can Recover
+                    </h5>
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>Compensatory Damages</strong>
+                        <p class="text-muted mb-0 small">Money for actual losses: medical bills, lost wages, pain and suffering</p>
+                    </div>
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>Punitive Damages</strong>
+                        <p class="text-muted mb-0 small">Additional damages to punish particularly bad conduct</p>
+                    </div>
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>Declaratory Relief</strong>
+                        <p class="text-muted mb-0 small">A court declaration that your rights were violated</p>
+                    </div>
+                    <div class="mb-3 pb-3 border-bottom">
+                        <strong>Injunctive Relief</strong>
+                        <p class="text-muted mb-0 small">Court orders to change policies or prevent future violations</p>
+                    </div>
+                    <div>
+                        <strong>Attorney's Fees</strong>
+                        <p class="text-muted mb-0 small">The defendant may be required to pay your legal costs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Have Your Rights Been Violated?</h2>
+        <p>
+            Don't let the moment pass. Document your case while the details are fresh.
+            Our guided tool helps you build a Section 1983 civil rights complaint step by step.
+        </p>
+        <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+            <i class="bi bi-pencil-square me-2"></i>Start Your Case Now
+        </a>
+    </div>
+</section>
+
+<!-- Final Resources Section -->
+<section class="section-cream py-5">
+    <div class="container">
+        <div class="text-center">
+            <h4 class="text-patriot-blue mb-3">Need Help Understanding Your Rights?</h4>
+            <p class="text-muted mb-4">
+                We're here to help you navigate the process. Our tool guides you through every step
+                of documenting your case and building your complaint.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="{% url 'accounts:login' %}" class="btn btn-patriot-blue">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                </a>
+                <a href="{% url 'accounts:register' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-person-plus me-2"></i>Create Account
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

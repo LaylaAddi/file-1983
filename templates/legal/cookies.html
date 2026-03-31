@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Cookie Policy - {{ settings.app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <h1 class="mb-4">Cookie Policy</h1>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <p>This Cookie Policy explains how {{ settings.app_name }} ("we," "us," or "our") uses cookies and similar technologies when you visit our website at {{ request.get_host }}.</p>
+                </div>
+            </div>
+
+            <h2 class="h4 mt-5">What Are Cookies?</h2>
+            <p>Cookies are small text files that are stored on your device (computer, tablet, or mobile) when you visit a website. They help websites remember your preferences and improve your browsing experience.</p>
+
+            <h2 class="h4 mt-5">Types of Cookies We Use</h2>
+
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cookie Type</th>
+                            <th>Purpose</th>
+                            <th>Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Essential Cookies</strong></td>
+                            <td>Required for the website to function. These include session cookies for login authentication and CSRF protection tokens for security.</td>
+                            <td>Session / 2 weeks</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Functional Cookies</strong></td>
+                            <td>Remember your preferences and settings to provide a better experience.</td>
+                            <td>1 year</td>
+                        </tr>
+                        {% if settings.uses_google_analytics %}
+                        <tr>
+                            <td><strong>Analytics Cookies</strong></td>
+                            <td>Help us understand how visitors interact with our website by collecting anonymous information. We use Google Analytics for this purpose.</td>
+                            <td>2 years</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="h4 mt-5">Essential Cookies (Required)</h2>
+            <p>These cookies are necessary for the website to function and cannot be disabled:</p>
+            <ul>
+                <li><strong>sessionid:</strong> Maintains your login session</li>
+                <li><strong>csrftoken:</strong> Protects against cross-site request forgery attacks</li>
+                <li><strong>cookie_consent:</strong> Remembers your cookie preferences</li>
+            </ul>
+
+            {% if settings.uses_google_analytics %}
+            <h2 class="h4 mt-5">Analytics Cookies (Google Analytics)</h2>
+            <p>We use Google Analytics to understand how visitors use our website. Google Analytics cookies collect information including:</p>
+            <ul>
+                <li>Pages you visit and time spent on each page</li>
+                <li>How you arrived at our website</li>
+                <li>Your general geographic location (city/country level)</li>
+                <li>Device and browser information</li>
+            </ul>
+            <p>This information is aggregated and anonymous. Google's privacy policy can be found at: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></p>
+
+            <h3 class="h5 mt-4">Google Analytics Cookies:</h3>
+            <ul>
+                <li><strong>_ga:</strong> Distinguishes unique users (expires: 2 years)</li>
+                <li><strong>_gid:</strong> Distinguishes unique users (expires: 24 hours)</li>
+                <li><strong>_gat:</strong> Throttles request rate (expires: 1 minute)</li>
+            </ul>
+            {% endif %}
+
+            <h2 class="h4 mt-5">Third-Party Cookies</h2>
+            <p>Some third-party services we use may also set cookies:</p>
+            <ul>
+                <li><strong>{{ settings.payment_processor }}:</strong> For secure payment processing</li>
+                {% if settings.uses_google_analytics %}
+                <li><strong>Google:</strong> For analytics services</li>
+                {% endif %}
+            </ul>
+
+            <h2 class="h4 mt-5">Managing Cookies</h2>
+            <p>You can control and manage cookies in several ways:</p>
+
+            <h3 class="h5 mt-4">Browser Settings</h3>
+            <p>Most web browsers allow you to manage cookies through their settings. You can:</p>
+            <ul>
+                <li>View cookies stored on your device</li>
+                <li>Delete all or specific cookies</li>
+                <li>Block all cookies or third-party cookies</li>
+                <li>Set preferences for certain websites</li>
+            </ul>
+            <p>To manage cookies in your browser:</p>
+            <ul>
+                <li><strong>Chrome:</strong> Settings → Privacy and Security → Cookies</li>
+                <li><strong>Firefox:</strong> Settings → Privacy & Security → Cookies</li>
+                <li><strong>Safari:</strong> Preferences → Privacy → Cookies</li>
+                <li><strong>Edge:</strong> Settings → Privacy → Cookies</li>
+            </ul>
+
+            {% if settings.uses_google_analytics %}
+            <h3 class="h5 mt-4">Google Analytics Opt-Out</h3>
+            <p>You can opt out of Google Analytics by installing the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google Analytics Opt-out Browser Add-on</a>.</p>
+            {% endif %}
+
+            <h2 class="h4 mt-5">Impact of Disabling Cookies</h2>
+            <p>If you disable cookies:</p>
+            <ul>
+                <li><strong>Essential cookies:</strong> The website may not function properly; you may not be able to log in or use certain features</li>
+                <li><strong>Analytics cookies:</strong> No impact on functionality; we simply won't have analytics data</li>
+            </ul>
+
+            <h2 class="h4 mt-5">Do Not Track</h2>
+            <p>Some browsers have a "Do Not Track" feature that signals to websites that you do not want your online activity tracked. Our website {% if settings.uses_google_analytics %}uses Google Analytics which may not respond to Do Not Track signals{% else %}respects Do Not Track signals{% endif %}.</p>
+
+            <h2 class="h4 mt-5">Changes to This Policy</h2>
+            <p>We may update this Cookie Policy from time to time. Changes will be posted on this page with an updated "Last Modified" date.</p>
+
+            <h2 class="h4 mt-5">Contact Us</h2>
+            <p>If you have questions about our use of cookies, please contact us:</p>
+            <p>
+                <strong>{{ settings.app_name }}</strong><br>
+                Email: <a href="mailto:{{ settings.contact_email }}">{{ settings.contact_email }}</a>
+            </p>
+
+            <hr class="my-5">
+            <p class="text-muted small">Last updated: {% now "F j, Y" %}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

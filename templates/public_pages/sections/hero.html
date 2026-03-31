@@ -1,0 +1,30 @@
+{% comment %}
+Hero section template partial.
+Used for page headers with title, subtitle, and optional CTAs.
+{% endcomment %}
+
+<section class="hero-section">
+    <div class="container text-center">
+        <h1>{{ section.title|default:page.get_hero_title }}</h1>
+        {% if section.subtitle or page.hero_subtitle %}
+        <p class="lead">
+            {{ section.subtitle|default:page.hero_subtitle }}
+        </p>
+        {% endif %}
+
+        {% if section.cta_text or section.cta_secondary_text %}
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            {% if section.cta_text %}
+            <a href="{{ section.cta_url|default:'#' }}" class="btn btn-light btn-lg">
+                <i class="bi {{ section.cta_icon|default:'bi-shield-check' }} me-2"></i>{{ section.cta_text }}
+            </a>
+            {% endif %}
+            {% if section.cta_secondary_text %}
+            <a href="{{ section.cta_secondary_url|default:'#' }}" class="btn btn-outline-light btn-lg">
+                {{ section.cta_secondary_text }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</section>
