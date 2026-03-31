@@ -258,19 +258,25 @@ main {
 /* =========================================
    Buttons
    ========================================= */
-.btn-primary {
+.btn-primary,
+.btn-patriot-primary {
     background-color: var(--patriot-blue);
     border-color: var(--patriot-blue);
+    color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-patriot-primary:hover {
     background-color: var(--patriot-blue-light);
     border-color: var(--patriot-blue-light);
+    color: #fff;
 }
 
-.btn-primary:focus {
+.btn-primary:focus,
+.btn-patriot-primary:focus {
     background-color: var(--patriot-blue);
     border-color: var(--patriot-blue);
+    color: #fff;
     box-shadow: 0 0 0 0.25rem rgba(0, 40, 104, 0.25);
 }
 

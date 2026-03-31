@@ -46,7 +46,7 @@
             </div>
 
             <!-- Hidden story data for Alpine to read -->
-            <script>window.EXAMPLE_STORIES = {{ example_stories_json }};</script>
+            <script>window.EXAMPLE_STORIES = {{ example_stories_json|safe }};</script>
             {% endif %}
 
             <!-- Story form -->
