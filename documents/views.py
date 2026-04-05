@@ -85,20 +85,20 @@ def wizard_story(request, document_slug):
 
 def _gpt_test(session):
     """
-    Calls GPT extraction in dry-run mode and prints the result to the
-    terminal (runserver output). Nothing is saved to the database.
+    Calls GPT extraction, saves results to the DB, and prints everything
+    to the terminal (runserver output) for inspection.
     """
     from documents.services.openai_service import extract_story
 
     SEP = '═' * 72
 
     print(f'\n{SEP}')
-    print('GPT EXTRACTION TEST  (dry run — nothing saved)')
+    print('GPT EXTRACTION  (saving to DB)')
     print(SEP)
     print(f'Story length: {len(session.story_text)} chars')
     print(f'Story preview: {session.story_text[:200]}…\n')
 
-    ai_analysis, error = extract_story(session, dry_run=True)
+    ai_analysis, error = extract_story(session, dry_run=False)
 
     if error:
         print(f'ERROR: {error}')
@@ -130,7 +130,7 @@ def _gpt_test(session):
         print()
 
     print(SEP)
-    print('END OF GPT OUTPUT — nothing was saved to the database')
+    print('END OF GPT OUTPUT — data saved to DB')
     print(SEP + '\n')
 
 
