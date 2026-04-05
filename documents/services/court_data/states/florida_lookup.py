@@ -26,7 +26,14 @@ class FloridaLookup(BaseStateLookup):
             'name': 'United States District Court for the Southern District of Florida',
             'cities': [
                 'miami', 'fort lauderdale', 'west palm beach', 'hollywood', 'coral gables',
-                'hialeah', 'pompano beach', 'boca raton', 'key west'
+                'hialeah', 'pompano beach', 'boca raton', 'key west',
+                'bayside', 'miami beach', 'north miami', 'north miami beach', 'aventura',
+                'doral', 'kendall', 'homestead', 'miramar', 'pembroke pines',
+                'plantation', 'sunrise', 'coral springs', 'margate', 'deerfield beach',
+                'delray beach', 'boynton beach', 'lake worth', 'wellington', 'jupiter',
+                'port st lucie', 'stuart', 'fort pierce', 'belle glade', 'palm beach',
+                'coconut grove', 'little havana', 'downtown miami', 'brickell',
+                'miami gardens', 'opa locka', 'miami lakes', 'cutler bay', 'palmetto bay'
             ]
         }
     }

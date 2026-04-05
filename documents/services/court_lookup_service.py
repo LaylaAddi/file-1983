@@ -1,6 +1,23 @@
 class CourtLookupService:
     """Main coordinator for federal district court lookups across all states."""
 
+    # Full state name → 2-letter code (handles GPT returning full names)
+    STATE_NAME_TO_CODE = {
+        'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR',
+        'CALIFORNIA': 'CA', 'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE',
+        'DISTRICT OF COLUMBIA': 'DC', 'FLORIDA': 'FL', 'GEORGIA': 'GA', 'HAWAII': 'HI',
+        'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
+        'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME',
+        'MARYLAND': 'MD', 'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN',
+        'MISSISSIPPI': 'MS', 'MISSOURI': 'MO', 'MONTANA': 'MT', 'NEBRASKA': 'NE',
+        'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ', 'NEW MEXICO': 'NM',
+        'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
+        'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI',
+        'SOUTH CAROLINA': 'SC', 'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX',
+        'UTAH': 'UT', 'VERMONT': 'VT', 'VIRGINIA': 'VA', 'WASHINGTON': 'WA',
+        'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY',
+    }
+
     # Mapping of state codes to their lookup classes
     STATE_LOOKUPS = {
         # Multi-district states
@@ -78,6 +95,8 @@ class CourtLookupService:
             return None
 
         state = state.strip().upper()
+        # Normalize full state names to 2-letter codes (GPT often returns full names)
+        state = cls.STATE_NAME_TO_CODE.get(state, state)
 
         # Try static lookup first
         result = cls._static_lookup(city, state)
@@ -114,39 +133,38 @@ class CourtLookupService:
     @classmethod
     def _gpt_fallback_lookup(cls, city, state):
         """
-        Use GPT with web search to find the federal district court.
-        Called when static lookup fails to find the city.
+        Ask GPT which federal district court covers a given city/state.
+        Called when the static city list doesn't have the city.
         """
         try:
-            from .openai_service import OpenAIService
-            service = OpenAIService()
-            result = service.lookup_federal_court(city, state)
+            from django.conf import settings
+            from openai import OpenAI
 
-            if result.get('success'):
+            api_key = getattr(settings, 'OPENAI_API_KEY', '')
+            if not api_key:
+                return None
+
+            client = OpenAI(api_key=api_key)
+            prompt = (
+                f'Which United States federal district court has jurisdiction over {city}, {state}? '
+                f'Reply with only the full official court name, e.g. '
+                f'"United States District Court for the Southern District of Florida". '
+                f'No explanation, just the court name.'
+            )
+            response = client.chat.completions.create(
+                model='gpt-4o',
+                messages=[{'role': 'user', 'content': prompt}],
+                temperature=0,
+                max_tokens=60,
+            )
+            court_name = response.choices[0].message.content.strip().strip('"')
+            if court_name:
                 return {
-                    'court_name': result['court_name'],
-                    'district': result.get('district', ''),
-                    'confidence': result.get('confidence', 'medium'),
-                    'method': 'gpt_web_search',
-                    'source': result.get('source', ''),
+                    'court_name': court_name,
+                    'confidence': 'medium',
+                    'method': 'gpt_fallback',
                     'state': state,
-                    'note': f'Found via AI web search for {city}, {state}'
                 }
-            else:
-                # GPT lookup failed, return generic result
-                return {
-                    'court_name': f'Federal District Court ({state})',
-                    'confidence': 'low',
-                    'method': 'fallback_failed',
-                    'state': state,
-                    'note': f'Could not determine exact court for {city}, {state}. Please verify manually.'
-                }
-        except Exception as e:
-            # If GPT service fails, return generic result
-            return {
-                'court_name': f'Federal District Court ({state})',
-                'confidence': 'low',
-                'method': 'error',
-                'state': state,
-                'note': f'Error during lookup: {str(e)}. Please verify manually.'
-            }
+        except Exception:
+            pass
+        return None
