@@ -3,9 +3,11 @@ import pprint
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
 from django.conf import settings
+from django.views.decorators.http import require_GET
 
-from .models import Document, WizardSession, PlaintiffInfo, ExampleStory
+from .models import Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview
 
 
 @login_required
@@ -130,3 +132,108 @@ def _gpt_test(session):
     print(SEP)
     print('END OF GPT OUTPUT — nothing was saved to the database')
     print(SEP + '\n')
+
+
+# ---------------------------------------------------------------------------
+# Step 1 — Incident Overview + Federal Jurisdiction
+# ---------------------------------------------------------------------------
+
+STATE_CHOICES = [
+    ('AL', 'Alabama'), ('AK', 'Alaska'), ('AZ', 'Arizona'), ('AR', 'Arkansas'),
+    ('CA', 'California'), ('CO', 'Colorado'), ('CT', 'Connecticut'), ('DE', 'Delaware'),
+    ('DC', 'District of Columbia'), ('FL', 'Florida'), ('GA', 'Georgia'), ('HI', 'Hawaii'),
+    ('ID', 'Idaho'), ('IL', 'Illinois'), ('IN', 'Indiana'), ('IA', 'Iowa'),
+    ('KS', 'Kansas'), ('KY', 'Kentucky'), ('LA', 'Louisiana'), ('ME', 'Maine'),
+    ('MD', 'Maryland'), ('MA', 'Massachusetts'), ('MI', 'Michigan'), ('MN', 'Minnesota'),
+    ('MS', 'Mississippi'), ('MO', 'Missouri'), ('MT', 'Montana'), ('NE', 'Nebraska'),
+    ('NV', 'Nevada'), ('NH', 'New Hampshire'), ('NJ', 'New Jersey'), ('NM', 'New Mexico'),
+    ('NY', 'New York'), ('NC', 'North Carolina'), ('ND', 'North Dakota'), ('OH', 'Ohio'),
+    ('OK', 'Oklahoma'), ('OR', 'Oregon'), ('PA', 'Pennsylvania'), ('RI', 'Rhode Island'),
+    ('SC', 'South Carolina'), ('SD', 'South Dakota'), ('TN', 'Tennessee'), ('TX', 'Texas'),
+    ('UT', 'Utah'), ('VT', 'Vermont'), ('VA', 'Virginia'), ('WA', 'Washington'),
+    ('WV', 'West Virginia'), ('WI', 'Wisconsin'), ('WY', 'Wyoming'),
+]
+
+
+@login_required
+def wizard_step1(request, document_slug):
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+    incident, _ = IncidentOverview.objects.get_or_create(document=doc)
+
+    if request.method == 'POST':
+        # Scalar fields
+        incident.incident_date = request.POST.get('incident_date') or None
+        incident.incident_time = request.POST.get('incident_time') or None
+        incident.address = request.POST.get('address', '').strip()
+        incident.city = request.POST.get('city', '').strip()
+        incident.state = request.POST.get('state', '').strip()
+        incident.county = request.POST.get('county', '').strip()
+        incident.location_type = request.POST.get('location_type', '').strip()
+        incident.location_description = request.POST.get('location_description', '').strip()
+        incident.plaintiff_activity = request.POST.get('plaintiff_activity', '').strip()
+        incident.federal_district_court = request.POST.get('federal_district_court', '').strip()
+
+        # Checkboxes — present in POST only when checked
+        incident.court_confirmed = request.POST.get('court_confirmed') == 'on'
+        incident.is_public_forum = _parse_tristate(request.POST.get('is_public_forum'))
+        incident.force_used = _parse_tristate(request.POST.get('force_used'))
+        incident.equipment_seized_or_damaged = _parse_tristate(request.POST.get('equipment_seized_or_damaged'))
+        incident.plaintiff_identified_themselves = _parse_tristate(request.POST.get('plaintiff_identified_themselves'))
+        incident.identification_description = request.POST.get('identification_description', '').strip()
+
+        incident.save()
+
+        # Advance wizard step
+        if session.current_step < 2:
+            session.current_step = 2
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        messages.success(request, 'Incident details saved.')
+        return redirect('documents:wizard_step1', document_slug=doc.slug)
+
+    return render(request, 'documents/wizard_step1.html', {
+        'document': doc,
+        'session': session,
+        'incident': incident,
+        'state_choices': STATE_CHOICES,
+        'location_type_choices': IncidentOverview.LOCATION_TYPE_CHOICES,
+    })
+
+
+def _parse_tristate(value):
+    """Convert a form tristate (yes/no/blank) to True/False/None."""
+    if value == 'yes':
+        return True
+    if value == 'no':
+        return False
+    return None
+
+
+@require_GET
+@login_required
+def lookup_district_court(request):
+    """AJAX: return the federal district court for a given city + state."""
+    city = request.GET.get('city', '').strip()
+    state = request.GET.get('state', '').strip().upper()
+
+    if not city or not state:
+        return JsonResponse({'success': False, 'error': 'City and state are required.'})
+
+    try:
+        from documents.services.court_lookup_service import CourtLookupService
+        result = CourtLookupService.lookup_court_by_location(city, state)
+        if result:
+            return JsonResponse({
+                'success': True,
+                'court_name': result.get('court_name', ''),
+                'confidence': result.get('confidence', 'low'),
+                'district': result.get('district', ''),
+                'method': result.get('method', ''),
+            })
+        return JsonResponse({
+            'success': False,
+            'error': f'Could not find federal district court for {city}, {state}.',
+        })
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': str(exc)})

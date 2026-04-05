@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 1 — When & Where — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .court-box {
+        border: 2px solid #ffc107;
+        border-radius: 0.5rem;
+        background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%);
+        padding: 1.25rem;
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .court-box.filled {
+        border-color: #198754;
+        background: linear-gradient(135deg, #f0fff4 0%, #e8f5e9 100%);
+    }
+    .court-box-header {
+        font-weight: 600;
+        color: #856404;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .court-box.filled .court-box-header { color: #198754; }
+    .court-confirm-box {
+        border: 2px solid #dc3545;
+        border-radius: 0.5rem;
+        background: #fff5f5;
+        padding: 1rem 1.25rem;
+        margin-top: 1rem;
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .court-confirm-box.confirmed {
+        border-color: #198754;
+        background: #f0fff4;
+    }
+    [data-theme="dark"] .court-box {
+        background: linear-gradient(135deg, #2a2000 0%, #3a2e00 100%);
+        border-color: #b36d00;
+    }
+    [data-theme="dark"] .court-box.filled {
+        background: linear-gradient(135deg, #0a2e1a 0%, #143d26 100%);
+        border-color: #198754;
+    }
+    [data-theme="dark"] .court-box-header { color: #ffb74d; }
+    [data-theme="dark"] .court-box.filled .court-box-header { color: #5cb85c; }
+    [data-theme="dark"] .court-confirm-box { background: #2a1a1a; border-color: #dc3545; }
+    [data-theme="dark"] .court-confirm-box.confirmed { background: #1a3a2e; border-color: #198754; }
+    [data-theme="dark"] .court-confirm-box label { color: #f77; }
+    [data-theme="dark"] .court-confirm-box.confirmed label { color: #5cb85c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="step1()">
+
+    <!-- Breadcrumb / progress header -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <a href="{% url 'documents:wizard_story' document.slug %}" class="text-muted text-decoration-none small">
+                    <i class="bi bi-arrow-left me-1"></i>Story
+                </a>
+                <span class="text-muted small">›</span>
+                <span class="small fw-semibold">Step 1 of 7 — When &amp; Where</span>
+            </div>
+            <h2 class="mb-1" style="font-family:'Playfair Display',serif;">When &amp; Where Did It Happen?</h2>
+            <p class="text-muted">
+                Tell us when and where the incident occurred. We'll look up the correct federal court for your complaint.
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" id="step1Form">
+                {% csrf_token %}
+
+                <!-- Date & Time -->
+                <div class="card card-patriot shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-semibold mb-3"><i class="bi bi-calendar-event me-2 text-primary"></i>Date &amp; Time</h5>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label">Date of Incident</label>
+                                <input type="date" name="incident_date" class="form-control"
+                                       value="{{ incident.incident_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Approximate Time <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="time" name="incident_time" class="form-control"
+                                       value="{{ incident.incident_time|time:'H:i' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div class="card card-patriot shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-semibold mb-3"><i class="bi bi-geo-alt me-2 text-primary"></i>Location</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Street Address <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" name="address" class="form-control"
+                                       placeholder="e.g. 400 Main Street"
+                                       value="{{ incident.address }}">
+                            </div>
+                            <div class="col-sm-5">
+                                <label class="form-label">City <span class="text-danger">*</span></label>
+                                <input type="text" name="city" class="form-control"
+                                       placeholder="City"
+                                       x-model="city"
+                                       @change="onLocationChange"
+                                       value="{{ incident.city }}"
+                                       required>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label">State <span class="text-danger">*</span></label>
+                                <select name="state" class="form-select"
+                                        x-model="state"
+                                        @change="onLocationChange"
+                                        required>
+                                    <option value="">— Select —</option>
+                                    {% for code, name in state_choices %}
+                                    <option value="{{ code }}" {% if incident.state == code %}selected{% endif %}>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="form-label">County <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" name="county" class="form-control"
+                                       placeholder="County"
+                                       value="{{ incident.county }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Location Type</label>
+                                <select name="location_type" class="form-select">
+                                    <option value="">— Select —</option>
+                                    {% for val, label in location_type_choices %}
+                                    <option value="{{ val }}" {% if incident.location_type == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Location Description <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" name="location_description" class="form-control"
+                                       placeholder="e.g. Public sidewalk in front of police station"
+                                       value="{{ incident.location_description }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- What the plaintiff was doing -->
+                <div class="card card-patriot shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-semibold mb-3"><i class="bi bi-person-walking me-2 text-primary"></i>What Were You Doing?</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Plaintiff Activity</label>
+                                <input type="text" name="plaintiff_activity" class="form-control"
+                                       placeholder="e.g. Recording police officers on a public sidewalk"
+                                       value="{{ incident.plaintiff_activity }}">
+                                <div class="form-text">Briefly describe what you were doing at the time of the incident.</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Public Forum?</label>
+                                <select name="is_public_forum" class="form-select">
+                                    <option value="">— Unknown —</option>
+                                    <option value="yes" {% if incident.is_public_forum == True %}selected{% endif %}>Yes</option>
+                                    <option value="no" {% if incident.is_public_forum == False %}selected{% endif %}>No</option>
+                                </select>
+                                <div class="form-text">Was this a traditional public forum (sidewalk, park, etc.)?</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Asked to Identify Yourself?</label>
+                                <select name="plaintiff_identified_themselves" class="form-select">
+                                    <option value="">— Unknown —</option>
+                                    <option value="yes" {% if incident.plaintiff_identified_themselves == True %}selected{% endif %}>Yes</option>
+                                    <option value="no" {% if incident.plaintiff_identified_themselves == False %}selected{% endif %}>No</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Force Used Against You?</label>
+                                <select name="force_used" class="form-select">
+                                    <option value="">— Unknown —</option>
+                                    <option value="yes" {% if incident.force_used == True %}selected{% endif %}>Yes</option>
+                                    <option value="no" {% if incident.force_used == False %}selected{% endif %}>No</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label">Equipment Seized or Damaged?</label>
+                                <select name="equipment_seized_or_damaged" class="form-select">
+                                    <option value="">— Unknown —</option>
+                                    <option value="yes" {% if incident.equipment_seized_or_damaged == True %}selected{% endif %}>Yes</option>
+                                    <option value="no" {% if incident.equipment_seized_or_damaged == False %}selected{% endif %}>No</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Federal District Court -->
+                <div class="card card-patriot shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="fw-semibold mb-3"><i class="bi bi-building-fill me-2 text-primary"></i>Federal District Court</h5>
+
+                        <div class="court-box mb-3" :class="{ filled: courtName && courtName.trim() }">
+                            <div class="court-box-header">
+                                <i class="bi" :class="courtName && courtName.trim() ? 'bi-check-circle-fill' : 'bi-building'"></i>
+                                <span x-text="courtName && courtName.trim() ? 'Federal District Court — Found' : 'Federal District Court — Required'"></span>
+                            </div>
+
+                            <p class="small text-muted mb-3">
+                                Section 1983 cases <strong>must</strong> be filed in the correct federal district court — the district where the incident occurred.
+                                The U.S. is divided into 94 federal judicial districts. Filing in the wrong district can result in dismissal.
+                                Enter the city and state above and we'll look it up automatically.
+                                You can verify at <a href="https://www.uscourts.gov/federal-court-finder/search" target="_blank" rel="noopener noreferrer">uscourts.gov</a>.
+                            </p>
+
+                            <div class="input-group mb-2">
+                                <input type="text" name="federal_district_court"
+                                       class="form-control"
+                                       x-model="courtName"
+                                       :readonly="!manualMode"
+                                       :placeholder="manualMode ? 'Enter federal district court name' : 'Enter city & state above — court will be looked up automatically'">
+                                <button class="btn btn-outline-primary" type="button"
+                                        @click="doLookup(true)"
+                                        :disabled="lookupLoading || !city || !state || manualMode">
+                                    <span x-show="!lookupLoading"><i class="bi bi-search me-1"></i>Look Up</span>
+                                    <span x-show="lookupLoading"><span class="spinner-border spinner-border-sm me-1"></span>Searching…</span>
+                                </button>
+                            </div>
+
+                            <!-- Confidence indicator -->
+                            <small class="d-block mb-2" x-show="confidenceMsg"
+                                   :class="{
+                                       'text-success': confidence === 'high',
+                                       'text-warning': confidence === 'medium',
+                                       'text-danger': confidence === 'failed'
+                                   }">
+                                <i class="bi me-1" :class="{
+                                    'bi-check-circle': confidence === 'high',
+                                    'bi-exclamation-circle': confidence === 'medium',
+                                    'bi-x-circle': confidence === 'failed'
+                                }"></i>
+                                <span x-text="confidenceMsg"></span>
+                            </small>
+
+                            <!-- Manual override -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="manualMode" x-model="manualMode" @change="if(manualMode){ courtName=''; confirmed=false; }">
+                                <label class="form-check-label small" for="manualMode">Enter the court name manually</label>
+                            </div>
+                            <div class="form-text">Check this if the automatic lookup is incorrect or you already know your court.</div>
+                        </div>
+
+                        <!-- Confirm jurisdiction -->
+                        <div class="court-confirm-box" :class="{ confirmed: confirmed }">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       id="court_confirmed"
+                                       name="court_confirmed"
+                                       x-model="confirmed"
+                                       :disabled="!courtName || !courtName.trim()">
+                                <label class="form-check-label fw-semibold" for="court_confirmed"
+                                       :class="confirmed ? 'text-success' : 'text-danger'">
+                                    I confirm this is the correct federal district court for my case
+                                </label>
+                            </div>
+                            <p class="small mt-2 mb-0" x-show="!confirmed">
+                                <strong>You must confirm the court to continue.</strong>
+                                If you're unsure, visit <a href="https://www.uscourts.gov/federal-court-finder/search" target="_blank" rel="noopener noreferrer">uscourts.gov</a> to verify.
+                            </p>
+                            <p class="small mt-2 mb-0 text-success" x-show="confirmed">
+                                <i class="bi bi-check-circle me-1"></i>Jurisdiction confirmed.
+                            </p>
+                        </div>
+
+                        <!-- Note: court_confirmed checkbox above submits "on" when checked; the view reads request.POST.get('court_confirmed') == 'on' -->
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center mb-5">
+                    <a href="{% url 'documents:wizard_story' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Story
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-4 fw-semibold"
+                            :disabled="!confirmed">
+                        Save &amp; Continue
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+
+                <!-- Warn if trying to submit without confirming -->
+                <div class="text-center mt-n3 mb-4" x-show="!confirmed">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        You must confirm the federal district court before continuing.
+                    </small>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step1() {
+    return {
+        city: '{{ incident.city|escapejs }}',
+        state: '{{ incident.state|escapejs }}',
+        courtName: '{{ incident.federal_district_court|escapejs }}',
+        confirmed: {{ incident.court_confirmed|yesno:'true,false' }},
+        manualMode: false,
+        lookupLoading: false,
+        confidence: '',
+        confidenceMsg: '',
+        _lastLookupKey: '',
+
+        init() {
+            // Auto-lookup on load if city+state set but no court yet
+            this.$nextTick(() => {
+                if (this.city && this.state && !this.courtName) {
+                    this.doLookup();
+                }
+            });
+        },
+
+        onLocationChange() {
+            // Clear court and confirmation when location changes
+            if (!this.manualMode) {
+                this.courtName = '';
+                this.confidence = '';
+                this.confidenceMsg = '';
+            }
+            this.confirmed = false;
+            this.doLookup();
+        },
+
+        async doLookup(force = false) {
+            const city = this.city.trim();
+            const state = this.state.trim();
+
+            if (!city || !state || this.manualMode) return;
+            if (this.lookupLoading) return;
+
+            const key = city.toLowerCase() + '|' + state.toUpperCase();
+            if (!force && this._lastLookupKey === key) return;
+            this._lastLookupKey = key;
+
+            this.lookupLoading = true;
+            this.confidence = '';
+            this.confidenceMsg = '';
+
+            try {
+                const url = "{% url 'documents:lookup_district_court' %}" +
+                            '?city=' + encodeURIComponent(city) +
+                            '&state=' + encodeURIComponent(state);
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                if (data.success && data.court_name) {
+                    this.courtName = data.court_name;
+                    this.confidence = data.confidence || 'medium';
+                    const via = data.method === 'gpt_web_search' ? ' (via web search)' : '';
+                    this.confidenceMsg = (data.confidence === 'high' ? 'High confidence match' : 'Best match found') + via;
+                } else {
+                    this.confidence = 'failed';
+                    this.confidenceMsg = 'Could not determine court automatically — try a nearby city or enter manually.';
+                }
+            } catch (err) {
+                this.confidence = 'failed';
+                this.confidenceMsg = 'Lookup error. Check "enter manually" below.';
+            } finally {
+                this.lookupLoading = false;
+            }
+        },
+    }
+}
+</script>
+{% endblock %}
