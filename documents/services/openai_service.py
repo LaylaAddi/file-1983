@@ -268,11 +268,15 @@ def _populate_models(session, ai_analysis):
     pi.save()
 
     # Step 2a — IncidentOverview
+    # Always reset court fields so step 1 re-runs the lookup for the new city/state
     inc = ai_analysis.get('incident') or {}
     if inc:
+        defaults = {k: v for k, v in inc.items() if v is not None}
+        defaults['federal_district_court'] = ''
+        defaults['court_confirmed'] = False
         IncidentOverview.objects.update_or_create(
             document=doc,
-            defaults={k: v for k, v in inc.items() if v is not None},
+            defaults=defaults,
         )
 
     # Step 2b — TimelineEntry (clear old, re-insert)
