@@ -2,8 +2,57 @@
 
 {% block title %}Tell Your Story — {{ app_name }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .analyzing-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+    }
+    .analyzing-steps {
+        list-style: none;
+        padding: 0;
+        margin: 1.5rem 0 0;
+        text-align: left;
+        min-width: 300px;
+    }
+    .analyzing-steps li {
+        padding: 0.35rem 0;
+        font-size: 0.95rem;
+        opacity: 0.4;
+        transition: opacity 0.4s, color 0.4s;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .analyzing-steps li.active { opacity: 1; color: #7dd3fc; }
+    .analyzing-steps li.done   { opacity: 0.75; color: #86efac; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-5" x-data="storyWizard()">
+
+    <!-- Analyzing overlay — shown while waiting for server response -->
+    <div class="analyzing-overlay" x-show="analyzing" x-cloak>
+        <div class="spinner-border text-light mb-3" style="width:3rem;height:3rem;" role="status"></div>
+        <h4 class="fw-semibold mb-1">Analyzing your story…</h4>
+        <p class="text-white-50 small mb-0">This usually takes 5–10 seconds.</p>
+        <ul class="analyzing-steps">
+            <template x-for="(step, i) in analysisSteps" :key="i">
+                <li :class="{ active: i === analysisStep, done: i < analysisStep }">
+                    <i class="bi" :class="i < analysisStep ? 'bi-check-circle-fill text-success' : (i === analysisStep ? 'bi-arrow-right-circle-fill' : 'bi-circle')"></i>
+                    <span x-text="step"></span>
+                </li>
+            </template>
+        </ul>
+    </div>
 
     <!-- Progress header -->
     <div class="row justify-content-center mb-4">
@@ -90,9 +139,11 @@
                                     <i class="bi bi-floppy me-1"></i>Save
                                 </button>
                             </div>
-                            <button type="submit" name="action" value="analyze" class="btn btn-lg px-4 fw-semibold wizard-btn-analyze"
+                            <button type="submit" name="action" value="analyze"
+                                    class="btn btn-lg px-4 fw-semibold wizard-btn-analyze"
                                     :disabled="storyText.trim().length < 50"
-                                    :style="storyText.trim().length < 50 ? 'opacity:0.5;cursor:not-allowed;' : 'opacity:1;'">
+                                    :style="storyText.trim().length < 50 ? 'opacity:0.5;cursor:not-allowed;' : 'opacity:1;'"
+                                    @click="startAnalyzing">
                                 <i class="bi bi-stars me-2"></i>
                                 Analyze My Story
                                 <i class="bi bi-arrow-right ms-1"></i>
@@ -139,6 +190,18 @@
 function storyWizard() {
     return {
         storyText: document.getElementById('story_text') ? document.getElementById('story_text').value : '',
+        analyzing: false,
+        analysisStep: 0,
+        analysisSteps: [
+            'Reading your story',
+            'Identifying defendants and officers',
+            'Extracting incident details',
+            'Mapping constitutional claims',
+            'Identifying evidence and witnesses',
+            'Looking up federal district court',
+            'Finalizing your complaint data',
+        ],
+        _stepTimer: null,
 
         get wordCount() {
             return this.storyText.trim() === '' ? 0 : this.storyText.trim().split(/\s+/).length;
@@ -150,7 +213,19 @@ function storyWizard() {
             if (stories[pk]) {
                 this.storyText = stories[pk];
             }
-        }
+        },
+
+        startAnalyzing() {
+            if (this.storyText.trim().length < 50) return;
+            this.analyzing = true;
+            this.analysisStep = 0;
+            // Cycle through steps while server processes
+            this._stepTimer = setInterval(() => {
+                if (this.analysisStep < this.analysisSteps.length - 1) {
+                    this.analysisStep++;
+                }
+            }, 1800);
+        },
     }
 }
 </script>
