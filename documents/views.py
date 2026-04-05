@@ -157,39 +157,33 @@ STATE_CHOICES = [
 
 @login_required
 def wizard_step1(request, document_slug):
+    """Step 1 — Federal jurisdiction only. Confirm or override the court."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     session = doc.wizard_session
     incident, _ = IncidentOverview.objects.get_or_create(document=doc)
 
+    # Auto-run court lookup if we have city+state but no court yet
+    if incident.city and incident.state and not incident.federal_district_court:
+        try:
+            from documents.services.court_lookup_service import CourtLookupService
+            result = CourtLookupService.lookup_court_by_location(incident.city, incident.state)
+            if result and result.get('court_name'):
+                incident.federal_district_court = result['court_name']
+                incident.save(update_fields=['federal_district_court'])
+        except Exception:
+            pass
+
     if request.method == 'POST':
-        # Scalar fields
-        incident.incident_date = request.POST.get('incident_date') or None
-        incident.incident_time = request.POST.get('incident_time') or None
-        incident.address = request.POST.get('address', '').strip()
-        incident.city = request.POST.get('city', '').strip()
-        incident.state = request.POST.get('state', '').strip()
-        incident.county = request.POST.get('county', '').strip()
-        incident.location_type = request.POST.get('location_type', '').strip()
-        incident.location_description = request.POST.get('location_description', '').strip()
-        incident.plaintiff_activity = request.POST.get('plaintiff_activity', '').strip()
         incident.federal_district_court = request.POST.get('federal_district_court', '').strip()
-
-        # Checkboxes — present in POST only when checked
         incident.court_confirmed = request.POST.get('court_confirmed') == 'on'
-        incident.is_public_forum = _parse_tristate(request.POST.get('is_public_forum'))
-        incident.force_used = _parse_tristate(request.POST.get('force_used'))
-        incident.equipment_seized_or_damaged = _parse_tristate(request.POST.get('equipment_seized_or_damaged'))
-        incident.plaintiff_identified_themselves = _parse_tristate(request.POST.get('plaintiff_identified_themselves'))
-        incident.identification_description = request.POST.get('identification_description', '').strip()
+        incident.save(update_fields=['federal_district_court', 'court_confirmed'])
 
-        incident.save()
-
-        # Advance wizard step
         if session.current_step < 2:
             session.current_step = 2
             session.save(update_fields=['current_step', 'updated_at'])
 
-        messages.success(request, 'Incident details saved.')
+        # TODO: redirect to step 2 once built
+        messages.success(request, 'Jurisdiction confirmed.')
         return redirect('documents:wizard_step1', document_slug=doc.slug)
 
     return render(request, 'documents/wizard_step1.html', {
@@ -197,7 +191,6 @@ def wizard_step1(request, document_slug):
         'session': session,
         'incident': incident,
         'state_choices': STATE_CHOICES,
-        'location_type_choices': IncidentOverview.LOCATION_TYPE_CHOICES,
     })
 
 
