@@ -1,4 +1,5 @@
 import json
+import pprint
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -49,10 +50,11 @@ def wizard_story(request, document_slug):
                 messages.success(request, 'Story saved. Come back any time to continue.')
                 return redirect('documents:wizard_story', document_slug=doc.slug)
             else:
-                # AI extraction will be triggered here in a later step
+                # Call GPT in dry-run mode — nothing is saved, output goes to terminal
+                _gpt_test(session)
                 session.current_step = 1
                 session.save(update_fields=['current_step', 'updated_at'])
-                messages.success(request, 'Story saved. Now let\'s review the details.')
+                messages.success(request, 'Story analyzed — check your terminal for GPT output.')
                 return redirect('documents:wizard_story', document_slug=doc.slug)
         else:
             messages.error(request, 'Please enter your story before continuing.')
@@ -73,3 +75,58 @@ def wizard_story(request, document_slug):
         'example_stories': example_stories,
         'example_stories_json': example_stories_json,
     })
+
+
+# ---------------------------------------------------------------------------
+# Dev helper — remove once extraction is wired for real
+# ---------------------------------------------------------------------------
+
+def _gpt_test(session):
+    """
+    Calls GPT extraction in dry-run mode and prints the result to the
+    terminal (runserver output). Nothing is saved to the database.
+    """
+    from documents.services.openai_service import extract_story
+
+    SEP = '═' * 72
+
+    print(f'\n{SEP}')
+    print('GPT EXTRACTION TEST  (dry run — nothing saved)')
+    print(SEP)
+    print(f'Story length: {len(session.story_text)} chars')
+    print(f'Story preview: {session.story_text[:200]}…\n')
+
+    ai_analysis, error = extract_story(session, dry_run=True)
+
+    if error:
+        print(f'ERROR: {error}')
+        print(SEP + '\n')
+        return
+
+    SECTION_MODEL = {
+        'document':              'Document',
+        'plaintiff':             'PlaintiffInfo',
+        'incident':              'IncidentOverview',
+        'timeline':              'TimelineEntry (one row per entry)',
+        'defendants':            'Defendant (one row per defendant)',
+        'government_entity':     'GovernmentEntity',
+        'constitutional_claims': 'ConstitutionalClaim (one row per claim)',
+        'evidence':              'Evidence (one row per item)',
+        'witnesses':             'Witness (one row per witness)',
+        'damages':               'Damages',
+        'relief':                'ReliefSought',
+        'prior_complaints':      'PriorComplaints',
+    }
+
+    for section, model_label in SECTION_MODEL.items():
+        data = ai_analysis.get(section)
+        print(f'── {section.upper()}  →  {model_label}')
+        if data is None:
+            print('   (null — not extracted)')
+        else:
+            pprint.pprint(data, indent=3)
+        print()
+
+    print(SEP)
+    print('END OF GPT OUTPUT — nothing was saved to the database')
+    print(SEP + '\n')
