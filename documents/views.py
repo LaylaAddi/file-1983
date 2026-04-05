@@ -57,7 +57,7 @@ def wizard_story(request, document_slug):
                 session.current_step = 1
                 session.save(update_fields=['current_step', 'updated_at'])
                 messages.success(request, 'Story analyzed — check your terminal for GPT output.')
-                return redirect('documents:wizard_story', document_slug=doc.slug)
+                return redirect('documents:wizard_step1', document_slug=doc.slug)
         else:
             messages.error(request, 'Please enter your story before continuing.')
 
