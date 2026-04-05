@@ -174,8 +174,19 @@ def wizard_step1(request, document_slug):
             pass
 
     if request.method == 'POST':
-        incident.federal_district_court = request.POST.get('federal_district_court', '').strip()
-        incident.court_confirmed = request.POST.get('court_confirmed') == 'on'
+        federal_district_court = request.POST.get('federal_district_court', '').strip()
+        court_confirmed = request.POST.get('court_confirmed') == 'on'
+
+        if not federal_district_court:
+            messages.error(request, 'Please enter or look up the federal district court before continuing.')
+            return redirect('documents:wizard_step1', document_slug=doc.slug)
+
+        if not court_confirmed:
+            messages.error(request, 'You must confirm the federal district court before continuing.')
+            return redirect('documents:wizard_step1', document_slug=doc.slug)
+
+        incident.federal_district_court = federal_district_court
+        incident.court_confirmed = True
         incident.save(update_fields=['federal_district_court', 'court_confirmed'])
 
         if session.current_step < 2:
