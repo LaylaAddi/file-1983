@@ -526,11 +526,13 @@ class Damages(models.Model):
     )
     physical_injury_description = models.TextField(blank=True)
     emotional_distress_description = models.TextField(blank=True)
-    lost_wages = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
+    lost_wages = models.TextField(
+        blank=True,
+        help_text='Description of lost wages or income, e.g. "Missed 2 work shifts, approx $300"'
     )
-    property_damage_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
+    property_damage_amount = models.TextField(
+        blank=True,
+        help_text='Description of property damage, e.g. "Phone screen cracked, replacement ~$200"'
     )
     punitive_basis = models.TextField(
         blank=True,
