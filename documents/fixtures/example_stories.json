@@ -99,4 +99,44 @@
       "story_text": "On January 27, 2024, at around 2:00 in the afternoon, I was in Elmwood Park, a public city park at 800 Park Drive in Kansas City, Missouri. I was walking through the park recording the grounds, the pavilion, and a group of city workers doing maintenance. I was not interfering with anyone and was on a public footpath.\n\nOfficer Christine Malone, badge 5581, of the Kansas City Police Department approached me and asked what I was doing. I told her I was recording in a public park. She asked for my ID. I asked if I was being detained and what the basis for detention was. She said she was investigating suspicious activity. I asked what specifically was suspicious. She said someone had called in a complaint about a person recording in the park.\n\nI asked again if I was free to go. She said no, I was being detained pending her investigation. She called for a second officer, Officer Gary Pham, badge 5740, who arrived approximately ten minutes later. Officer Pham told me that parks in Kansas City required a permit for commercial filming. I told him I was not filming commercially, I was a citizen exercising my First Amendment rights. He said he would have to verify that.\n\nI was held on the footpath, both officers present, for approximately 40 minutes total. No permit was ever mentioned in writing. No citation was issued. My ID was taken, run through dispatch, and returned with no findings. I was eventually told I was free to go.\n\nThe full 40-minute encounter was recorded on my phone, which they did not take. I also had a small body camera running the entire time.\n\nI was late to pick up my daughter from school as a direct result of the detention, which caused me and my daughter significant distress. I want to file for unlawful investigatory detention without reasonable suspicion, compelled identification in a non-stop state, and First Amendment retaliation."
     }
   }
+  ,{
+    "model": "documents.examplestory",
+    "pk": 11,
+    "fields": {
+      "title": "Officer stopped me while recording (gaps in story) — no location",
+      "order": 11,
+      "is_active": true,
+      "story_text": "I was standing outside on a public sidewalk recording with my phone when a police officer came over and told me to stop. I said I had the right to record in public. He said I was making people uncomfortable and that I needed to leave. I told him I wasn't doing anything wrong. He then grabbed my phone and deleted my video. I was really upset. He eventually let me go but kept my memory card. I want to file a complaint because what he did was wrong and I lost my footage. I had been planning to post the video online. The whole thing took about twenty minutes and I was shaken up afterward."
+    }
+  },
+  {
+    "model": "documents.examplestory",
+    "pk": 12,
+    "fields": {
+      "title": "Detained outside government building (gaps in story) — no officer names or badges",
+      "order": 12,
+      "is_active": true,
+      "story_text": "On May 3, 2024, around noon, I was recording outside the federal building on Main Street in downtown Nashville, Tennessee. Some officers came out and told me I had to leave. I asked why and they said it was a security area. I said I was on the public sidewalk. They told me I was being detained and made me stand against a wall for about half an hour. They took my phone and looked through it without my permission. Then they gave it back and said I could go. No charges were filed. I was embarrassed and stressed out. I want to hold them accountable for what they did to me."
+    }
+  },
+  {
+    "model": "documents.examplestory",
+    "pk": 13,
+    "fields": {
+      "title": "Recording at city hall — no date, no damages described (gaps in story)",
+      "order": 13,
+      "is_active": true,
+      "story_text": "I went to city hall to record a public meeting. Officer James Cole, badge 3301, of the Portland Police Bureau told me I had to put my camera away. I said public meetings can be recorded under Oregon law. He said the city had its own rules. I kept recording. He grabbed my arm and walked me out of the building. Another officer, Officer Sarah Kim, badge 3344, helped him escort me out. They took my camera at the door and gave it back about an hour later. The footage was still on it. I want to file a complaint for First Amendment retaliation and being physically removed from a public meeting without legal basis."
+    }
+  },
+  {
+    "model": "documents.examplestory",
+    "pk": 14,
+    "fields": {
+      "title": "Vague encounter with police — most info missing (gaps in story)",
+      "order": 14,
+      "is_active": true,
+      "story_text": "A cop stopped me and took my phone. I was just standing there minding my business. He said I wasn't allowed to be there. I don't remember exactly when this happened, maybe a few months ago. He was rude and wouldn't give me his name. I think there was another officer there too but I'm not sure. They kept my phone for a while. I want to sue them for what they did. It wasn't right."
+    }
+  }
 ]
