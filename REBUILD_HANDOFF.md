@@ -1,257 +1,47 @@
-# 1983 Law — Rebuild Handoff
+# 1983 Law — Project Handoff
 
 ## The App
-A Django web app at **file1983.com** that guides users through building a **Section 1983 civil rights complaint**
-against government officials. Target users are **First Amendment auditors** and citizens documenting
-police misconduct, unlawful arrest, excessive force, and retaliation for recording in public.
+A Django web app that guides users through building a **Section 1983 civil rights complaint**
+against government officials. Target users: First Amendment auditors, citizens documenting
+police misconduct, unlawful arrest, excessive force, retaliation for recording in public.
 
-Flow: User tells their story (typed or spoken) → AI extracts structured data → wizard lets user
-review/edit each section → final review → PDF download.
+Flow: User tells their story → AI extracts structured data → wizard lets user review/edit
+each section → final review → PDF download → Stripe payment to unlock.
+
+---
+
+## Git Setup
+
+### Pull latest to local
+```bash
+git fetch origin
+git checkout claude/test-gpt-story-extraction-dZ5XG
+git pull origin claude/test-gpt-story-extraction-dZ5XG
+```
+
+### Push to master when done
+```bash
+git checkout master
+git merge claude/test-gpt-story-extraction-dZ5XG
+git push origin master
+```
+
+### Development branch
+All new work goes on: `claude/test-gpt-story-extraction-dZ5XG`
 
 ---
 
 ## Stack
-- **Backend:** Django 4.2+, PostgreSQL (prod), SQLite (dev)
-- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display (Google Font), Alpine.js
-- **AI:** OpenAI API (GPT-4) — story extraction, section generation, court lookup fallback
-- **Payments:** Stripe — one-time purchases + subscriptions + webhooks
-- **PDF:** WeasyPrint
-- **Video Evidence:** Supadata API (YouTube transcript extraction)
-- **Hosting:** Render (gunicorn + whitenoise)
+- **Backend:** Django 4.2+, PostgreSQL
+- **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display, Alpine.js
+- **AI:** OpenAI GPT-4o — story extraction + court lookup fallback
+- **Payments:** Stripe (not yet wired)
+- **PDF:** WeasyPrint (not yet wired)
 - **Auth:** Custom User model, email-based (no username)
-- **API:** Django REST Framework + SimpleJWT (wired up, endpoints stubbed for future mobile app)
 
 ---
 
-## Design
-- Color palette, navbar, footer, theme CSS already in place — do not redesign
-- Master theme: `static/css/app-theme.css`
-- SVG logos in `static/images/` (gavel-icon.svg, gavel-logo.svg, favicon.svg)
-- Fonts: Playfair Display headings, system-ui body
-- Dark mode toggle built into base.html, persisted via localStorage
-
----
-
-## What's Been Built
-
-### Project scaffold (`config/`)
-- `config/settings.py` — full settings, env-based, SQLite dev / Postgres prod
-- `config/urls.py` — includes accounts, documents, public_pages, api/v1/
-- `config/context_processors.py` — injects `app_name`, `header_app_name`, `ADMIN_URL` into all templates
-- `config/api_urls.py` — `/api/v1/token/`, `/api/v1/token/refresh/` (JWT)
-- `base.html` — navbar, footer, dark mode, Bootstrap 5.3, Alpine.js, Bootstrap Icons
-- Dynamic admin URL via `ADMIN_URL` env var (default: `manage-dev/`)
-
-### `accounts/` app
-**Models** (migrated):
-- `User` — email-based auth. Includes `first_name`, `last_name`, `phone`, `address`, `city`, `state`, `zip_code`, `user_type` (plaintiff/attorney), `referral_code`, `referred_by`
-  - `get_plaintiff_defaults()` → dict mapping directly to `PlaintiffInfo` fields
-  - `has_complete_profile()` → bool (requires first_name, last_name, address, city, state)
-  - `has_active_subscription()`, `has_unlimited_access()`, `get_ai_uses_remaining()`, `can_create_document()`
-- `Subscription` — Stripe subscription (monthly/annual), status, period dates
-- `DocumentPack` — one-time purchase credits (single/$49, 3-pack/$99)
-- `SiteSettings` — singleton: app_name, pricing values, feature flags (registration_open, maintenance_mode)
-- `LegalDocument` — terms/privacy/disclaimer pages (HTML content, managed via admin)
-
-**Views/URLs** (all working):
-- `/accounts/register/`, `/accounts/login/`, `/accounts/logout/`
-- `/accounts/profile/` — edits all user fields including address; shows incomplete-profile warning banner; accepts `?next=` param and redirects there after save
-- `/accounts/pricing/` — stub page ("coming soon"), ready for Stripe integration
-- Full password reset flow (Django built-ins with custom templates)
-
-**Forms:** `RegisterForm`, `LoginForm`, `ProfileForm` (all address fields), password reset forms
-
-**Templates** (all working): login, register, profile, pricing (stub), password reset flow
-
-**Still needed:**
-- Stripe checkout session creation (single doc + subscription plans)
-- Stripe webhook handler at `/accounts/subscription/webhook/`
-- Real pricing page with plan cards
-
----
-
-### `documents/` app
-
-**Models** (migrated — `0001_initial.py`, `0002_examplestory.py`):
-
-#### Document (root)
-| Field | Type | Notes |
-|---|---|---|
-| `slug` | CharField | Short random URL-safe ID (e.g. `nP27cOkr`), auto-generated, immutable |
-| `title` | CharField | Short user label |
-| `payment_status` | CharField | draft / paid / finalized / expired |
-| `jury_trial_demand` | BooleanField | Included in complaint header |
-
-#### WizardSession (AI pipeline state)
-| Field | Type | Notes |
-|---|---|---|
-| `story_text` | TextField | Raw story typed or dictated by user |
-| `ai_analysis` | JSONField | Full structured output from GPT — see shape below |
-| `status` | CharField | not_started / in_progress / analyzed / completed |
-| `current_step` | SmallInt | 0=story, 1–7=wizard steps |
-| `ai_extraction_attempted` | BooleanField | |
-| `ai_extraction_succeeded` | BooleanField | |
-| `ai_extraction_error` | TextField | Error message if extraction failed |
-
-#### PlaintiffInfo → goes into complaint caption
-`full_name`, `address`, `city`, `state`, `zip_code`, `phone`, `email`,
-`filing_pro_se`, `attorney_name`, `attorney_bar_number`, `attorney_address`
-
-#### IncidentOverview → jurisdiction + facts intro
-`incident_date`, `incident_time`, `address`, `city`, `state`, `county`,
-`location_description`, `location_type`, `is_public_forum`,
-`plaintiff_activity`, `plaintiff_identified_themselves`, `identification_description`,
-`force_used`, `equipment_seized_or_damaged`,
-`federal_district_court`, `court_confirmed`
-
-#### TimelineEntry → factual allegations (numbered paragraphs)
-`order`, `time_approximate`, `actor`, `action_description`
-*(multiple per document — each becomes a numbered paragraph in the complaint)*
-
-#### Defendant → defendants section + caption
-`full_name`, `badge_number`, `rank_title`, `agency_name`,
-`parent_government_entity`, `agency_address`,
-`capacity_sued` (individual/official/both),
-`acting_under_color_of_law`, `color_of_law_basis`, `is_supervisor`
-*(multiple per document)*
-
-#### GovernmentEntity → Monell claim section
-`entity_name`, `entity_address`, `policy_or_custom_description`
-
-#### ConstitutionalClaim → causes of action
-`amendment` (choices: 1st retaliation, 1st prior restraint, 1st viewpoint, 4th search,
-4th seizure, 4th excessive force, 5th due process, 8th cruel, 14th due process,
-14th equal protection, other), `how_violated`
-*(multiple per document)*
-
-#### Evidence → exhibits / supporting facts
-`evidence_type` (video/photo/police_report/body_cam/foia/citation/medical/physical/document),
-`description`, `date_and_time`, `recorded_by`, `storage_location`, `public_url`,
-`defendant_aware_of_recording`
-*(multiple per document)*
-
-#### Witness → witness list
-`full_name`, `contact_info`, `relationship_to_plaintiff`,
-`what_they_witnessed`, `has_video`, `willing_to_testify`
-*(multiple per document)*
-
-#### Damages → damages section
-`physical_injury_description`, `emotional_distress_description`,
-`lost_wages` (decimal), `property_damage_amount` (decimal), `punitive_basis`
-
-#### PriorComplaints → pattern of conduct / notice
-`filed_complaints` (bool), `description`, `outcomes`
-
-#### ReliefSought → prayer for relief
-`compensatory_damages` (bool), `compensatory_amount` (decimal),
-`punitive_damages`, `declaratory_judgment`, `injunctive_relief`,
-`attorney_fees`, `costs_of_suit`, `other_relief`
-
-#### Supporting models (dormant until those features are built)
-- `AIPrompt` — admin-managed system/user prompt templates per task
-- `PromoCode`, `PromoCodeUsage`, `PayoutRequest` — referral/discount system
-- `ExampleStory` — test scenarios for staff dropdown on story page
-
----
-
-**ai_analysis JSON shape** (what GPT must return — documented in full at top of `documents/models.py`):
-```json
-{
-  "document": { "title": "", "jury_trial_demand": true },
-  "plaintiff": { "full_name": "", "address": "", "city": "", "state": "", "zip_code": "", "phone": "", "email": "", "filing_pro_se": true, "attorney_name": "", "attorney_bar_number": "", "attorney_address": "" },
-  "incident": { "incident_date": "YYYY-MM-DD", "incident_time": "HH:MM", "address": "", "city": "", "state": "", "county": "", "location_description": "", "location_type": "", "is_public_forum": null, "plaintiff_activity": "", "plaintiff_identified_themselves": null, "identification_description": "", "force_used": null, "equipment_seized_or_damaged": null, "federal_district_court": "" },
-  "timeline": [ { "order": 1, "time_approximate": "", "actor": "", "action_description": "" } ],
-  "defendants": [ { "full_name": "", "badge_number": "", "rank_title": "", "agency_name": "", "parent_government_entity": "", "agency_address": "", "capacity_sued": "both", "acting_under_color_of_law": true, "color_of_law_basis": "", "is_supervisor": false } ],
-  "government_entity": { "entity_name": "", "entity_address": "", "policy_or_custom_description": "" },
-  "constitutional_claims": [ { "amendment": "", "how_violated": "" } ],
-  "evidence": [ { "evidence_type": "", "description": "", "date_and_time": "", "recorded_by": "", "storage_location": "", "public_url": "", "defendant_aware_of_recording": null } ],
-  "witnesses": [ { "full_name": "", "contact_info": "", "relationship_to_plaintiff": "", "what_they_witnessed": "", "has_video": null, "willing_to_testify": null } ],
-  "damages": { "physical_injury_description": "", "emotional_distress_description": "", "lost_wages": null, "property_damage_amount": null, "punitive_basis": "" },
-  "relief": { "compensatory_damages": false, "compensatory_amount": null, "punitive_damages": false, "declaratory_judgment": false, "injunctive_relief": false, "attorney_fees": false, "costs_of_suit": false, "other_relief": "" },
-  "prior_complaints": { "filed_complaints": false, "description": "", "outcomes": "" }
-}
-```
-
-**Views/URLs** (working):
-- `GET /documents/` → document list
-- `GET /documents/new/` → profile gate → create Document + WizardSession + PlaintiffInfo → redirect to wizard
-- `GET/POST /documents/<slug>/wizard/` → story input page
-
-**Templates** (working):
-- `documents/list.html` — stub (needs building)
-- `documents/wizard_story.html` — story textarea, word count, Save + Analyze buttons, staff/DEBUG example story dropdown (Alpine.js fills textarea on selection)
-
-**Example stories fixture:** `documents/fixtures/example_stories.json`
-10 First Amendment auditor scenarios. Load with:
-`python manage.py loaddata example_stories`
-
----
-
-## ⬅️ NEXT STEP: GPT Story Extraction Service
-
-Build `documents/services/openai_service.py`.
-
-### What it needs to do:
-1. Take `WizardSession.story_text` as input
-2. Call GPT-4 with a system prompt instructing it to extract structured data
-3. Return JSON matching the `ai_analysis` shape above
-4. Save that JSON to `WizardSession.ai_analysis`
-5. Populate all related models from the JSON:
-   - Update `PlaintiffInfo` (already exists, created from user profile — merge/update don't overwrite)
-   - Create/update `IncidentOverview`
-   - Create `TimelineEntry` records (delete old ones first)
-   - Create `Defendant` records (delete old ones first)
-   - Create/update `GovernmentEntity`
-   - Create `ConstitutionalClaim` records (delete old ones first)
-   - Create `Evidence` records (delete old ones first)
-   - Create `Witness` records (delete old ones first)
-   - Create/update `Damages`
-   - Create/update `PriorComplaints`
-   - Create/update `ReliefSought`
-   - Update `Document.title` if GPT provided one
-6. Set `WizardSession.ai_extraction_succeeded = True` (or False + error message)
-7. Set `WizardSession.status = 'analyzed'`
-
-### Where it gets called:
-`documents/views.py` → `wizard_story` view → when `action == 'analyze'` in POST
-
-### Key implementation notes:
-- Run extraction synchronously for now (async/Celery is future work)
-- The system prompt should tell GPT: extract only what is explicitly stated, use null for unknown fields, return valid JSON only
-- PlaintiffInfo is pre-populated from user profile — only overwrite fields where GPT found something more specific (e.g. if user mentioned a different address in their story)
-- All model creates should use `get_or_create` / `update_or_create` so re-analyzing the same story doesn't create duplicates
-- After extraction succeeds, redirect to Step 1 (plaintiff review) — not yet built
-- The `AIPrompt` model in admin can hold the system prompt — check for an active `story_parse` prompt first, fall back to a hardcoded default
-
-### Suggested GPT system prompt direction:
-> You are a legal document assistant helping build a Section 1983 civil rights complaint.
-> Extract structured information from the user's story. Return only valid JSON matching the provided schema.
-> Use null for any field not mentioned. Do not invent details not in the story.
-> For constitutional claims, identify which amendments were likely violated based on the facts described.
-> For the timeline, break events into discrete chronological steps, one action per entry.
-
----
-
-## URL Map (current)
-```
-/                          → public_pages:home (stub)
-/accounts/register/        → register
-/accounts/login/           → login
-/accounts/logout/          → logout
-/accounts/profile/         → profile (full address fields, incomplete-profile banner)
-/accounts/pricing/         → pricing stub
-/accounts/password-reset/  → password reset flow
-/documents/                → document list (stub template)
-/documents/new/            → create document (profile gate)
-/documents/<slug>/wizard/  → story input page ← user is here
-/api/v1/token/             → JWT obtain
-/api/v1/token/refresh/     → JWT refresh
-/<ADMIN_URL>/              → Django admin
-```
-
----
-
-## Docker / Dev Setup
+## Docker Dev Setup
 ```bash
 docker compose up -d
 docker compose exec web python manage.py migrate
@@ -259,19 +49,29 @@ docker compose exec web python manage.py loaddata example_stories
 docker compose exec web python manage.py createsuperuser
 ```
 
-Database is `file1983` on the `db` service (postgres:16).
-Connect directly: `docker compose exec db psql -U postgres -d file1983`
+Restart detached after stopping:
+```bash
+docker compose up -d
+```
+
+View logs:
+```bash
+docker compose logs -f web
+```
+
+Database: `file1983` on the `db` service (postgres:16)
+Direct DB access: `docker compose exec db psql -U postgres -d file1983`
 
 ---
 
-## Environment Variables
+## Environment Variables (`.env` file)
 ```
 SECRET_KEY=
 DEBUG=1
 ALLOWED_HOSTS=localhost,127.0.0.1
 DATABASE_URL=postgresql://postgres:postgres@db:5432/file1983
 ADMIN_URL=manage-dev/
-OPENAI_API_KEY=                ← needed for next step
+OPENAI_API_KEY=              ← required for extraction + court lookup fallback
 STRIPE_SECRET_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
@@ -283,36 +83,168 @@ EMAIL_HOST=
 EMAIL_HOST_USER=
 EMAIL_HOST_PASSWORD=
 DEFAULT_FROM_EMAIL=
-SUPADATA_API_KEY=
+```
+
+---
+
+## URL Map
+```
+/                                          → public_pages:home (stub)
+/accounts/register/                        → register
+/accounts/login/                           → login
+/accounts/logout/                          → logout
+/accounts/profile/                         → profile (full address, incomplete-profile banner)
+/accounts/pricing/                         → pricing stub
+/accounts/password-reset/                  → password reset flow
+/documents/                                → document list
+/documents/new/                            → create document (profile gate)
+/documents/<slug>/wizard/                  → story input page
+/documents/<slug>/wizard/summary/          → post-extraction summary (found/missing review)
+/documents/<slug>/wizard/step1/            → Step 1: federal jurisdiction / court confirmation
+/documents/lookup-district-court/          → AJAX: GET ?city=&state= → court name JSON
+/api/v1/token/                             → JWT obtain
+/api/v1/token/refresh/                     → JWT refresh
+/<ADMIN_URL>/                              → Django admin
 ```
 
 ---
 
 ## Build Status
 - [x] Project scaffold — settings, URLs, base template, theme CSS, dark mode, DRF+JWT
-- [x] `accounts` app — User model (with address/profile), auth views, profile page, password reset
-- [x] `accounts` app — pricing stub (real Stripe checkout deferred)
-- [x] `documents` app — all models + admin + migrations
-- [x] `documents` app — document create (profile gate, auto-create PlaintiffInfo from user profile)
-- [x] `documents` app — wizard story page (Save + Analyze buttons, example stories dropdown)
-- [ ] **`documents` app — GPT extraction service** ← BUILD THIS NEXT
-- [ ] `documents` app — wizard steps 1–7 (review/edit extracted fields)
-- [ ] `documents` app — document list template
-- [ ] `documents` app — court lookup service (city+state → federal district court)
-- [ ] `documents` app — final review page + PDF generation (WeasyPrint)
-- [ ] `documents` app — video evidence (Supadata API, subscribers only)
-- [ ] `accounts` app — Stripe checkout + webhooks
-- [ ] `public_pages` app — landing page CMS
-- [ ] Deploy config — Render, gunicorn, whitenoise, sitemaps
+- [x] `accounts` — User model (address/profile fields), auth views, profile page, password reset
+- [x] `documents` — all models + admin + migrations
+- [x] `documents` — document create view (profile gate, auto-create PlaintiffInfo from user profile)
+- [x] `documents` — document list page (title, status badge, wizard progress, story preview)
+- [x] `documents` — wizard story page (Save + Analyze, inline progress animation, example stories dropdown)
+- [x] `documents` — GPT extraction service (`documents/services/openai_service.py`)
+- [x] `documents` — court lookup service (`documents/services/court_lookup_service.py`) — static city maps + GPT fallback
+- [x] `documents` — post-extraction summary page (found/partial/missing per category, red/yellow/green banner)
+- [x] `documents` — Step 1: federal jurisdiction only (auto-populate court, confirm checkbox, manual override)
+- [x] `documents` — example stories fixture (PKs 1–10 complete, PKs 11–14 gap-test stories)
+- [ ] **Step 2: Incident details form** ← BUILD NEXT
+- [ ] Step 3: Defendants (add/edit/delete, multi-record)
+- [ ] Step 4: Constitutional claims (multi-record)
+- [ ] Step 5: Evidence & Witnesses (multi-record)
+- [ ] Step 6: Damages & Relief
+- [ ] Step 7: Final review
+- [ ] PDF generation (WeasyPrint)
+- [ ] Stripe payment integration
+- [ ] Landing page CMS (`public_pages`)
+- [ ] Deploy config (Render, gunicorn, whitenoise)
 
 ---
 
-## Key Decisions Already Made
-- `Document` (not `Complaint`) is the root model — owns the slug and payment state
-- All wizard model fields are `blank=True` / `null=True` — partial AI extraction must not break anything
-- `User` stores address directly (no separate Profile model) — `get_plaintiff_defaults()` pre-populates `PlaintiffInfo`
-- `user_type` on User (`plaintiff`/`attorney`) future-proofs attorney account linking
-- `TimelineEntry` (ordered, multiple) is the factual allegations section — better than a single text blob
-- `ExampleStory` dropdown only shown to `is_staff` or `DEBUG=True`
-- Slugs are immutable once set — never regenerate on update
+## What's Built — Detail
+
+### Wizard Flow (current)
+1. User goes to `/documents/new/` → profile gate → Document + WizardSession + PlaintiffInfo created
+2. Story page (`wizard_story`) — user types story, clicks Analyze
+   - Alpine.js inline progress animation plays (7-step fake progress, 1.8s per step)
+   - POST → `_gpt_test()` → calls `extract_story(session, dry_run=False)`
+   - Full extraction printed to terminal (`docker compose logs -f web`)
+   - Redirects to summary page
+3. Summary page (`wizard_extraction_summary`) — shows what GPT found vs missed
+   - Red banner if critical fields missing (date, location, defendants, claims)
+   - Yellow banner if minor gaps
+   - Green banner if mostly complete
+   - Each category: icon + found/partial/missing status + detail text
+   - "Improve My Story" → back; "Continue to Review" / "Continue Anyway" → Step 1
+4. Step 1 (`wizard_step1`) — federal jurisdiction only
+   - Court auto-populated from city+state via `CourtLookupService`
+   - User confirms with checkbox, or clicks "This is wrong" to override
+   - AJAX lookup at `/documents/lookup-district-court/` if manual re-lookup needed
+   - POST saves `federal_district_court` + `court_confirmed = True` to `IncidentOverview`
+
+### GPT Extraction (`documents/services/openai_service.py`)
+- `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
+- `_populate_models()` — writes all wizard models from `ai_analysis` JSON:
+  - Always resets `federal_district_court=''` and `court_confirmed=False` on re-analysis
+  - Deletes and recreates: TimelineEntry, Defendant, ConstitutionalClaim, Evidence, Witness
+  - Update-or-create: PlaintiffInfo, IncidentOverview, GovernmentEntity, Damages, PriorComplaints, ReliefSought
+  - Updates Document.title if GPT provided one
+
+### Court Lookup (`documents/services/court_lookup_service.py`)
+- `CourtLookupService.lookup_court_by_location(city, state)`
+- Three-tier: static city map → state-level fallback → GPT-4o fallback
+- State files in `documents/services/court_data/states/` (54 files, all states + DC + territories)
+- Handles full state names ("Florida") via `STATE_NAME_TO_CODE` normalization
+- GPT fallback uses direct `openai.OpenAI()` client (not the extraction service)
+
+### Models — Key Notes
+- `Damages.lost_wages` and `property_damage_amount` are **TextField** (not Decimal) — GPT returns strings like "Missed a work shift"
+- `WizardSession.ai_extraction_succeeded` controls which state the story page renders
+- All wizard model fields are `blank=True` / `null=True` — partial extraction never breaks anything
 - Document ownership enforced on every view: `get_object_or_404(Document, slug=slug, user=request.user)`
+
+### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`):
+```json
+{
+  "document": { "title": "", "jury_trial_demand": true },
+  "plaintiff": { "full_name": "", "address": "", "city": "", "state": "", "zip_code": "", "phone": "", "email": "", "filing_pro_se": true },
+  "incident": { "incident_date": "YYYY-MM-DD", "incident_time": "HH:MM", "address": "", "city": "", "state": "", "county": "", "location_description": "", "location_type": "", "is_public_forum": null, "plaintiff_activity": "", "force_used": null, "equipment_seized_or_damaged": null },
+  "timeline": [ { "order": 1, "time_approximate": "", "actor": "", "action_description": "" } ],
+  "defendants": [ { "full_name": "", "badge_number": "", "rank_title": "", "agency_name": "", "capacity_sued": "both", "acting_under_color_of_law": true, "is_supervisor": false } ],
+  "government_entity": { "entity_name": "", "entity_address": "", "policy_or_custom_description": "" },
+  "constitutional_claims": [ { "amendment": "", "how_violated": "" } ],
+  "evidence": [ { "evidence_type": "", "description": "", "date_and_time": "", "recorded_by": "", "public_url": "", "defendant_aware_of_recording": null } ],
+  "witnesses": [ { "full_name": "", "contact_info": "", "relationship_to_plaintiff": "", "what_they_witnessed": "", "has_video": null, "willing_to_testify": null } ],
+  "damages": { "physical_injury_description": "", "emotional_distress_description": "", "lost_wages": null, "property_damage_amount": null, "punitive_basis": "" },
+  "relief": { "compensatory_damages": false, "punitive_damages": false, "declaratory_judgment": false, "injunctive_relief": false, "attorney_fees": false, "costs_of_suit": false },
+  "prior_complaints": { "filed_complaints": false, "description": "", "outcomes": "" }
+}
+```
+
+### Example Stories Fixture (`documents/fixtures/example_stories.json`)
+- PKs 1–10: complete well-formed First Amendment auditor stories (various cities/states)
+- PKs 11–14: gap-test stories with "(gaps in story)" in title:
+  - PK 11: no location at all
+  - PK 12: Nashville TN, no officer names or badge numbers
+  - PK 13: Portland OR, named officers (Cole/Kim), no date, no damages
+  - PK 14: extremely vague, almost nothing extractable
+
+Load into DB: `docker compose exec web python manage.py loaddata example_stories`
+Dropdown shows only for `is_staff` users or when `DEBUG=True`
+
+---
+
+## Next Step: Wizard Step 2 — Incident Details
+
+**URL:** `GET/POST /documents/<slug>/wizard/step2/`
+**Model:** `IncidentOverview` (already exists and is pre-populated from GPT)
+**Template:** `templates/documents/wizard_step2.html`
+
+### Fields to show (review/edit what GPT extracted):
+- Incident date (`incident_date`) — date picker
+- Incident time (`incident_time`) — time input, optional
+- Address (`address`) — text
+- City (`city`) — text
+- State (`state`) — select from `STATE_CHOICES` (already defined in views.py)
+- County (`county`) — text, optional
+- Location description (`location_description`) — text
+- Location type (`location_type`) — dropdown: public sidewalk / police station / courthouse / park / government building / other
+- Is public forum (`is_public_forum`) — yes/no/unsure radio
+- What plaintiff was doing (`plaintiff_activity`) — textarea
+- Force used (`force_used`) — yes/no radio
+- Equipment seized or damaged (`equipment_seized_or_damaged`) — yes/no radio
+
+### Implementation notes:
+- Pre-populate all fields from `IncidentOverview` (set by GPT extraction)
+- On POST: save all fields to `IncidentOverview`, advance `session.current_step` to 3 if < 3
+- If city or state changes: clear `federal_district_court` and `court_confirmed=False` so Step 1 re-runs
+- After save: redirect to Step 3 (defendants)
+- Navigation: back button → Step 1; continue → Step 3
+
+### Progress indicator:
+Steps 1–7 should show a horizontal progress bar or step dots. Suggest reusable include:
+`templates/documents/_wizard_progress.html` — accepts `current_step` context var
+
+---
+
+## Design Rules
+- Do not redesign — color palette, navbar, footer, fonts are fixed
+- Master theme: `static/css/app-theme.css`
+- Headings use Playfair Display (`font-family:'Playfair Display',serif`)
+- Alpine.js for all frontend interactivity (already loaded in base.html)
+- Bootstrap 5.3 classes only — no custom CSS unless absolutely necessary
+- Flash messages: use Django `messages` framework (already wired in base.html)
+- Keep wizard steps focused — one decision per page, no overwhelming forms
