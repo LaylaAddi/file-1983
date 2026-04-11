@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}Story Analysis Results — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding: 0.85rem 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .summary-item:last-child { border-bottom: none; }
+    .summary-icon {
+        font-size: 1.15rem;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+    }
+    .status-found   { color: #198754; }
+    .status-partial { color: #f59e0b; }
+    .status-missing { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            <!-- Header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_story' document.slug %}"
+                       class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Story
+                    </a>
+                </div>
+                <h2 class="mb-1" style="font-family:'Playfair Display',serif;">
+                    Here's What We Found
+                </h2>
+                <p class="text-muted mb-0">
+                    Review what the AI extracted from your story before continuing.
+                </p>
+            </div>
+
+            <!-- Status banner -->
+            {% if critical_missing %}
+            <div class="alert alert-danger d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>Important information is missing.</strong>
+                    The following are needed for a complete complaint:
+                    <ul class="mb-2 mt-1">
+                        {% for item in critical_missing %}
+                        <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                    We recommend going back and adding more detail to your story, then re-analyzing.
+                    You can still continue and fill these in manually at each step.
+                </div>
+            </div>
+            {% elif warnings %}
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-exclamation-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>Some details were not found.</strong>
+                    Your story is mostly complete, but adding more detail could strengthen your complaint.
+                    You can also fill in the gaps manually at each step.
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>Great extraction!</strong>
+                    We found most of the key information. Review below and continue when ready.
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Summary card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body px-4 py-2">
+                    {% for item in summary %}
+                    <div class="summary-item">
+                        <i class="bi bi-{{ item.icon }} summary-icon status-{{ item.status }}"></i>
+                        <div>
+                            <div class="fw-semibold small">{{ item.label }}</div>
+                            <div class="text-muted small">{{ item.detail }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{% url 'documents:wizard_story' document.slug %}"
+                   class="btn btn-outline-secondary px-4">
+                    <i class="bi bi-arrow-left me-1"></i>Improve My Story
+                </a>
+                <a href="{% url 'documents:wizard_step1' document.slug %}"
+                   class="btn btn-primary btn-lg px-5 fw-semibold">
+                    {% if critical_missing %}
+                        Continue Anyway <i class="bi bi-arrow-right ms-1"></i>
+                    {% else %}
+                        Continue to Review <i class="bi bi-arrow-right ms-1"></i>
+                    {% endif %}
+                </a>
+            </div>
+
+            <p class="text-center text-muted small mt-3">
+                <i class="bi bi-info-circle me-1"></i>
+                You can add or edit any information at each step — nothing is locked in.
+            </p>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

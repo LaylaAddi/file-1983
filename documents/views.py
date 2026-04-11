@@ -56,8 +56,7 @@ def wizard_story(request, document_slug):
                 _gpt_test(session)
                 session.current_step = 1
                 session.save(update_fields=['current_step', 'updated_at'])
-                messages.success(request, 'Story analyzed. Review the federal court below.')
-                return redirect('documents:wizard_step1', document_slug=doc.slug)
+                return redirect('documents:wizard_summary', document_slug=doc.slug)
         else:
             messages.error(request, 'Please enter your story before continuing.')
 
@@ -132,6 +131,138 @@ def _gpt_test(session):
     print(SEP)
     print('END OF GPT OUTPUT — data saved to DB')
     print(SEP + '\n')
+
+
+# ---------------------------------------------------------------------------
+# Extraction Summary
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_extraction_summary(request, document_slug):
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    if not session.ai_extraction_succeeded:
+        return redirect('documents:wizard_story', document_slug=doc.slug)
+
+    summary, critical_missing, warnings = _score_extraction(session.ai_analysis)
+
+    return render(request, 'documents/wizard_summary.html', {
+        'document': doc,
+        'session': session,
+        'summary': summary,
+        'critical_missing': critical_missing,
+        'warnings': warnings,
+    })
+
+
+def _score_extraction(ai):
+    """
+    Score GPT extraction results. Returns:
+      summary        — list of dicts for display
+      critical_missing — list of label strings (blocks are red)
+      warnings         — list of label strings (yellow nudges)
+    """
+    summary = []
+    critical_missing = []
+    warnings = []
+
+    def item(label, status, detail, critical=False, icon=None):
+        summary.append({
+            'label': label,
+            'status': status,       # 'found' | 'partial' | 'missing'
+            'detail': detail,
+            'critical': critical,
+            'icon': icon or ('check-circle-fill' if status == 'found'
+                             else 'exclamation-circle-fill' if status == 'partial'
+                             else 'x-circle-fill'),
+        })
+        if status == 'missing' and critical:
+            critical_missing.append(label)
+        elif status in ('missing', 'partial') and not critical:
+            warnings.append(label)
+
+    # Incident date
+    inc = ai.get('incident') or {}
+    if inc.get('incident_date'):
+        item('Incident date', 'found', inc['incident_date'])
+    else:
+        item('Incident date', 'missing', 'Not found — you can add it in Step 2', critical=True)
+
+    # Location
+    city  = inc.get('city', '')
+    state = inc.get('state', '')
+    if city and state:
+        item('Incident location', 'found', f'{city}, {state}')
+    elif city or state:
+        item('Incident location', 'partial', f'{city or state} — state or city missing')
+        warnings.append('Incident location')
+    else:
+        item('Incident location', 'missing', 'Not found — needed for court lookup', critical=True)
+
+    # Plaintiff activity
+    if inc.get('plaintiff_activity'):
+        item('What you were doing', 'found', inc['plaintiff_activity'][:80])
+    else:
+        item('What you were doing', 'missing', 'Not described — important for your claim')
+
+    # Timeline
+    timeline = ai.get('timeline') or []
+    if len(timeline) >= 3:
+        item('Timeline of events', 'found', f'{len(timeline)} events extracted')
+    elif len(timeline) > 0:
+        item('Timeline of events', 'partial', f'Only {len(timeline)} event(s) — more detail helps')
+    else:
+        item('Timeline of events', 'missing', 'No events extracted — describe the sequence of what happened')
+
+    # Defendants
+    defendants = ai.get('defendants') or []
+    if len(defendants) >= 1:
+        names = ', '.join(d.get('full_name') or 'Unknown' for d in defendants[:3])
+        if len(defendants) > 3:
+            names += f' +{len(defendants) - 3} more'
+        item('Defendants / officers', 'found', names)
+    else:
+        item('Defendants / officers', 'missing',
+             'No officers or defendants found — describe who confronted you', critical=True)
+
+    # Constitutional claims
+    claims = ai.get('constitutional_claims') or []
+    if len(claims) >= 1:
+        amendments = ', '.join(
+            (c.get('amendment') or '') + ' Amendment'
+            for c in claims if c.get('amendment')
+        )
+        item('Constitutional claims', 'found', amendments or f'{len(claims)} claim(s)')
+    else:
+        item('Constitutional claims', 'missing',
+             'No rights violations identified — describe what rights were violated', critical=True)
+
+    # Evidence
+    evidence = ai.get('evidence') or []
+    if len(evidence) >= 1:
+        item('Evidence', 'found', f'{len(evidence)} item(s) — video, photos, documents, etc.')
+    else:
+        item('Evidence', 'missing', 'None mentioned — you can add it later in Step 5')
+
+    # Witnesses
+    witnesses = ai.get('witnesses') or []
+    if len(witnesses) >= 1:
+        item('Witnesses', 'found', f'{len(witnesses)} witness(es) identified')
+    else:
+        item('Witnesses', 'missing', 'None mentioned — you can add witnesses later in Step 5')
+
+    # Damages
+    dmg = ai.get('damages') or {}
+    dmg_fields = [v for v in dmg.values() if v]
+    if len(dmg_fields) >= 2:
+        item('Damages', 'found', 'Physical, emotional, or financial harm described')
+    elif len(dmg_fields) == 1:
+        item('Damages', 'partial', 'Only some damage described — more detail strengthens your case')
+    else:
+        item('Damages', 'missing', 'No harm described — explain how this affected you')
+
+    return summary, critical_missing, warnings
 
 
 # ---------------------------------------------------------------------------
