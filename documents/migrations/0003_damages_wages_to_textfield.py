@@ -8,6 +8,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Coerce existing NULLs to empty string before changing type
+        migrations.RunSQL(
+            "UPDATE documents_damages SET lost_wages = '' WHERE lost_wages IS NULL",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        migrations.RunSQL(
+            "UPDATE documents_damages SET property_damage_amount = '' WHERE property_damage_amount IS NULL",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AlterField(
             model_name='damages',
             name='lost_wages',
