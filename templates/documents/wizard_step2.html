@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 2 — Incident Details — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .field-group {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        margin-bottom: 1.25rem;
+        background: #fff;
+    }
+    .field-group-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        color: #0a3880;
+    }
+    .field-group-title i { margin-right: 0.4rem; }
+    .radio-inline .form-check { display: inline-block; margin-right: 1.25rem; }
+
+    [data-theme="dark"] .field-group {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .field-group-title { color: #93c5fd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            {% include 'documents/_wizard_progress.html' with current_step=2 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step1' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 1
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 2 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Incident Details</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    Review and complete the details of the incident. These fields were pre-filled
+                    from your story — correct anything that's wrong or missing.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" x-data="step2()">
+                {% csrf_token %}
+
+                <!-- Date & Time -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-calendar-event"></i>When did it happen?
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label for="incident_date" class="form-label">
+                                Incident Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="incident_date"
+                                   name="incident_date"
+                                   value="{{ incident.incident_date|date:'Y-m-d'|default:'' }}"
+                                   required>
+                            <div class="form-text">The date the incident occurred.</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="incident_time" class="form-label">Incident Time</label>
+                            <input type="time" class="form-control" id="incident_time"
+                                   name="incident_time"
+                                   value="{{ incident.incident_time|time:'H:i'|default:'' }}">
+                            <div class="form-text">Approximate time, if known.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-geo-alt"></i>Where did it happen?
+                    </div>
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <input type="text" class="form-control" id="address"
+                               name="address"
+                               value="{{ incident.address }}"
+                               placeholder="Street address or intersection">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-5">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" class="form-control" id="city"
+                                   name="city" x-model="city"
+                                   value="{{ incident.city }}">
+                        </div>
+                        <div class="col-sm-4">
+                            <label for="state" class="form-label">State</label>
+                            <select class="form-select" id="state" name="state" x-model="state">
+                                <option value="">Select state</option>
+                                {% for code, name in state_choices %}
+                                <option value="{{ code }}" {% if incident.state == code %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-sm-3">
+                            <label for="county" class="form-label">County</label>
+                            <input type="text" class="form-control" id="county"
+                                   name="county"
+                                   value="{{ incident.county }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="location_description" class="form-label">Location Description</label>
+                        <input type="text" class="form-control" id="location_description"
+                               name="location_description"
+                               value="{{ incident.location_description }}"
+                               placeholder='e.g. "In front of City Hall" or "Intersection of Main St and 5th Ave"'>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label for="location_type" class="form-label">Location Type</label>
+                            <select class="form-select" id="location_type" name="location_type">
+                                <option value="">Select type</option>
+                                {% for value, label in location_type_choices %}
+                                <option value="{{ value }}" {% if incident.location_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Public forum?</label>
+                            <div class="radio-inline mt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="is_public_forum" id="forum_yes" value="yes"
+                                           {% if incident.is_public_forum == True %}checked{% endif %}>
+                                    <label class="form-check-label" for="forum_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="is_public_forum" id="forum_no" value="no"
+                                           {% if incident.is_public_forum == False %}checked{% endif %}>
+                                    <label class="form-check-label" for="forum_no">No</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="is_public_forum" id="forum_unsure" value=""
+                                           {% if incident.is_public_forum is None %}checked{% endif %}>
+                                    <label class="form-check-label" for="forum_unsure">Unsure</label>
+                                </div>
+                            </div>
+                            <div class="form-text">A public sidewalk, park, or plaza is typically a public forum.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plaintiff activity -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-person-walking"></i>What were you doing?
+                    </div>
+                    <div class="mb-0">
+                        <label for="plaintiff_activity" class="form-label">Your activity at the time</label>
+                        <textarea class="form-control" id="plaintiff_activity"
+                                  name="plaintiff_activity" rows="3"
+                                  placeholder="e.g. Filming a traffic stop from a public sidewalk, attending a protest, walking through a government building">{{ incident.plaintiff_activity }}</textarea>
+                        <div class="form-text">
+                            Describe what you were doing when the incident started. This is critical
+                            for establishing your First Amendment or Fourth Amendment claim.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Force & equipment -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-shield-exclamation"></i>Force & Property
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label">Was force used against you?</label>
+                            <div class="radio-inline mt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="force_used" id="force_yes" value="yes"
+                                           {% if incident.force_used == True %}checked{% endif %}>
+                                    <label class="form-check-label" for="force_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="force_used" id="force_no" value="no"
+                                           {% if incident.force_used == False %}checked{% endif %}>
+                                    <label class="form-check-label" for="force_no">No</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Equipment seized or damaged?</label>
+                            <div class="radio-inline mt-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="equipment_seized_or_damaged" id="equip_yes" value="yes"
+                                           {% if incident.equipment_seized_or_damaged == True %}checked{% endif %}>
+                                    <label class="form-check-label" for="equip_yes">Yes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio"
+                                           name="equipment_seized_or_damaged" id="equip_no" value="no"
+                                           {% if incident.equipment_seized_or_damaged == False %}checked{% endif %}>
+                                    <label class="form-check-label" for="equip_no">No</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Court change notice -->
+                <div class="alert alert-info small py-2 px-3" x-show="locationChanged" x-cloak>
+                    <i class="bi bi-info-circle me-1"></i>
+                    You changed the city or state — the federal district court will be re-looked up
+                    and you'll need to re-confirm it in Step 1.
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <a href="{% url 'documents:wizard_step1' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold">
+                        Save &amp; Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step2() {
+    return {
+        city: '{{ incident.city|escapejs }}',
+        state: '{{ incident.state|escapejs }}',
+        origCity: '{{ incident.city|escapejs }}'.toLowerCase(),
+        origState: '{{ incident.state|escapejs }}',
+        get locationChanged() {
+            return this.city.toLowerCase() !== this.origCity || this.state !== this.origState;
+        },
+    }
+}
+</script>
+{% endblock %}

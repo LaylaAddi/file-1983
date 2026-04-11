@@ -323,9 +323,8 @@ def wizard_step1(request, document_slug):
             session.current_step = 2
             session.save(update_fields=['current_step', 'updated_at'])
 
-        # TODO: redirect to step 2 once built
         messages.success(request, 'Jurisdiction confirmed.')
-        return redirect('documents:wizard_step1', document_slug=doc.slug)
+        return redirect('documents:wizard_step2', document_slug=doc.slug)
 
     return render(request, 'documents/wizard_step1.html', {
         'document': doc,
@@ -342,6 +341,83 @@ def _parse_tristate(value):
     if value == 'no':
         return False
     return None
+
+
+# ---------------------------------------------------------------------------
+# Step 2 — Incident Details
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step2(request, document_slug):
+    """Step 2 — Review/edit incident details extracted by GPT."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+    incident, _ = IncidentOverview.objects.get_or_create(document=doc)
+
+    if request.method == 'POST':
+        # Parse date
+        date_str = request.POST.get('incident_date', '').strip()
+        incident.incident_date = date_str or None
+
+        # Parse time
+        time_str = request.POST.get('incident_time', '').strip()
+        incident.incident_time = time_str or None
+
+        # Location fields
+        new_city = request.POST.get('city', '').strip()
+        new_state = request.POST.get('state', '').strip()
+        city_or_state_changed = (
+            new_city.lower() != (incident.city or '').lower()
+            or new_state != (incident.state or '')
+        )
+
+        incident.address = request.POST.get('address', '').strip()
+        incident.city = new_city
+        incident.state = new_state
+        incident.county = request.POST.get('county', '').strip()
+        incident.location_description = request.POST.get('location_description', '').strip()
+        incident.location_type = request.POST.get('location_type', '').strip()
+        incident.is_public_forum = _parse_tristate(request.POST.get('is_public_forum', ''))
+
+        # Activity & force
+        incident.plaintiff_activity = request.POST.get('plaintiff_activity', '').strip()
+        incident.force_used = _parse_tristate(request.POST.get('force_used', ''))
+        incident.equipment_seized_or_damaged = _parse_tristate(
+            request.POST.get('equipment_seized_or_damaged', '')
+        )
+
+        # If city or state changed, clear court so Step 1 re-runs
+        if city_or_state_changed:
+            incident.federal_district_court = ''
+            incident.court_confirmed = False
+
+        incident.save()
+
+        # Advance wizard
+        if session.current_step < 3:
+            session.current_step = 3
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        messages.success(request, 'Incident details saved.')
+
+        # If court was cleared, send user back to Step 1 to re-confirm
+        if city_or_state_changed and not incident.court_confirmed:
+            messages.info(
+                request,
+                'The city or state changed — please re-confirm the federal district court.'
+            )
+            return redirect('documents:wizard_step1', document_slug=doc.slug)
+
+        # TODO: redirect to Step 3 once built
+        return redirect('documents:wizard_step2', document_slug=doc.slug)
+
+    return render(request, 'documents/wizard_step2.html', {
+        'document': doc,
+        'session': session,
+        'incident': incident,
+        'state_choices': STATE_CHOICES,
+        'location_type_choices': IncidentOverview.LOCATION_TYPE_CHOICES,
+    })
 
 
 @require_GET

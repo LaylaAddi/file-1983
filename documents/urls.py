@@ -9,5 +9,6 @@ urlpatterns = [
     path('<str:document_slug>/wizard/', views.wizard_story, name='wizard_story'),
     path('<str:document_slug>/wizard/summary/', views.wizard_extraction_summary, name='wizard_summary'),
     path('<str:document_slug>/wizard/step1/', views.wizard_step1, name='wizard_step1'),
+    path('<str:document_slug>/wizard/step2/', views.wizard_step2, name='wizard_step2'),
     path('lookup-district-court/', views.lookup_district_court, name='lookup_district_court'),
 ]

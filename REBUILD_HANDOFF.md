@@ -101,6 +101,7 @@ DEFAULT_FROM_EMAIL=
 /documents/<slug>/wizard/                  → story input page
 /documents/<slug>/wizard/summary/          → post-extraction summary (found/missing review)
 /documents/<slug>/wizard/step1/            → Step 1: federal jurisdiction / court confirmation
+/documents/<slug>/wizard/step2/            → Step 2: incident details (date, location, activity, force)
 /documents/lookup-district-court/          → AJAX: GET ?city=&state= → court name JSON
 /api/v1/token/                             → JWT obtain
 /api/v1/token/refresh/                     → JWT refresh
@@ -121,8 +122,8 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — post-extraction summary page (found/partial/missing per category, red/yellow/green banner)
 - [x] `documents` — Step 1: federal jurisdiction only (auto-populate court, confirm checkbox, manual override)
 - [x] `documents` — example stories fixture (PKs 1–10 complete, PKs 11–14 gap-test stories)
-- [ ] **Step 2: Incident details form** ← BUILD NEXT
-- [ ] Step 3: Defendants (add/edit/delete, multi-record)
+- [x] `documents` — Step 2: incident details form (date, location, activity, force/equipment, court-clearing on city/state change)
+- [ ] **Step 3: Defendants (add/edit/delete, multi-record)** ← BUILD NEXT
 - [ ] Step 4: Constitutional claims (multi-record)
 - [ ] Step 5: Evidence & Witnesses (multi-record)
 - [ ] Step 6: Damages & Relief
@@ -154,6 +155,13 @@ DEFAULT_FROM_EMAIL=
    - User confirms with checkbox, or clicks "This is wrong" to override
    - AJAX lookup at `/documents/lookup-district-court/` if manual re-lookup needed
    - POST saves `federal_district_court` + `court_confirmed = True` to `IncidentOverview`
+   - On success → redirects to Step 2
+5. Step 2 (`wizard_step2`) — incident details
+   - Pre-populated from GPT extraction; user reviews/edits all fields
+   - Fields: date, time, address, city, state, county, location description, location type, public forum, plaintiff activity, force used, equipment seized
+   - If city or state changes: clears `federal_district_court` and `court_confirmed=False`, redirects back to Step 1
+   - On save: advances `current_step` to 3, redirects to Step 3 (placeholder until built)
+   - Reusable progress indicator: `templates/documents/_wizard_progress.html`
 
 ### GPT Extraction (`documents/services/openai_service.py`)
 - `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
@@ -207,36 +215,20 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 
 ---
 
-## Next Step: Wizard Step 2 — Incident Details
+## Next Step: Wizard Step 3 — Defendants
 
-**URL:** `GET/POST /documents/<slug>/wizard/step2/`
-**Model:** `IncidentOverview` (already exists and is pre-populated from GPT)
-**Template:** `templates/documents/wizard_step2.html`
+**URL:** `GET/POST /documents/<slug>/wizard/step3/`
+**Models:** `Defendant` (multi-record, FK to Document) + `GovernmentEntity` (OneToOne)
+**Template:** `templates/documents/wizard_step3.html`
 
-### Fields to show (review/edit what GPT extracted):
-- Incident date (`incident_date`) — date picker
-- Incident time (`incident_time`) — time input, optional
-- Address (`address`) — text
-- City (`city`) — text
-- State (`state`) — select from `STATE_CHOICES` (already defined in views.py)
-- County (`county`) — text, optional
-- Location description (`location_description`) — text
-- Location type (`location_type`) — dropdown: public sidewalk / police station / courthouse / park / government building / other
-- Is public forum (`is_public_forum`) — yes/no/unsure radio
-- What plaintiff was doing (`plaintiff_activity`) — textarea
-- Force used (`force_used`) — yes/no radio
-- Equipment seized or damaged (`equipment_seized_or_damaged`) — yes/no radio
-
-### Implementation notes:
-- Pre-populate all fields from `IncidentOverview` (set by GPT extraction)
-- On POST: save all fields to `IncidentOverview`, advance `session.current_step` to 3 if < 3
-- If city or state changes: clear `federal_district_court` and `court_confirmed=False` so Step 1 re-runs
-- After save: redirect to Step 3 (defendants)
-- Navigation: back button → Step 1; continue → Step 3
-
-### Progress indicator:
-Steps 1–7 should show a horizontal progress bar or step dots. Suggest reusable include:
-`templates/documents/_wizard_progress.html` — accepts `current_step` context var
+### What it needs:
+- List existing defendants (pre-populated from GPT extraction)
+- Add / edit / delete individual defendants
+- Each defendant: full_name, badge_number, rank_title, agency_name, capacity_sued, acting_under_color_of_law, is_supervisor
+- Government entity section (Monell claim): entity_name, entity_address, policy_or_custom_description
+- Navigation: back → Step 2, continue → Step 4
+- On POST: save all, advance `session.current_step` to 4 if < 4
+- Use `_wizard_progress.html` include with `current_step=3`
 
 ---
 

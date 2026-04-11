@@ -1,0 +1,121 @@
+{% comment %}
+Reusable wizard step progress indicator.
+Context: current_step (int 1-7)
+
+Usage: {% include 'documents/_wizard_progress.html' with current_step=session.current_step %}
+{% endcomment %}
+
+{% with steps="Jurisdiction,Incident,Defendants,Claims,Evidence,Damages,Review" %}
+<div class="d-flex align-items-center justify-content-between mb-4 px-2" role="navigation" aria-label="Wizard progress">
+    {% for label in steps|make_list %}{% if label == "," %}{% else %}
+    {% comment %}We need to split the CSV — Django doesn't have split, so we use a custom approach{% endcomment %}
+    {% endif %}{% endfor %}
+</div>
+{% endwith %}
+
+{% comment %}
+Since Django templates lack a split filter, we enumerate steps manually.
+{% endcomment %}
+<div class="wizard-progress mb-4" role="navigation" aria-label="Wizard progress">
+    <div class="d-flex align-items-center justify-content-between">
+        {% with step_num=1 label="Jurisdiction" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 1 %}filled{% endif %}"></div>
+
+        {% with step_num=2 label="Incident" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 2 %}filled{% endif %}"></div>
+
+        {% with step_num=3 label="Defendants" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 3 %}filled{% endif %}"></div>
+
+        {% with step_num=4 label="Claims" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 4 %}filled{% endif %}"></div>
+
+        {% with step_num=5 label="Evidence" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 5 %}filled{% endif %}"></div>
+
+        {% with step_num=6 label="Damages" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+
+        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 6 %}filled{% endif %}"></div>
+
+        {% with step_num=7 label="Review" %}
+        <div class="wizard-step text-center {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %}">
+            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
+                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </div>
+        {% endwith %}
+    </div>
+</div>
+
+<style>
+    .wizard-progress .wizard-step { min-width: 48px; }
+    .wizard-progress .wizard-dot {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; font-weight: 600; color: #fff;
+        transition: background 0.2s;
+    }
+    .wizard-progress .wizard-dot.bg-secondary { color: rgba(255,255,255,0.7); }
+    .wizard-progress .wizard-connector {
+        height: 3px; background: #dee2e6; border-radius: 2px;
+        position: relative; top: -8px;
+    }
+    .wizard-progress .wizard-connector.filled { background: #198754; }
+    .wizard-progress small { font-size: 0.7rem; color: #6c757d; }
+    .wizard-progress .active small { color: #0d6efd; font-weight: 600; }
+    .wizard-progress .completed small { color: #198754; }
+
+    [data-theme="dark"] .wizard-progress .wizard-connector { background: #495057; }
+    [data-theme="dark"] .wizard-progress .wizard-connector.filled { background: #198754; }
+    [data-theme="dark"] .wizard-progress small { color: #adb5bd; }
+    [data-theme="dark"] .wizard-progress .active small { color: #6ea8fe; }
+</style>
