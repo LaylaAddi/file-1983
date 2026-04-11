@@ -3,9 +3,133 @@
 {% block title %}My Documents — {{ app_name }}{% endblock %}
 
 {% block content %}
-<div class="text-center py-5">
-    <i class="bi bi-folder2-open text-muted" style="font-size:3rem"></i>
-    <h3 class="mt-3">My Documents</h3>
-    <p class="text-muted">Document management coming in Step 5.</p>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1" style="font-family:'Playfair Display',serif;">My Documents</h2>
+                    <p class="text-muted mb-0">Your Section 1983 civil rights complaints</p>
+                </div>
+                <a href="{% url 'documents:create' %}" class="btn btn-primary px-4">
+                    <i class="bi bi-plus-lg me-1"></i>New Document
+                </a>
+            </div>
+
+            {% if documents %}
+
+            <div class="d-flex flex-column gap-3">
+                {% for doc in documents %}
+                {% with session=doc.wizard_session %}
+                <div class="card shadow-sm">
+                    <div class="card-body px-4 py-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+
+                            <!-- Left: title + meta -->
+                            <div class="flex-grow-1 min-width-0">
+                                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                    <h5 class="mb-0 text-truncate">
+                                        {{ doc.title|default:"Untitled Complaint" }}
+                                    </h5>
+                                    <!-- Payment status badge -->
+                                    {% if doc.payment_status == 'paid' %}
+                                        <span class="badge bg-success">Paid</span>
+                                    {% elif doc.payment_status == 'finalized' %}
+                                        <span class="badge bg-primary">Finalized</span>
+                                    {% elif doc.payment_status == 'expired' %}
+                                        <span class="badge bg-secondary">Expired</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Draft</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar3 me-1"></i>
+                                        Created {{ doc.created_at|date:"M j, Y" }}
+                                    </small>
+
+                                    {% if session %}
+                                        {% if session.status == 'analyzed' or session.status == 'completed' %}
+                                        <small class="text-success">
+                                            <i class="bi bi-check-circle me-1"></i>Story analyzed
+                                        </small>
+                                        <small class="text-muted">
+                                            <i class="bi bi-signpost me-1"></i>Step {{ session.current_step }} of 7
+                                        </small>
+                                        {% elif session.story_text %}
+                                        <small class="text-warning">
+                                            <i class="bi bi-clock me-1"></i>Story saved, not yet analyzed
+                                        </small>
+                                        {% else %}
+                                        <small class="text-muted">
+                                            <i class="bi bi-pencil me-1"></i>Not started
+                                        </small>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+
+                                {% if session and session.story_text %}
+                                <p class="text-muted small mt-2 mb-0 text-truncate" style="max-width:520px;">
+                                    {{ session.story_text|truncatechars:120 }}
+                                </p>
+                                {% endif %}
+                            </div>
+
+                            <!-- Right: action button -->
+                            <div class="d-flex flex-column gap-2 align-items-end flex-shrink-0">
+                                {% if session %}
+                                    {% if session.status == 'analyzed' or session.current_step >= 1 %}
+                                        <a href="{% url 'documents:wizard_step1' doc.slug %}"
+                                           class="btn btn-primary btn-sm px-3">
+                                            <i class="bi bi-arrow-right me-1"></i>Continue
+                                        </a>
+                                        <a href="{% url 'documents:wizard_story' doc.slug %}"
+                                           class="btn btn-outline-secondary btn-sm px-3">
+                                            <i class="bi bi-pencil me-1"></i>Edit Story
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'documents:wizard_story' doc.slug %}"
+                                           class="btn btn-primary btn-sm px-3">
+                                            <i class="bi bi-arrow-right me-1"></i>
+                                            {% if session.story_text %}Continue{% else %}Start{% endif %}
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="{% url 'documents:wizard_story' doc.slug %}"
+                                       class="btn btn-primary btn-sm px-3">
+                                        <i class="bi bi-arrow-right me-1"></i>Start
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+
+            {% else %}
+
+            <!-- Empty state -->
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-folder2-open text-muted" style="font-size:3rem"></i>
+                    <h4 class="mt-3 mb-2">No documents yet</h4>
+                    <p class="text-muted mb-4">
+                        Start by telling us what happened. Our AI will help build your Section 1983 complaint.
+                    </p>
+                    <a href="{% url 'documents:create' %}" class="btn btn-primary px-4">
+                        <i class="bi bi-plus-lg me-1"></i>Start My First Complaint
+                    </a>
+                </div>
+            </div>
+
+            {% endif %}
+
+        </div>
+    </div>
 </div>
 {% endblock %}
