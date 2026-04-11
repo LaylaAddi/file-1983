@@ -50,12 +50,10 @@ def wizard_story(request, document_slug):
                 messages.success(request, 'Story saved. Come back any time to continue.')
                 return redirect('documents:wizard_story', document_slug=doc.slug)
             else:
-                # Call GPT in dry-run mode — nothing is saved, output goes to terminal
                 _gpt_test(session)
                 session.current_step = 1
                 session.save(update_fields=['current_step', 'updated_at'])
-                messages.success(request, 'Story analyzed — check your terminal for GPT output.')
-                return redirect('documents:wizard_story', document_slug=doc.slug)
+                return redirect('documents:wizard_summary', document_slug=doc.slug)
         else:
             messages.error(request, 'Please enter your story before continuing.')
 
