@@ -8,13 +8,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Coerce existing NULLs to empty string before changing type
+        # Convert numeric columns to text in one step; COALESCE handles NULLs
         migrations.RunSQL(
-            "UPDATE documents_damages SET lost_wages = '' WHERE lost_wages IS NULL",
+            "ALTER TABLE documents_damages ALTER COLUMN lost_wages TYPE TEXT USING COALESCE(lost_wages::TEXT, '')",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            "UPDATE documents_damages SET property_damage_amount = '' WHERE property_damage_amount IS NULL",
+            "ALTER TABLE documents_damages ALTER COLUMN property_damage_amount TYPE TEXT USING COALESCE(property_damage_amount::TEXT, '')",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.AlterField(
