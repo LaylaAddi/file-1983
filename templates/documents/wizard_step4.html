@@ -30,12 +30,41 @@
         font-size: 0.8rem;
         font-weight: 600;
     }
+    .ai-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 1rem;
+        background: #e3f2fd;
+        color: #0a58ca;
+        font-weight: 600;
+    }
+    .amendment-info {
+        background: #f8f9fa;
+        border-left: 3px solid #0d6efd;
+        border-radius: 0.4rem;
+        padding: 0.85rem 1rem;
+        margin-top: 0.6rem;
+        font-size: 0.88rem;
+    }
+    .amendment-info .info-title {
+        font-weight: 600;
+        color: #0a3880;
+        margin-bottom: 0.35rem;
+    }
+    .amendment-info ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+    .amendment-info li { margin-bottom: 0.15rem; }
 
     [data-theme="dark"] .claim-card {
         background: #1a1f2e;
         border-color: #2d3548;
     }
     [data-theme="dark"] .claim-card:hover { border-color: #3d6fd6; }
+    [data-theme="dark"] .ai-badge { background: #0a2a50; color: #93c5fd; }
+    [data-theme="dark"] .amendment-info {
+        background: #0f1622;
+        border-left-color: #3d6fd6;
+    }
+    [data-theme="dark"] .amendment-info .info-title { color: #93c5fd; }
 </style>
 {% endblock %}
 
@@ -72,6 +101,19 @@
                 {% endfor %}
             {% endif %}
 
+            <!-- Legal disclaimer -->
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="small">
+                    <strong>Not sure which amendments apply?</strong> These suggestions were extracted
+                    from your story, but civil rights law is complex and fact-dependent. Select the
+                    information icon <i class="bi bi-info-circle"></i> next to each amendment to
+                    understand what it protects. <strong>If you are unsure which claims apply to
+                    your facts, consult a civil rights attorney before filing.</strong> Filing the
+                    wrong claims — or missing the right ones — can hurt your case.
+                </div>
+            </div>
+
             <form method="post">
                 {% csrf_token %}
                 <input type="hidden" name="claim_count" :value="claims.length">
@@ -80,9 +122,12 @@
                 <template x-for="(claim, idx) in claims" :key="idx">
                     <div class="claim-card">
                         <div class="claim-card-header">
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="claim-number" x-text="idx + 1"></span>
                                 <span class="fw-semibold" x-text="amendmentLabel(claim.amendment) || 'New Claim'"></span>
+                                <span class="ai-badge" x-show="claim.pk && claim.how_violated" x-cloak>
+                                    <i class="bi bi-stars me-1"></i>Suggested from your story
+                                </span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-danger"
                                     @click="removeClaim(idx)"
@@ -94,10 +139,21 @@
                         <input type="hidden" :name="'claim_' + idx + '_pk'" :value="claim.pk || ''">
 
                         <div class="mb-3">
-                            <label class="form-label">Amendment / Right Violated <span class="text-danger">*</span></label>
-                            <select class="form-select"
+                            <div class="d-flex align-items-center justify-content-between">
+                                <label class="form-label mb-0">
+                                    Amendment / Right Violated <span class="text-danger">*</span>
+                                </label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                                        @click="claim._showInfo = !claim._showInfo"
+                                        x-show="claim.amendment && amendmentInfo(claim.amendment)">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    <span x-text="claim._showInfo ? 'Hide info' : 'What does this protect?'"></span>
+                                </button>
+                            </div>
+                            <select class="form-select mt-1"
                                     :name="'claim_' + idx + '_amendment'"
-                                    x-model="claim.amendment">
+                                    x-model="claim.amendment"
+                                    @change="claim._showInfo = true">
                                 <option value="">Select amendment</option>
                                 {% for value, label in amendment_choices %}
                                 <option value="{{ value }}">{{ label }}</option>
@@ -106,6 +162,31 @@
                             <div class="form-text text-warning" x-show="isDuplicate(idx)" x-cloak>
                                 <i class="bi bi-exclamation-circle me-1"></i>
                                 This amendment is already used in another claim — pick a different one.
+                            </div>
+
+                            <!-- Amendment info panel -->
+                            <div class="amendment-info"
+                                 x-show="claim._showInfo && claim.amendment && amendmentInfo(claim.amendment)"
+                                 x-cloak x-transition>
+                                <div class="info-title">
+                                    <i class="bi bi-shield-check me-1"></i>What this amendment protects
+                                </div>
+                                <div x-text="amendmentInfo(claim.amendment).description"></div>
+                                <template x-if="amendmentInfo(claim.amendment).examples.length > 0">
+                                    <div class="mt-2">
+                                        <div class="fw-semibold small">Common examples:</div>
+                                        <ul>
+                                            <template x-for="ex in amendmentInfo(claim.amendment).examples">
+                                                <li x-text="ex"></li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                                <div class="text-muted small mt-2">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    This is a general explanation, not legal advice. Consult an
+                                    attorney if you are unsure whether this applies to your case.
+                                </div>
                             </div>
                         </div>
 
@@ -167,18 +248,23 @@
 <script>
 function step4() {
     const raw = {{ claims_json|safe }};
-    const claims = raw.map(c => ({...c}));
+    const claims = raw.map(c => ({...c, _showInfo: false}));
     if (claims.length === 0) {
         claims.push(emptyClaim());
     }
 
     const amendmentLabels = {{ amendment_labels_json|safe }};
+    const amendmentInfoMap = {{ amendment_info_json|safe }};
 
     return {
         claims,
 
         amendmentLabel(value) {
             return amendmentLabels[value] || '';
+        },
+
+        amendmentInfo(value) {
+            return amendmentInfoMap[value] || null;
         },
 
         addClaim() {
@@ -208,6 +294,7 @@ function emptyClaim() {
         pk: null,
         amendment: '',
         how_violated: '',
+        _showInfo: false,
     };
 }
 </script>

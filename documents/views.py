@@ -467,6 +467,119 @@ LOCATION_TYPE_GROUPS = [
 ]
 
 
+# Plain-English guidance for Step 4 (Constitutional Claims).
+# Keys must match ConstitutionalClaim.AMENDMENT_CHOICES.
+# Used to help pro se users understand what each amendment protects.
+AMENDMENT_INFO = {
+    '1st': {
+        'description': 'Protects freedom of speech, religion, assembly, and the press from government restriction.',
+        'examples': [
+            'Being silenced or threatened for speaking in a public forum',
+            'A protest or assembly shut down without valid reason',
+            'Religious expression restricted by government officials',
+        ],
+    },
+    '1st_retaliation': {
+        'description': 'Protects you from being punished by government officials for exercising your constitutional rights.',
+        'examples': [
+            'Being arrested or cited after filming police in public',
+            'Being targeted for filing a complaint against an officer',
+            'Being harassed for political speech or expression',
+        ],
+    },
+    '1st_prior_restraint': {
+        'description': 'Forbids the government from preventing speech or publication before it occurs.',
+        'examples': [
+            'Being ordered to stop filming before any violation occurred',
+            'Being prohibited from distributing materials in a public space',
+        ],
+    },
+    '1st_viewpoint': {
+        'description': "Forbids the government from favoring or silencing speech based on the speaker's viewpoint.",
+        'examples': [
+            'Being allowed to express one political view but not another in the same forum',
+            'Being singled out for a specific message while others are permitted to speak',
+        ],
+    },
+    '4th_search': {
+        'description': 'Protects against unreasonable searches of your person, property, or belongings by the government.',
+        'examples': [
+            'Officers searching your phone, car, or home without a warrant or valid exception',
+            'Being patted down without reasonable suspicion you are armed',
+        ],
+    },
+    '4th_seizure': {
+        'description': 'Protects against unreasonable detention or arrest without legal justification.',
+        'examples': [
+            'Being arrested without probable cause',
+            'Being detained far longer than necessary for a brief investigative stop',
+            'Being stopped when you were free to leave and no reasonable suspicion existed',
+        ],
+    },
+    '4th_property': {
+        'description': 'Protects your personal property from unreasonable seizure or destruction by the government.',
+        'examples': [
+            'Phone or camera seized or destroyed by an officer',
+            'Personal belongings taken without a warrant or justification',
+        ],
+    },
+    '4th_excessive_force': {
+        'description': 'Protects you from police force that is objectively unreasonable given the circumstances.',
+        'examples': [
+            'Being struck, tackled, or tasered when offering no resistance',
+            'Handcuffs applied so tightly they cause injury',
+            'Deadly force used against someone posing no threat',
+        ],
+    },
+    '5th_due_process': {
+        'description': 'Protects against deprivation of life, liberty, or property without fair legal procedure by federal officials.',
+        'examples': [
+            'Property taken by federal agents without fair process',
+            'Federal charges brought with no procedural safeguards',
+        ],
+    },
+    '5th_self_incrimination': {
+        'description': 'Protects you from being forced to testify against yourself in a criminal matter.',
+        'examples': [
+            'Being compelled or coerced into a statement during custodial interrogation',
+            'Miranda rights violated during questioning',
+        ],
+    },
+    '6th_counsel': {
+        'description': 'Guarantees the right to an attorney during criminal proceedings.',
+        'examples': [
+            'Being denied a lawyer after formal criminal proceedings begin',
+            'Counsel interfered with during critical stages of prosecution',
+        ],
+    },
+    '8th_cruel': {
+        'description': 'Protects against cruel and unusual punishment — most relevant after a criminal conviction (inmates and detainees).',
+        'examples': [
+            'Deliberate indifference to serious medical needs in jail or prison',
+            'Excessive force by corrections officers on a convicted inmate',
+        ],
+    },
+    '14th_due_process': {
+        'description': 'Extends due process protections to state and local government actions — the most common basis for 1983 claims beyond the Fourth Amendment.',
+        'examples': [
+            'Property taken by state or local officials without fair procedure',
+            'Government action depriving you of liberty without due process',
+        ],
+    },
+    '14th_equal_protection': {
+        'description': 'Forbids state and local governments from treating similarly-situated people differently without legal justification.',
+        'examples': [
+            'Being singled out by police because of race, religion, or other protected characteristic',
+            'Selective enforcement of the law against you while similarly-situated people are left alone',
+        ],
+    },
+    'other': {
+        'description': 'Use this if your claim does not fit the categories above. Describe the right and how it was violated in the text field below.',
+        'examples': [],
+    },
+}
+
+
 # ---------------------------------------------------------------------------
 # Step 3 — Defendants
 # ---------------------------------------------------------------------------
@@ -629,6 +742,7 @@ def wizard_step4(request, document_slug):
         'claims_json': json.dumps(claims),
         'amendment_choices': ConstitutionalClaim.AMENDMENT_CHOICES,
         'amendment_labels_json': json.dumps(dict(ConstitutionalClaim.AMENDMENT_CHOICES)),
+        'amendment_info_json': json.dumps(AMENDMENT_INFO),
     })
 
 
