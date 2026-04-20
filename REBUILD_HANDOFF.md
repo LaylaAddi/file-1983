@@ -12,22 +12,24 @@ each section → final review → PDF download → Stripe payment to unlock.
 
 ## Git Setup
 
-### Pull latest to local
+### Pull latest from master
 ```bash
 git fetch origin
-git checkout claude/test-gpt-story-extraction-dZ5XG
-git pull origin claude/test-gpt-story-extraction-dZ5XG
+git checkout master
+git pull origin master
 ```
 
-### Push to master when done
+### Workflow
+All work goes on a new feature branch off master:
 ```bash
+git checkout master && git pull origin master
+git checkout -b claude/<short-description>
+# ... make changes, commit ...
+git push -u origin claude/<short-description>
 git checkout master
-git merge claude/test-gpt-story-extraction-dZ5XG
+git merge claude/<short-description>
 git push origin master
 ```
-
-### Development branch
-All new work goes on: `claude/test-gpt-story-extraction-dZ5XG`
 
 ---
 
@@ -125,8 +127,11 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — Step 1: federal jurisdiction only (auto-populate court, confirm checkbox, manual override)
 - [x] `documents` — example stories fixture (PKs 1–10 complete, PKs 11–14 gap-test stories)
 - [x] `documents` — Step 2: incident details form (date, location, activity, force/equipment, court-clearing on city/state change)
+- [x] `documents` — 27 grouped location types (police station lobby, courthouse, DMV, post office, etc.) with optgroup dropdown
 - [x] `documents` — Step 3: defendants (Alpine.js dynamic add/edit/delete cards, government entity Monell section)
 - [x] `documents` — Step 4: constitutional claims (add/edit/delete, duplicate-amendment protection)
+- [x] `documents` — Step 4 guidance: plain-English amendment descriptions + examples per claim, attorney-consultation disclaimer, "Suggested from your story" badge on GPT-populated claims
+- [x] `documents` — amendment normalization (`normalize_amendment()`) so GPT loose values like "First" map to canonical keys like `1st_retaliation`; applied in extraction and Step 4 render
 - [x] `documents` — CaseLaw model + admin + 15 foundational cases fixture (wired in later — no UI yet)
 - [ ] **Step 5: Evidence & Witnesses (multi-record)** ← BUILD NEXT
 - [ ] Step 6: Damages & Relief
@@ -174,10 +179,14 @@ DEFAULT_FROM_EMAIL=
    - On save: advances `current_step` to 4, redirects to Step 4
 7. Step 4 (`wizard_step4`) — constitutional claims
    - Alpine.js dynamic claim cards: amendment dropdown + how_violated textarea
+   - **Plain-English guidance** per claim via `AMENDMENT_INFO` dict in views.py — each amendment has a description + common examples; toggled via "What does this protect?" link per card; auto-expands when user picks a new amendment
+   - **Legal disclaimer banner** at top: warns users civil rights law is complex and recommends attorney consultation
+   - **"Suggested from your story"** blue badge on pre-populated claims (has PK + how_violated)
+   - **Amendment normalization**: `normalize_amendment()` in `openai_service.py` maps loose AI values ("First", "Fourth Amendment — Retaliation", etc.) to canonical keys. Applied at render time so stale DB values still pre-select the dropdown; canonical value saved back on next form submission
    - Duplicate amendment detection (client-side warning + server-side skip) since `(document, amendment)` is unique_together
    - Indexed POST fields (`claim_0_amendment`, etc.)
    - On save: advances `current_step` to 5, redirects to Step 5 (placeholder until built)
-   - Footer placeholder teases upcoming case law feature
+   - Footer placeholder teases upcoming case law selection feature
 
 ### GPT Extraction (`documents/services/openai_service.py`)
 - `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
@@ -186,6 +195,9 @@ DEFAULT_FROM_EMAIL=
   - Deletes and recreates: TimelineEntry, Defendant, ConstitutionalClaim, Evidence, Witness
   - Update-or-create: PlaintiffInfo, IncidentOverview, GovernmentEntity, Damages, PriorComplaints, ReliefSought
   - Updates Document.title if GPT provided one
+  - ConstitutionalClaim amendments run through `normalize_amendment()` + deduped to respect `unique_together(document, amendment)`
+- `normalize_amendment(value)` — public helper exported from this module. Maps loose amendment values to canonical `ConstitutionalClaim.AMENDMENT_CHOICES` keys. Used by Step 4 view at render time too
+- Prompt tells GPT the exact allowed keys with plain-English hints (e.g. "use `1st_retaliation` for arrests after filming police — most auditor cases fall here") and instructs it to include multiple claims when appropriate (e.g. `1st_retaliation` + `4th_seizure` for a filming arrest)
 
 ### Court Lookup (`documents/services/court_lookup_service.py`)
 - `CourtLookupService.lookup_court_by_location(city, state)`
