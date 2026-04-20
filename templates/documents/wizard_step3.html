@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 3 — Defendants — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .def-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        background: #fff;
+        position: relative;
+        transition: border-color 0.2s;
+    }
+    .def-card:hover { border-color: #0d6efd; }
+    .def-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .def-number {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .gov-section {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        background: #fff;
+    }
+    .gov-section-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        color: #0a3880;
+    }
+    .gov-section-title i { margin-right: 0.4rem; }
+
+    [data-theme="dark"] .def-card {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .def-card:hover { border-color: #3d6fd6; }
+    [data-theme="dark"] .gov-section {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .gov-section-title { color: #93c5fd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="step3()">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            {% include 'documents/_wizard_progress.html' with current_step=3 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step2' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 2
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 3 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Defendants</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    Identify the government officials who violated your rights.
+                    These were extracted from your story — add, edit, or remove as needed.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" @submit="prepareSubmit()">
+                {% csrf_token %}
+                <input type="hidden" name="defendant_count" :value="defendants.length">
+
+                <!-- Defendant cards -->
+                <template x-for="(def, idx) in defendants" :key="idx">
+                    <div class="def-card">
+                        <div class="def-card-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="def-number" x-text="idx + 1"></span>
+                                <span class="fw-semibold" x-text="def.full_name || 'New Defendant'"></span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        @click="def._expanded = !def._expanded">
+                                    <i class="bi" :class="def._expanded ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @click="removeDefendant(idx)"
+                                        :disabled="defendants.length <= 1">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Hidden PK for existing defendants -->
+                        <input type="hidden" :name="'def_' + idx + '_pk'" :value="def.pk || ''">
+
+                        <div x-show="def._expanded" x-transition>
+                            <!-- Row 1: Name + Badge -->
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control"
+                                           :name="'def_' + idx + '_full_name'"
+                                           x-model="def.full_name"
+                                           placeholder="e.g. Officer John Smith">
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="form-label">Badge #</label>
+                                    <input type="text" class="form-control"
+                                           :name="'def_' + idx + '_badge_number'"
+                                           x-model="def.badge_number"
+                                           placeholder="e.g. 4521">
+                                </div>
+                                <div class="col-sm-3">
+                                    <label class="form-label">Rank / Title</label>
+                                    <input type="text" class="form-control"
+                                           :name="'def_' + idx + '_rank_title'"
+                                           x-model="def.rank_title"
+                                           placeholder="e.g. Sergeant">
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Agency -->
+                            <div class="mb-3">
+                                <label class="form-label">Agency / Department</label>
+                                <input type="text" class="form-control"
+                                       :name="'def_' + idx + '_agency_name'"
+                                       x-model="def.agency_name"
+                                       placeholder="e.g. Denver Police Department">
+                            </div>
+
+                            <!-- Row 3: Legal details -->
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label">Capacity Sued</label>
+                                    <select class="form-select"
+                                            :name="'def_' + idx + '_capacity_sued'"
+                                            x-model="def.capacity_sued">
+                                        {% for value, label in capacity_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Usually "Both" — sue the person and their office.</div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="mt-sm-4 pt-sm-1">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox"
+                                                   :id="'color_' + idx"
+                                                   :name="'def_' + idx + '_acting_under_color_of_law'"
+                                                   x-model="def.acting_under_color_of_law">
+                                            <label class="form-check-label" :for="'color_' + idx">
+                                                Acting under color of law
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   :id="'super_' + idx"
+                                                   :name="'def_' + idx + '_is_supervisor'"
+                                                   x-model="def.is_supervisor">
+                                            <label class="form-check-label" :for="'super_' + idx">
+                                                Supervisor
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Add defendant button -->
+                <button type="button" class="btn btn-outline-primary w-100 mb-4 py-2"
+                        @click="addDefendant()">
+                    <i class="bi bi-plus-circle me-1"></i>Add Another Defendant
+                </button>
+
+                <!-- No defendants warning -->
+                <div class="alert alert-warning small py-2 px-3 mb-4"
+                     x-show="defendants.length === 0" x-cloak>
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    You need at least one defendant to proceed with your complaint.
+                </div>
+
+                <!-- Government Entity (Monell) -->
+                <div class="gov-section mb-4">
+                    <div class="gov-section-title">
+                        <i class="bi bi-bank"></i>Government Entity <span class="text-muted fw-normal">(Monell Claim)</span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        If the violation resulted from an official policy, custom, or practice,
+                        you can also sue the government entity itself (e.g. the City or County).
+                        This is optional.
+                    </p>
+                    <div class="mb-3">
+                        <label for="entity_name" class="form-label">Entity Name</label>
+                        <input type="text" class="form-control" id="entity_name"
+                               name="entity_name"
+                               value="{{ gov_entity.entity_name }}"
+                               placeholder="e.g. City of Denver, Cook County">
+                    </div>
+                    <div class="mb-3">
+                        <label for="entity_address" class="form-label">Entity Address</label>
+                        <input type="text" class="form-control" id="entity_address"
+                               name="entity_address"
+                               value="{{ gov_entity.entity_address }}"
+                               placeholder="Official address of the entity">
+                    </div>
+                    <div class="mb-0">
+                        <label for="policy_or_custom_description" class="form-label">
+                            Policy, Custom, or Practice
+                        </label>
+                        <textarea class="form-control" id="policy_or_custom_description"
+                                  name="policy_or_custom_description" rows="3"
+                                  placeholder="Describe the policy or practice that led to the violation, e.g. 'The department has a pattern of arresting individuals who film police activity in public'">{{ gov_entity.policy_or_custom_description }}</textarea>
+                        <div class="form-text">
+                            Describe the official policy, widespread custom, or practice that caused
+                            the constitutional violation. This is required for a Monell claim against
+                            the government entity.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'documents:wizard_step2' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold"
+                            :disabled="defendants.length === 0">
+                        Save &amp; Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step3() {
+    const raw = {{ defendants_json|safe }};
+    const defendants = raw.map(d => ({
+        ...d,
+        acting_under_color_of_law: d.acting_under_color_of_law !== false,
+        capacity_sued: d.capacity_sued || 'both',
+        _expanded: true,
+    }));
+    if (defendants.length === 0) {
+        defendants.push(emptyDefendant());
+    }
+
+    return {
+        defendants,
+
+        addDefendant() {
+            this.defendants.push(emptyDefendant());
+        },
+
+        removeDefendant(idx) {
+            if (this.defendants.length > 1) {
+                this.defendants.splice(idx, 1);
+            }
+        },
+
+        prepareSubmit() {
+            // Alpine checkboxes use x-model which sets true/false,
+            // but Django expects the field to be present (checked) or absent.
+            // The hidden + checkbox pattern handles this via the form names.
+        },
+    };
+}
+
+function emptyDefendant() {
+    return {
+        pk: null,
+        full_name: '',
+        badge_number: '',
+        rank_title: '',
+        agency_name: '',
+        capacity_sued: 'both',
+        acting_under_color_of_law: true,
+        is_supervisor: false,
+        _expanded: true,
+    };
+}
+</script>
+{% endblock %}

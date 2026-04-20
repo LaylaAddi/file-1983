@@ -7,7 +7,10 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-from .models import Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview
+from .models import (
+    Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview,
+    Defendant, GovernmentEntity,
+)
 
 
 @login_required
@@ -408,8 +411,7 @@ def wizard_step2(request, document_slug):
             )
             return redirect('documents:wizard_step1', document_slug=doc.slug)
 
-        # TODO: redirect to Step 3 once built
-        return redirect('documents:wizard_step2', document_slug=doc.slug)
+        return redirect('documents:wizard_step3', document_slug=doc.slug)
 
     return render(request, 'documents/wizard_step2.html', {
         'document': doc,
@@ -417,6 +419,90 @@ def wizard_step2(request, document_slug):
         'incident': incident,
         'state_choices': STATE_CHOICES,
         'location_type_choices': IncidentOverview.LOCATION_TYPE_CHOICES,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Step 3 — Defendants
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step3(request, document_slug):
+    """Step 3 — Add/edit/delete defendants + government entity (Monell)."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+    gov_entity, _ = GovernmentEntity.objects.get_or_create(document=doc)
+
+    if request.method == 'POST':
+        # --- Parse defendants from indexed POST fields ---
+        defendant_count = int(request.POST.get('defendant_count', 0))
+        existing_defendants = {d.pk: d for d in doc.defendants.all()}
+        seen_pks = set()
+
+        for i in range(defendant_count):
+            prefix = f'def_{i}_'
+            full_name = request.POST.get(f'{prefix}full_name', '').strip()
+            if not full_name:
+                continue
+
+            pk_str = request.POST.get(f'{prefix}pk', '')
+            pk = int(pk_str) if pk_str else None
+
+            defaults = {
+                'full_name': full_name,
+                'badge_number': request.POST.get(f'{prefix}badge_number', '').strip(),
+                'rank_title': request.POST.get(f'{prefix}rank_title', '').strip(),
+                'agency_name': request.POST.get(f'{prefix}agency_name', '').strip(),
+                'capacity_sued': request.POST.get(f'{prefix}capacity_sued', 'both').strip(),
+                'acting_under_color_of_law': request.POST.get(f'{prefix}acting_under_color_of_law') == 'on',
+                'is_supervisor': request.POST.get(f'{prefix}is_supervisor') == 'on',
+                'order': i,
+            }
+
+            if pk and pk in existing_defendants:
+                obj = existing_defendants[pk]
+                for k, v in defaults.items():
+                    setattr(obj, k, v)
+                obj.save()
+                seen_pks.add(pk)
+            else:
+                obj = Defendant.objects.create(document=doc, **defaults)
+                seen_pks.add(obj.pk)
+
+        # Delete defendants that were removed by the user
+        for pk, obj in existing_defendants.items():
+            if pk not in seen_pks:
+                obj.delete()
+
+        # --- Government Entity ---
+        gov_entity.entity_name = request.POST.get('entity_name', '').strip()
+        gov_entity.entity_address = request.POST.get('entity_address', '').strip()
+        gov_entity.policy_or_custom_description = request.POST.get(
+            'policy_or_custom_description', ''
+        ).strip()
+        gov_entity.save()
+
+        # Advance wizard
+        if session.current_step < 4:
+            session.current_step = 4
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        messages.success(request, 'Defendants saved.')
+        # TODO: redirect to Step 4 once built
+        return redirect('documents:wizard_step3', document_slug=doc.slug)
+
+    defendants = list(doc.defendants.all().values(
+        'pk', 'full_name', 'badge_number', 'rank_title', 'agency_name',
+        'capacity_sued', 'acting_under_color_of_law', 'is_supervisor', 'order',
+    ))
+
+    return render(request, 'documents/wizard_step3.html', {
+        'document': doc,
+        'session': session,
+        'defendants_json': json.dumps(defendants),
+        'defendant_count': len(defendants),
+        'gov_entity': gov_entity,
+        'capacity_choices': Defendant.CAPACITY_CHOICES,
     })
 
 

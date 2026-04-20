@@ -102,6 +102,7 @@ DEFAULT_FROM_EMAIL=
 /documents/<slug>/wizard/summary/          → post-extraction summary (found/missing review)
 /documents/<slug>/wizard/step1/            → Step 1: federal jurisdiction / court confirmation
 /documents/<slug>/wizard/step2/            → Step 2: incident details (date, location, activity, force)
+/documents/<slug>/wizard/step3/            → Step 3: defendants (add/edit/delete) + government entity
 /documents/lookup-district-court/          → AJAX: GET ?city=&state= → court name JSON
 /api/v1/token/                             → JWT obtain
 /api/v1/token/refresh/                     → JWT refresh
@@ -123,8 +124,8 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — Step 1: federal jurisdiction only (auto-populate court, confirm checkbox, manual override)
 - [x] `documents` — example stories fixture (PKs 1–10 complete, PKs 11–14 gap-test stories)
 - [x] `documents` — Step 2: incident details form (date, location, activity, force/equipment, court-clearing on city/state change)
-- [ ] **Step 3: Defendants (add/edit/delete, multi-record)** ← BUILD NEXT
-- [ ] Step 4: Constitutional claims (multi-record)
+- [x] `documents` — Step 3: defendants (Alpine.js dynamic add/edit/delete cards, government entity Monell section)
+- [ ] **Step 4: Constitutional claims (multi-record)** ← BUILD NEXT
 - [ ] Step 5: Evidence & Witnesses (multi-record)
 - [ ] Step 6: Damages & Relief
 - [ ] Step 7: Final review
@@ -160,8 +161,15 @@ DEFAULT_FROM_EMAIL=
    - Pre-populated from GPT extraction; user reviews/edits all fields
    - Fields: date, time, address, city, state, county, location description, location type, public forum, plaintiff activity, force used, equipment seized
    - If city or state changes: clears `federal_district_court` and `court_confirmed=False`, redirects back to Step 1
-   - On save: advances `current_step` to 3, redirects to Step 3 (placeholder until built)
+   - On save: advances `current_step` to 3, redirects to Step 3
    - Reusable progress indicator: `templates/documents/_wizard_progress.html`
+6. Step 3 (`wizard_step3`) — defendants
+   - Alpine.js dynamic defendant cards: add, edit, delete, expand/collapse
+   - Each card: full_name, badge_number, rank_title, agency_name, capacity_sued, acting_under_color_of_law, is_supervisor
+   - Defendants serialized as indexed POST fields (`def_0_full_name`, etc.)
+   - View updates existing defendants by PK, creates new ones, deletes removed ones
+   - Government Entity (Monell claim) section at bottom: entity_name, entity_address, policy_or_custom_description
+   - On save: advances `current_step` to 4, redirects to Step 4 (placeholder until built)
 
 ### GPT Extraction (`documents/services/openai_service.py`)
 - `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
@@ -215,20 +223,20 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 
 ---
 
-## Next Step: Wizard Step 3 — Defendants
+## Next Step: Wizard Step 4 — Constitutional Claims
 
-**URL:** `GET/POST /documents/<slug>/wizard/step3/`
-**Models:** `Defendant` (multi-record, FK to Document) + `GovernmentEntity` (OneToOne)
-**Template:** `templates/documents/wizard_step3.html`
+**URL:** `GET/POST /documents/<slug>/wizard/step4/`
+**Model:** `ConstitutionalClaim` (multi-record, FK to Document, unique on document+amendment)
+**Template:** `templates/documents/wizard_step4.html`
 
 ### What it needs:
-- List existing defendants (pre-populated from GPT extraction)
-- Add / edit / delete individual defendants
-- Each defendant: full_name, badge_number, rank_title, agency_name, capacity_sued, acting_under_color_of_law, is_supervisor
-- Government entity section (Monell claim): entity_name, entity_address, policy_or_custom_description
-- Navigation: back → Step 2, continue → Step 4
-- On POST: save all, advance `session.current_step` to 4 if < 4
-- Use `_wizard_progress.html` include with `current_step=3`
+- List existing claims (pre-populated from GPT extraction)
+- Add / edit / delete individual claims
+- Each claim: amendment (dropdown from `AMENDMENT_CHOICES`), how_violated (textarea)
+- Grouped display — First Amendment claims, Fourth Amendment, etc.
+- Navigation: back → Step 3, continue → Step 5
+- On POST: save all, advance `session.current_step` to 5 if < 5
+- Use `_wizard_progress.html` include with `current_step=4`
 
 ---
 
