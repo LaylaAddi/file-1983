@@ -137,8 +137,12 @@
                             <label for="location_type" class="form-label">Location Type</label>
                             <select class="form-select" id="location_type" name="location_type">
                                 <option value="">Select type</option>
-                                {% for value, label in location_type_choices %}
-                                <option value="{{ value }}" {% if incident.location_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% for group_label, options in location_type_groups %}
+                                <optgroup label="{{ group_label }}">
+                                    {% for value, label in options %}
+                                    <option value="{{ value }}" {% if incident.location_type == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
                                 {% endfor %}
                             </select>
                         </div>

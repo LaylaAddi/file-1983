@@ -40,8 +40,12 @@ Rules:
 - For constitutional_claims, identify which amendments were likely violated based on the facts.
   Common choices: "First", "Fourth", "Fifth", "Eighth", "Fourteenth".
 - For the timeline, break events into discrete chronological steps with one action per entry.
-- incident.location_type choices: public_sidewalk, public_park, government_building,
-  private_property, vehicle, other.
+- incident.location_type choices: public_sidewalk, public_park, public_plaza,
+  public_parking_lot, roadway, traffic_stop, police_station, sheriff_office,
+  courthouse, city_hall, county_building, federal_building, dmv, post_office,
+  government_office, public_school, public_library, public_hospital, jail,
+  prison, airport, transit_station, transit_vehicle, personal_vehicle,
+  private_residence, private_business, other.
 - defendants[].capacity_sued choices: individual, official, both.
 - evidence[].evidence_type choices: video, photo, document, audio, physical, other.
 - witnesses[].relationship_to_plaintiff choices: bystander, friend, family, co-plaintiff, other.

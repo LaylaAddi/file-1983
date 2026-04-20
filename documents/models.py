@@ -226,12 +226,38 @@ class PlaintiffInfo(models.Model):
 
 class IncidentOverview(models.Model):
     LOCATION_TYPE_CHOICES = [
+        # Public outdoor spaces (traditional public forums)
         ('public_sidewalk', 'Public Sidewalk'),
-        ('public_building', 'Public Building'),
-        ('park', 'Park'),
-        ('roadway', 'Roadway'),
+        ('public_park', 'Public Park'),
+        ('public_plaza', 'Public Plaza / Square'),
+        ('public_parking_lot', 'Public Parking Lot'),
+        ('roadway', 'Roadway / Highway'),
+        ('traffic_stop', 'Traffic Stop (roadside)'),
+        # Government buildings
+        ('police_station', 'Police Station / Lobby'),
+        ('sheriff_office', "Sheriff's Office / Lobby"),
+        ('courthouse', 'Courthouse / Lobby'),
+        ('city_hall', 'City / Town Hall'),
+        ('county_building', 'County Government Building'),
+        ('federal_building', 'Federal Building'),
+        ('dmv', 'DMV / Motor Vehicle Office'),
+        ('post_office', 'Post Office'),
+        ('government_office', 'Other Government Office / Building'),
+        # Public institutions
+        ('public_school', 'Public School'),
+        ('public_library', 'Public Library'),
+        ('public_hospital', 'Public Hospital / Clinic'),
+        ('jail', 'Jail / Detention Center'),
+        ('prison', 'Prison / Correctional Facility'),
+        # Transportation
+        ('airport', 'Airport / Terminal'),
+        ('transit_station', 'Train / Bus Station'),
+        ('transit_vehicle', 'Bus / Train / Transit Vehicle'),
+        ('personal_vehicle', 'Personal Vehicle'),
+        # Private property
         ('private_residence', 'Private Residence'),
-        ('vehicle', 'Vehicle'),
+        ('private_business', 'Private Business / Store'),
+        # Fallback
         ('other', 'Other'),
     ]
 
