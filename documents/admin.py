@@ -4,6 +4,7 @@ from .models import (
     TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
     Evidence, Witness, Damages, PriorComplaints, ReliefSought,
     AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest, ExampleStory,
+    CaseLaw,
 )
 
 
@@ -130,3 +131,22 @@ class ExampleStoryAdmin(admin.ModelAdmin):
     list_display = ['title', 'order', 'is_active']
     list_editable = ['order', 'is_active']
     search_fields = ['title']
+
+
+@admin.register(CaseLaw)
+class CaseLawAdmin(admin.ModelAdmin):
+    list_display = ['case_name', 'citation', 'category', 'year', 'is_active', 'order']
+    list_filter = ['category', 'is_active']
+    list_editable = ['order', 'is_active']
+    search_fields = ['case_name', 'citation', 'holding_summary', 'why_it_matters']
+    fieldsets = [
+        ('Case Identification', {
+            'fields': ['category', 'case_name', 'citation', 'court', 'year'],
+        }),
+        ('Content', {
+            'fields': ['holding_summary', 'why_it_matters', 'key_quote', 'jurisdiction_notes'],
+        }),
+        ('Display', {
+            'fields': ['is_active', 'order'],
+        }),
+    ]

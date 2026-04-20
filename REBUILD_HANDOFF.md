@@ -103,6 +103,7 @@ DEFAULT_FROM_EMAIL=
 /documents/<slug>/wizard/step1/            → Step 1: federal jurisdiction / court confirmation
 /documents/<slug>/wizard/step2/            → Step 2: incident details (date, location, activity, force)
 /documents/<slug>/wizard/step3/            → Step 3: defendants (add/edit/delete) + government entity
+/documents/<slug>/wizard/step4/            → Step 4: constitutional claims (add/edit/delete)
 /documents/lookup-district-court/          → AJAX: GET ?city=&state= → court name JSON
 /api/v1/token/                             → JWT obtain
 /api/v1/token/refresh/                     → JWT refresh
@@ -125,8 +126,9 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — example stories fixture (PKs 1–10 complete, PKs 11–14 gap-test stories)
 - [x] `documents` — Step 2: incident details form (date, location, activity, force/equipment, court-clearing on city/state change)
 - [x] `documents` — Step 3: defendants (Alpine.js dynamic add/edit/delete cards, government entity Monell section)
-- [ ] **Step 4: Constitutional claims (multi-record)** ← BUILD NEXT
-- [ ] Step 5: Evidence & Witnesses (multi-record)
+- [x] `documents` — Step 4: constitutional claims (add/edit/delete, duplicate-amendment protection)
+- [x] `documents` — CaseLaw model + admin + 15 foundational cases fixture (wired in later — no UI yet)
+- [ ] **Step 5: Evidence & Witnesses (multi-record)** ← BUILD NEXT
 - [ ] Step 6: Damages & Relief
 - [ ] Step 7: Final review
 - [ ] PDF generation (WeasyPrint)
@@ -169,7 +171,13 @@ DEFAULT_FROM_EMAIL=
    - Defendants serialized as indexed POST fields (`def_0_full_name`, etc.)
    - View updates existing defendants by PK, creates new ones, deletes removed ones
    - Government Entity (Monell claim) section at bottom: entity_name, entity_address, policy_or_custom_description
-   - On save: advances `current_step` to 4, redirects to Step 4 (placeholder until built)
+   - On save: advances `current_step` to 4, redirects to Step 4
+7. Step 4 (`wizard_step4`) — constitutional claims
+   - Alpine.js dynamic claim cards: amendment dropdown + how_violated textarea
+   - Duplicate amendment detection (client-side warning + server-side skip) since `(document, amendment)` is unique_together
+   - Indexed POST fields (`claim_0_amendment`, etc.)
+   - On save: advances `current_step` to 5, redirects to Step 5 (placeholder until built)
+   - Footer placeholder teases upcoming case law feature
 
 ### GPT Extraction (`documents/services/openai_service.py`)
 - `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
@@ -221,22 +229,37 @@ DEFAULT_FROM_EMAIL=
 Load into DB: `docker compose exec web python manage.py loaddata example_stories`
 Dropdown shows only for `is_staff` users or when `DEBUG=True`
 
+### Case Law Library (`documents/fixtures/foundational_case_law.json`)
+- 15 foundational real federal cases covering the core of 1983 litigation:
+  - 1st Am. recording: Glik, Turner, Fields, Alvarez, Smith v. Cumming
+  - 1st Am. retaliation: Nieves, Hartman
+  - 4th Am. excessive force: Graham v. Connor, Tennessee v. Garner
+  - 4th Am. seizure: Terry, Bostick
+  - Qualified immunity: Harlow, Pearson
+  - Monell / §1983 general: Monell, Monroe v. Pape
+- Admin-managed via `CaseLaw` model. Each case has plain-English holding summary,
+  why-it-matters for auditors, optional key quote, and jurisdiction notes
+- Load into DB: `docker compose exec web python manage.py loaddata foundational_case_law`
+- **Not yet wired to UI.** Deferred feature: Step 4 will let users browse these per-claim
+  and opt-in to include specific cases as supporting authority in their complaint.
+  Design note: only curated cases — never AI-generated citations (hallucination risk)
+
 ---
 
-## Next Step: Wizard Step 4 — Constitutional Claims
+## Next Step: Wizard Step 5 — Evidence & Witnesses
 
-**URL:** `GET/POST /documents/<slug>/wizard/step4/`
-**Model:** `ConstitutionalClaim` (multi-record, FK to Document, unique on document+amendment)
-**Template:** `templates/documents/wizard_step4.html`
+**URL:** `GET/POST /documents/<slug>/wizard/step5/`
+**Models:** `Evidence` + `Witness` (both multi-record, FK to Document)
+**Template:** `templates/documents/wizard_step5.html`
 
 ### What it needs:
-- List existing claims (pre-populated from GPT extraction)
-- Add / edit / delete individual claims
-- Each claim: amendment (dropdown from `AMENDMENT_CHOICES`), how_violated (textarea)
-- Grouped display — First Amendment claims, Fourth Amendment, etc.
-- Navigation: back → Step 3, continue → Step 5
-- On POST: save all, advance `session.current_step` to 5 if < 5
-- Use `_wizard_progress.html` include with `current_step=4`
+- Two sections on one page: Evidence list + Witnesses list
+- Evidence fields: evidence_type (dropdown), description, date_and_time, recorded_by, public_url, defendant_aware_of_recording
+- Witness fields: full_name, contact_info, relationship_to_plaintiff, what_they_witnessed, has_video, willing_to_testify
+- Add/edit/delete via Alpine.js (same pattern as Steps 3 & 4)
+- Navigation: back → Step 4, continue → Step 6
+- On POST: save all, advance `session.current_step` to 6 if < 6
+- Use `_wizard_progress.html` include with `current_step=5`
 
 ---
 

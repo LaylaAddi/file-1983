@@ -461,6 +461,74 @@ class ConstitutionalClaim(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# Case Law Library — curated real cases (admin-managed)
+# ---------------------------------------------------------------------------
+
+class CaseLaw(models.Model):
+    """
+    Curated database of real federal cases supporting Section 1983 claims.
+    Admin-managed; seeded via fixture. Only real, verified citations — no
+    AI-generated case law (hallucinated citations carry serious legal risk).
+    Intended use: Step 4 will let users browse relevant cases per claim and
+    select which to include as supporting authority in their complaint.
+    """
+    CATEGORY_CHOICES = [
+        ('1st_recording', 'First Amendment — Right to Record Police'),
+        ('1st_retaliation', 'First Amendment — Retaliation'),
+        ('1st_general', 'First Amendment — General'),
+        ('4th_excessive_force', 'Fourth Amendment — Excessive Force'),
+        ('4th_seizure', 'Fourth Amendment — Seizure / Arrest'),
+        ('4th_search', 'Fourth Amendment — Search'),
+        ('14th_due_process', 'Fourteenth Amendment — Due Process'),
+        ('14th_equal_protection', 'Fourteenth Amendment — Equal Protection'),
+        ('qualified_immunity', 'Qualified Immunity'),
+        ('monell', 'Monell / Municipal Liability'),
+        ('section_1983_general', 'Section 1983 — General Principles'),
+    ]
+
+    category = models.CharField(max_length=40, choices=CATEGORY_CHOICES)
+    case_name = models.CharField(
+        max_length=255,
+        help_text='e.g. "Glik v. Cunniffe"'
+    )
+    citation = models.CharField(
+        max_length=255,
+        help_text='e.g. "655 F.3d 78 (1st Cir. 2011)"'
+    )
+    court = models.CharField(
+        max_length=255, blank=True,
+        help_text='e.g. "U.S. Court of Appeals for the First Circuit"'
+    )
+    year = models.PositiveSmallIntegerField(null=True, blank=True)
+    holding_summary = models.TextField(
+        help_text='Plain-English summary of what the case held'
+    )
+    why_it_matters = models.TextField(
+        help_text='Why this matters for 1983 plaintiffs (especially auditors)'
+    )
+    key_quote = models.TextField(
+        blank=True,
+        help_text='Direct quote from the opinion (optional)'
+    )
+    jurisdiction_notes = models.TextField(
+        blank=True,
+        help_text='e.g. "Controlling in 1st Circuit; persuasive elsewhere"'
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category', 'order', '-year']
+        verbose_name = 'Case Law'
+        verbose_name_plural = 'Case Law'
+
+    def __str__(self):
+        return f'{self.case_name}, {self.citation}'
+
+
+# ---------------------------------------------------------------------------
 # Step 5 — Evidence (multiple per document)
 # ---------------------------------------------------------------------------
 

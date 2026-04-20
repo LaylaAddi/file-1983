@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 4 — Constitutional Claims — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .claim-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        background: #fff;
+        transition: border-color 0.2s;
+    }
+    .claim-card:hover { border-color: #0d6efd; }
+    .claim-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .claim-number {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .claim-card {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .claim-card:hover { border-color: #3d6fd6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="step4()">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            {% include 'documents/_wizard_progress.html' with current_step=4 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step3' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 3
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 4 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Constitutional Claims</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    Identify which constitutional rights were violated. These were suggested from
+                    your story based on the facts described. Add, edit, or remove as needed.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="claim_count" :value="claims.length">
+
+                <!-- Claim cards -->
+                <template x-for="(claim, idx) in claims" :key="idx">
+                    <div class="claim-card">
+                        <div class="claim-card-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="claim-number" x-text="idx + 1"></span>
+                                <span class="fw-semibold" x-text="amendmentLabel(claim.amendment) || 'New Claim'"></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    @click="removeClaim(idx)"
+                                    :disabled="claims.length <= 1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+
+                        <input type="hidden" :name="'claim_' + idx + '_pk'" :value="claim.pk || ''">
+
+                        <div class="mb-3">
+                            <label class="form-label">Amendment / Right Violated <span class="text-danger">*</span></label>
+                            <select class="form-select"
+                                    :name="'claim_' + idx + '_amendment'"
+                                    x-model="claim.amendment">
+                                <option value="">Select amendment</option>
+                                {% for value, label in amendment_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-warning" x-show="isDuplicate(idx)" x-cloak>
+                                <i class="bi bi-exclamation-circle me-1"></i>
+                                This amendment is already used in another claim — pick a different one.
+                            </div>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label">How was this right violated?</label>
+                            <textarea class="form-control"
+                                      :name="'claim_' + idx + '_how_violated'"
+                                      x-model="claim.how_violated"
+                                      rows="3"
+                                      placeholder="Describe specifically how this constitutional right was violated based on the facts of your case."></textarea>
+                            <div class="form-text">
+                                Be specific. Example: "Defendants retaliated against me for exercising my
+                                First Amendment right to record police in a public forum by arresting me
+                                without probable cause."
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Add claim button -->
+                <button type="button" class="btn btn-outline-primary w-100 mb-4 py-2"
+                        @click="addClaim()">
+                    <i class="bi bi-plus-circle me-1"></i>Add Another Claim
+                </button>
+
+                <!-- No claims warning -->
+                <div class="alert alert-warning small py-2 px-3 mb-4"
+                     x-show="claims.length === 0" x-cloak>
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    You need at least one constitutional claim to proceed with your complaint.
+                </div>
+
+                <!-- Case law placeholder -->
+                <div class="alert alert-info small py-2 px-3 mb-4">
+                    <i class="bi bi-book me-1"></i>
+                    <strong>Coming soon:</strong> Select supporting case law for each claim.
+                    Real federal cases (like <em>Glik v. Cunniffe</em> and <em>Graham v. Connor</em>)
+                    with plain-English explanations you can include in your complaint.
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'documents:wizard_step3' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold"
+                            :disabled="claims.length === 0 || hasAnyDuplicate()">
+                        Save &amp; Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step4() {
+    const raw = {{ claims_json|safe }};
+    const claims = raw.map(c => ({...c}));
+    if (claims.length === 0) {
+        claims.push(emptyClaim());
+    }
+
+    const amendmentLabels = {{ amendment_labels_json|safe }};
+
+    return {
+        claims,
+
+        amendmentLabel(value) {
+            return amendmentLabels[value] || '';
+        },
+
+        addClaim() {
+            this.claims.push(emptyClaim());
+        },
+
+        removeClaim(idx) {
+            if (this.claims.length > 1) {
+                this.claims.splice(idx, 1);
+            }
+        },
+
+        isDuplicate(idx) {
+            const amendment = this.claims[idx].amendment;
+            if (!amendment) return false;
+            return this.claims.some((c, i) => i !== idx && c.amendment === amendment);
+        },
+
+        hasAnyDuplicate() {
+            return this.claims.some((_, idx) => this.isDuplicate(idx));
+        },
+    };
+}
+
+function emptyClaim() {
+    return {
+        pk: null,
+        amendment: '',
+        how_violated: '',
+    };
+}
+</script>
+{% endblock %}

@@ -9,7 +9,7 @@ from django.views.decorators.http import require_GET
 
 from .models import (
     Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview,
-    Defendant, GovernmentEntity,
+    Defendant, GovernmentEntity, ConstitutionalClaim,
 )
 
 
@@ -533,8 +533,7 @@ def wizard_step3(request, document_slug):
             session.save(update_fields=['current_step', 'updated_at'])
 
         messages.success(request, 'Defendants saved.')
-        # TODO: redirect to Step 4 once built
-        return redirect('documents:wizard_step3', document_slug=doc.slug)
+        return redirect('documents:wizard_step4', document_slug=doc.slug)
 
     defendants = list(doc.defendants.all().values(
         'pk', 'full_name', 'badge_number', 'rank_title', 'agency_name',
@@ -548,6 +547,88 @@ def wizard_step3(request, document_slug):
         'defendant_count': len(defendants),
         'gov_entity': gov_entity,
         'capacity_choices': Defendant.CAPACITY_CHOICES,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Step 4 — Constitutional Claims
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step4(request, document_slug):
+    """Step 4 — Add/edit/delete constitutional claims."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    if request.method == 'POST':
+        claim_count = int(request.POST.get('claim_count', 0))
+        existing_claims = {c.pk: c for c in doc.constitutional_claims.all()}
+        seen_pks = set()
+        seen_amendments = set()
+        duplicate_warning = False
+
+        for i in range(claim_count):
+            prefix = f'claim_{i}_'
+            amendment = request.POST.get(f'{prefix}amendment', '').strip()
+            if not amendment:
+                continue
+
+            # Enforce unique_together(document, amendment) at the view layer
+            if amendment in seen_amendments:
+                duplicate_warning = True
+                continue
+            seen_amendments.add(amendment)
+
+            pk_str = request.POST.get(f'{prefix}pk', '')
+            pk = int(pk_str) if pk_str else None
+
+            defaults = {
+                'amendment': amendment,
+                'how_violated': request.POST.get(f'{prefix}how_violated', '').strip(),
+            }
+
+            if pk and pk in existing_claims:
+                obj = existing_claims[pk]
+                for k, v in defaults.items():
+                    setattr(obj, k, v)
+                obj.save()
+                seen_pks.add(pk)
+            else:
+                obj, _ = ConstitutionalClaim.objects.update_or_create(
+                    document=doc, amendment=amendment,
+                    defaults={'how_violated': defaults['how_violated']},
+                )
+                seen_pks.add(obj.pk)
+
+        # Delete claims that were removed
+        for pk, obj in existing_claims.items():
+            if pk not in seen_pks:
+                obj.delete()
+
+        # Advance wizard
+        if session.current_step < 5:
+            session.current_step = 5
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        if duplicate_warning:
+            messages.warning(
+                request,
+                'Duplicate amendment selections were skipped — each amendment can only be used once.'
+            )
+        messages.success(request, 'Constitutional claims saved.')
+        # TODO: redirect to Step 5 once built
+        return redirect('documents:wizard_step4', document_slug=doc.slug)
+
+    claims = list(doc.constitutional_claims.all().values(
+        'pk', 'amendment', 'how_violated',
+    ))
+
+    return render(request, 'documents/wizard_step4.html', {
+        'document': doc,
+        'session': session,
+        'claims_json': json.dumps(claims),
+        'amendment_choices': ConstitutionalClaim.AMENDMENT_CHOICES,
+        'amendment_labels_json': json.dumps(dict(ConstitutionalClaim.AMENDMENT_CHOICES)),
     })
 
 
