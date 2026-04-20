@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 5 — Evidence & Witnesses — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ev-card, .wit-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        background: #fff;
+        transition: border-color 0.2s;
+    }
+    .ev-card:hover, .wit-card:hover { border-color: #0d6efd; }
+    .item-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .item-number {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .item-number.witness { background: #6f42c1; }
+    .section-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.4rem;
+        margin-bottom: 0.25rem;
+    }
+
+    [data-theme="dark"] .ev-card,
+    [data-theme="dark"] .wit-card {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .ev-card:hover,
+    [data-theme="dark"] .wit-card:hover { border-color: #3d6fd6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="step5()">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            {% include 'documents/_wizard_progress.html' with current_step=5 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step4' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 4
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 5 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Evidence &amp; Witnesses</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    List the evidence that supports your claims (video, photos, records, etc.)
+                    and any witnesses who saw what happened. Items extracted from your story
+                    are pre-filled — add, edit, or remove as needed.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="evidence_count" :value="evidence.length">
+                <input type="hidden" name="witness_count" :value="witnesses.length">
+
+                <!-- Evidence section -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-camera-video text-primary fs-4"></i>
+                        <h3 class="section-title mb-0">Evidence</h3>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Video, photos, body-cam footage, police reports, medical records,
+                        citations — anything that documents the incident.
+                    </p>
+
+                    <template x-for="(ev, idx) in evidence" :key="'ev' + idx">
+                        <div class="ev-card">
+                            <div class="item-card-header">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="item-number" x-text="idx + 1"></span>
+                                    <span class="fw-semibold" x-text="evidenceLabel(ev) || 'New Evidence Item'"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @click="removeEvidence(idx)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+
+                            <input type="hidden" :name="'ev_' + idx + '_pk'" :value="ev.pk || ''">
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-5">
+                                    <label class="form-label">Type</label>
+                                    <select class="form-select"
+                                            :name="'ev_' + idx + '_evidence_type'"
+                                            x-model="ev.evidence_type">
+                                        {% for value, label in evidence_type_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-sm-7">
+                                    <label class="form-label">Date / Time</label>
+                                    <input type="text" class="form-control"
+                                           :name="'ev_' + idx + '_date_and_time'"
+                                           x-model="ev.date_and_time"
+                                           placeholder="e.g. March 3, 2024, around 2:30 PM">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control"
+                                          :name="'ev_' + idx + '_description'"
+                                          x-model="ev.description"
+                                          rows="2"
+                                          placeholder="e.g. Cell phone video of the arrest from the moment officers approached."></textarea>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label">Recorded / Created By</label>
+                                    <input type="text" class="form-control"
+                                           :name="'ev_' + idx + '_recorded_by'"
+                                           x-model="ev.recorded_by"
+                                           placeholder="e.g. Me, Officer Smith body-cam, bystander">
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label">Public URL <span class="text-muted small">(optional)</span></label>
+                                    <input type="url" class="form-control"
+                                           :name="'ev_' + idx + '_public_url'"
+                                           x-model="ev.public_url"
+                                           placeholder="https://youtube.com/…">
+                                </div>
+                            </div>
+
+                            <div class="mb-0">
+                                <label class="form-label">Were defendants aware it was being recorded?</label>
+                                <select class="form-select"
+                                        :name="'ev_' + idx + '_defendant_aware_of_recording'"
+                                        x-model="ev.defendant_aware_of_recording">
+                                    <option value="">Unknown</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                                <div class="form-text">
+                                    Relevant to First Amendment retaliation claims.
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <button type="button" class="btn btn-outline-primary w-100 mb-4 py-2"
+                            @click="addEvidence()">
+                        <i class="bi bi-plus-circle me-1"></i>Add Evidence Item
+                    </button>
+
+                    <div class="alert alert-info small py-2 px-3 mb-4"
+                         x-show="evidence.length === 0" x-cloak>
+                        <i class="bi bi-info-circle me-1"></i>
+                        No evidence yet. Even one item (e.g. cell phone video or a citation)
+                        strengthens your case — add anything you have.
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Witnesses section -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-people text-primary fs-4"></i>
+                        <h3 class="section-title mb-0">Witnesses</h3>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Anyone who saw the incident — bystanders, fellow protestors, companions.
+                        Even a witness without contact info can be listed.
+                    </p>
+
+                    <template x-for="(w, idx) in witnesses" :key="'wit' + idx">
+                        <div class="wit-card">
+                            <div class="item-card-header">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="item-number witness" x-text="idx + 1"></span>
+                                    <span class="fw-semibold" x-text="w.full_name || 'New Witness'"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @click="removeWitness(idx)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+
+                            <input type="hidden" :name="'wit_' + idx + '_pk'" :value="w.pk || ''">
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" class="form-control"
+                                           :name="'wit_' + idx + '_full_name'"
+                                           x-model="w.full_name"
+                                           placeholder="e.g. Jane Doe">
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label">Contact Info</label>
+                                    <input type="text" class="form-control"
+                                           :name="'wit_' + idx + '_contact_info'"
+                                           x-model="w.contact_info"
+                                           placeholder="Phone, email, or 'unknown'">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Relationship to You</label>
+                                <input type="text" class="form-control"
+                                       :name="'wit_' + idx + '_relationship_to_plaintiff'"
+                                       x-model="w.relationship_to_plaintiff"
+                                       placeholder="e.g. bystander, friend, co-worker, fellow protestor">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">What They Witnessed</label>
+                                <textarea class="form-control"
+                                          :name="'wit_' + idx + '_what_they_witnessed'"
+                                          x-model="w.what_they_witnessed"
+                                          rows="2"
+                                          placeholder="e.g. Saw the entire arrest from the sidewalk across the street."></textarea>
+                            </div>
+
+                            <div class="row g-3 mb-0">
+                                <div class="col-sm-6">
+                                    <label class="form-label">Has Video?</label>
+                                    <select class="form-select"
+                                            :name="'wit_' + idx + '_has_video'"
+                                            x-model="w.has_video">
+                                        <option value="">Unknown</option>
+                                        <option value="yes">Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label">Willing to Testify?</label>
+                                    <select class="form-select"
+                                            :name="'wit_' + idx + '_willing_to_testify'"
+                                            x-model="w.willing_to_testify">
+                                        <option value="">Unknown</option>
+                                        <option value="yes">Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <button type="button" class="btn btn-outline-primary w-100 mb-4 py-2"
+                            @click="addWitness()">
+                        <i class="bi bi-plus-circle me-1"></i>Add Witness
+                    </button>
+
+                    <div class="alert alert-info small py-2 px-3 mb-4"
+                         x-show="witnesses.length === 0" x-cloak>
+                        <i class="bi bi-info-circle me-1"></i>
+                        No witnesses listed. If no one else saw what happened, you can skip this —
+                        your own testimony and any evidence are still enough to proceed.
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'documents:wizard_step4' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold">
+                        Save &amp; Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step5() {
+    const evidenceLabels = {
+        {% for value, label in evidence_type_choices %}'{{ value }}': '{{ label|escapejs }}',
+        {% endfor %}
+    };
+
+    const rawEvidence = {{ evidence_json|safe }};
+    const evidence = rawEvidence.map(e => ({
+        ...e,
+        defendant_aware_of_recording: tristateToString(e.defendant_aware_of_recording),
+    }));
+
+    const rawWitnesses = {{ witnesses_json|safe }};
+    const witnesses = rawWitnesses.map(w => ({
+        ...w,
+        has_video: tristateToString(w.has_video),
+        willing_to_testify: tristateToString(w.willing_to_testify),
+    }));
+
+    return {
+        evidence,
+        witnesses,
+
+        evidenceLabel(ev) {
+            if (ev.description) return ev.description.slice(0, 60);
+            return evidenceLabels[ev.evidence_type] || '';
+        },
+
+        addEvidence() {
+            this.evidence.push(emptyEvidence());
+        },
+
+        removeEvidence(idx) {
+            this.evidence.splice(idx, 1);
+        },
+
+        addWitness() {
+            this.witnesses.push(emptyWitness());
+        },
+
+        removeWitness(idx) {
+            this.witnesses.splice(idx, 1);
+        },
+    };
+}
+
+function tristateToString(v) {
+    if (v === true) return 'yes';
+    if (v === false) return 'no';
+    return '';
+}
+
+function emptyEvidence() {
+    return {
+        pk: null,
+        evidence_type: 'other',
+        description: '',
+        date_and_time: '',
+        recorded_by: '',
+        public_url: '',
+        defendant_aware_of_recording: '',
+    };
+}
+
+function emptyWitness() {
+    return {
+        pk: null,
+        full_name: '',
+        contact_info: '',
+        relationship_to_plaintiff: '',
+        what_they_witnessed: '',
+        has_video: '',
+        willing_to_testify: '',
+    };
+}
+</script>
+{% endblock %}

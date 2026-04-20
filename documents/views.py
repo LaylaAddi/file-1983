@@ -9,7 +9,7 @@ from django.views.decorators.http import require_GET
 
 from .models import (
     Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview,
-    Defendant, GovernmentEntity, ConstitutionalClaim,
+    Defendant, GovernmentEntity, ConstitutionalClaim, Evidence, Witness,
 )
 
 
@@ -729,8 +729,7 @@ def wizard_step4(request, document_slug):
                 'Duplicate amendment selections were skipped — each amendment can only be used once.'
             )
         messages.success(request, 'Constitutional claims saved.')
-        # TODO: redirect to Step 5 once built
-        return redirect('documents:wizard_step4', document_slug=doc.slug)
+        return redirect('documents:wizard_step5', document_slug=doc.slug)
 
     # Normalize existing amendment values (in case they were stored with older,
     # loose values like "First" instead of "1st_retaliation") so the dropdown
@@ -749,6 +748,132 @@ def wizard_step4(request, document_slug):
         'amendment_choices': ConstitutionalClaim.AMENDMENT_CHOICES,
         'amendment_labels_json': json.dumps(dict(ConstitutionalClaim.AMENDMENT_CHOICES)),
         'amendment_info_json': json.dumps(AMENDMENT_INFO),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Step 5 — Evidence & Witnesses
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step5(request, document_slug):
+    """Step 5 — Add/edit/delete evidence items and witnesses."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    if request.method == 'POST':
+        # --- Parse evidence from indexed POST fields ---
+        evidence_count = int(request.POST.get('evidence_count', 0))
+        existing_evidence = {e.pk: e for e in doc.evidence.all()}
+        seen_evidence_pks = set()
+
+        for i in range(evidence_count):
+            prefix = f'ev_{i}_'
+            description = request.POST.get(f'{prefix}description', '').strip()
+            evidence_type = request.POST.get(f'{prefix}evidence_type', '').strip()
+            public_url = request.POST.get(f'{prefix}public_url', '').strip()
+            # Skip rows with no meaningful content
+            if not description and not public_url:
+                continue
+
+            pk_str = request.POST.get(f'{prefix}pk', '')
+            pk = int(pk_str) if pk_str else None
+
+            defaults = {
+                'evidence_type': evidence_type or 'other',
+                'description': description,
+                'date_and_time': request.POST.get(f'{prefix}date_and_time', '').strip(),
+                'recorded_by': request.POST.get(f'{prefix}recorded_by', '').strip(),
+                'public_url': public_url,
+                'defendant_aware_of_recording': _parse_tristate(
+                    request.POST.get(f'{prefix}defendant_aware_of_recording', '')
+                ),
+                'order': i,
+            }
+
+            if pk and pk in existing_evidence:
+                obj = existing_evidence[pk]
+                for k, v in defaults.items():
+                    setattr(obj, k, v)
+                obj.save()
+                seen_evidence_pks.add(pk)
+            else:
+                obj = Evidence.objects.create(document=doc, **defaults)
+                seen_evidence_pks.add(obj.pk)
+
+        for pk, obj in existing_evidence.items():
+            if pk not in seen_evidence_pks:
+                obj.delete()
+
+        # --- Parse witnesses from indexed POST fields ---
+        witness_count = int(request.POST.get('witness_count', 0))
+        existing_witnesses = {w.pk: w for w in doc.witnesses.all()}
+        seen_witness_pks = set()
+
+        for i in range(witness_count):
+            prefix = f'wit_{i}_'
+            full_name = request.POST.get(f'{prefix}full_name', '').strip()
+            what_they_witnessed = request.POST.get(f'{prefix}what_they_witnessed', '').strip()
+            # Skip completely empty rows
+            if not full_name and not what_they_witnessed:
+                continue
+
+            pk_str = request.POST.get(f'{prefix}pk', '')
+            pk = int(pk_str) if pk_str else None
+
+            defaults = {
+                'full_name': full_name,
+                'contact_info': request.POST.get(f'{prefix}contact_info', '').strip(),
+                'relationship_to_plaintiff': request.POST.get(
+                    f'{prefix}relationship_to_plaintiff', ''
+                ).strip(),
+                'what_they_witnessed': what_they_witnessed,
+                'has_video': _parse_tristate(request.POST.get(f'{prefix}has_video', '')),
+                'willing_to_testify': _parse_tristate(
+                    request.POST.get(f'{prefix}willing_to_testify', '')
+                ),
+                'order': i,
+            }
+
+            if pk and pk in existing_witnesses:
+                obj = existing_witnesses[pk]
+                for k, v in defaults.items():
+                    setattr(obj, k, v)
+                obj.save()
+                seen_witness_pks.add(pk)
+            else:
+                obj = Witness.objects.create(document=doc, **defaults)
+                seen_witness_pks.add(obj.pk)
+
+        for pk, obj in existing_witnesses.items():
+            if pk not in seen_witness_pks:
+                obj.delete()
+
+        if session.current_step < 6:
+            session.current_step = 6
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        messages.success(request, 'Evidence and witnesses saved.')
+        # TODO: redirect to Step 6 once built
+        return redirect('documents:wizard_step5', document_slug=doc.slug)
+
+    evidence = list(doc.evidence.all().values(
+        'pk', 'evidence_type', 'description', 'date_and_time', 'recorded_by',
+        'public_url', 'defendant_aware_of_recording', 'order',
+    ))
+    witnesses = list(doc.witnesses.all().values(
+        'pk', 'full_name', 'contact_info', 'relationship_to_plaintiff',
+        'what_they_witnessed', 'has_video', 'willing_to_testify', 'order',
+    ))
+
+    return render(request, 'documents/wizard_step5.html', {
+        'document': doc,
+        'session': session,
+        'evidence_json': json.dumps(evidence),
+        'witnesses_json': json.dumps(witnesses),
+        'evidence_count': len(evidence),
+        'witness_count': len(witnesses),
+        'evidence_type_choices': Evidence.EVIDENCE_TYPE_CHOICES,
     })
 
 
