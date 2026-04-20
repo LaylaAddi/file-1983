@@ -24,6 +24,77 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Amendment normalization — maps loose AI values to canonical model keys.
+# Used both during extraction and when rendering existing data that may have
+# been stored with older, looser values.
+# ---------------------------------------------------------------------------
+
+_VALID_AMENDMENT_KEYS = {
+    '1st', '1st_retaliation', '1st_prior_restraint', '1st_viewpoint',
+    '4th_search', '4th_seizure', '4th_property', '4th_excessive_force',
+    '5th_due_process', '5th_self_incrimination',
+    '6th_counsel', '8th_cruel',
+    '14th_due_process', '14th_equal_protection', 'other',
+}
+
+
+def normalize_amendment(value):
+    """
+    Map loose amendment values (e.g. "First", "1st Amendment", "Fourth Amendment —
+    Excessive Force") to the canonical keys used by ConstitutionalClaim.AMENDMENT_CHOICES.
+    Returns '' if the value is empty, 'other' if it cannot be mapped.
+    """
+    if not value:
+        return ''
+    raw = str(value).strip()
+    # Already a canonical key
+    if raw in _VALID_AMENDMENT_KEYS:
+        return raw
+
+    v = raw.lower()
+
+    # First Amendment variants
+    if v.startswith('1st') or v.startswith('first') or '1st amendment' in v or 'first amendment' in v:
+        if 'retaliat' in v:
+            return '1st_retaliation'
+        if 'prior restraint' in v or 'prior_restraint' in v:
+            return '1st_prior_restraint'
+        if 'viewpoint' in v:
+            return '1st_viewpoint'
+        return '1st'
+
+    # Fourth Amendment variants
+    if v.startswith('4th') or v.startswith('fourth') or '4th amendment' in v or 'fourth amendment' in v:
+        if 'force' in v:
+            return '4th_excessive_force'
+        if 'search' in v:
+            return '4th_search'
+        if 'propert' in v:
+            return '4th_property'
+        return '4th_seizure'
+
+    # Fifth Amendment variants
+    if v.startswith('5th') or v.startswith('fifth'):
+        if 'self' in v or 'miranda' in v or 'incriminat' in v:
+            return '5th_self_incrimination'
+        return '5th_due_process'
+
+    # Sixth / Eighth
+    if v.startswith('6th') or v.startswith('sixth'):
+        return '6th_counsel'
+    if v.startswith('8th') or v.startswith('eighth'):
+        return '8th_cruel'
+
+    # Fourteenth Amendment variants
+    if v.startswith('14th') or v.startswith('fourteenth'):
+        if 'equal' in v:
+            return '14th_equal_protection'
+        return '14th_due_process'
+
+    return 'other'
+
 # ---------------------------------------------------------------------------
 # Default system prompt (used if no active AIPrompt row exists in DB)
 # ---------------------------------------------------------------------------
@@ -37,8 +108,24 @@ single valid JSON object — no prose, no markdown, no code fences, just raw JSO
 Rules:
 - Use null for any field not explicitly mentioned in the story.
 - Do NOT invent or infer details that are not present in the story.
-- For constitutional_claims, identify which amendments were likely violated based on the facts.
-  Common choices: "First", "Fourth", "Fifth", "Eighth", "Fourteenth".
+- constitutional_claims[].amendment MUST be one of these exact keys (pick the MOST SPECIFIC):
+  1st                  — First Amendment general (speech, assembly, press)
+  1st_retaliation      — First Amendment retaliation (use this for arrests/citations after filming police, speaking out, or filing complaints — most auditor cases fall here)
+  1st_prior_restraint  — prior restraint (orders to stop speech before it happens)
+  1st_viewpoint        — viewpoint discrimination
+  4th_search           — unreasonable search
+  4th_seizure          — unreasonable seizure of person (arrest or detention without probable cause/reasonable suspicion)
+  4th_property         — seizure or destruction of property (phone, camera, belongings)
+  4th_excessive_force  — excessive force during seizure/arrest
+  5th_due_process      — Fifth Amendment due process (federal actors only)
+  5th_self_incrimination — Miranda / compelled statements
+  6th_counsel          — right to counsel
+  8th_cruel            — cruel and unusual punishment (post-conviction inmates)
+  14th_due_process     — Fourteenth Amendment due process (state/local actors — common alongside 4th claims)
+  14th_equal_protection — selective enforcement based on race/religion/etc
+  other                — anything else
+  If the story describes being arrested after filming police, include BOTH 1st_retaliation AND 4th_seizure.
+  If force was used, also include 4th_excessive_force.
 - For the timeline, break events into discrete chronological steps with one action per entry.
 - incident.location_type choices: public_sidewalk, public_park, public_plaza,
   public_parking_lot, roadway, traffic_stop, police_station, sheriff_office,
@@ -301,10 +388,19 @@ def _populate_models(session, ai_analysis):
             defaults={k: v for k, v in ge.items() if v is not None},
         )
 
-    # Step 4 — ConstitutionalClaims (clear old, re-insert)
+    # Step 4 — ConstitutionalClaims (clear old, re-insert).
+    # Normalize amendment values so stored keys match AMENDMENT_CHOICES; dedupe
+    # on (doc, amendment) since ConstitutionalClaim has a unique_together constraint.
     ConstitutionalClaim.objects.filter(document=doc).delete()
+    seen_amendments = set()
     for claim in (ai_analysis.get('constitutional_claims') or []):
-        ConstitutionalClaim.objects.create(document=doc, **{k: v for k, v in claim.items() if v is not None})
+        data = {k: v for k, v in claim.items() if v is not None}
+        amendment = normalize_amendment(data.get('amendment', ''))
+        if not amendment or amendment in seen_amendments:
+            continue
+        data['amendment'] = amendment
+        seen_amendments.add(amendment)
+        ConstitutionalClaim.objects.create(document=doc, **data)
 
     # Step 5a — Evidence (clear old, re-insert)
     Evidence.objects.filter(document=doc).delete()

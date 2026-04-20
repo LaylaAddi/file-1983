@@ -732,9 +732,15 @@ def wizard_step4(request, document_slug):
         # TODO: redirect to Step 5 once built
         return redirect('documents:wizard_step4', document_slug=doc.slug)
 
-    claims = list(doc.constitutional_claims.all().values(
-        'pk', 'amendment', 'how_violated',
-    ))
+    # Normalize existing amendment values (in case they were stored with older,
+    # loose values like "First" instead of "1st_retaliation") so the dropdown
+    # pre-selects correctly. The normalized value is saved back to the DB on
+    # the next form submission.
+    from documents.services.openai_service import normalize_amendment
+    claims = []
+    for c in doc.constitutional_claims.all().values('pk', 'amendment', 'how_violated'):
+        c['amendment'] = normalize_amendment(c['amendment'])
+        claims.append(c)
 
     return render(request, 'documents/wizard_step4.html', {
         'document': doc,
