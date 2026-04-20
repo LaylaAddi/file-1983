@@ -13,7 +13,9 @@
       "key_quote": "The filming of government officials engaged in their duties in a public place, including police officers performing their responsibilities, fits comfortably within these [First Amendment] principles.",
       "jurisdiction_notes": "Controlling in 1st Circuit (ME, MA, NH, RI, Puerto Rico). Persuasive authority in other circuits.",
       "is_active": true,
-      "order": 1
+      "order": 1,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -30,7 +32,9 @@
       "key_quote": "A First Amendment right to record the police does exist, subject only to reasonable time, place, and manner restrictions.",
       "jurisdiction_notes": "Controlling in 5th Circuit (TX, LA, MS).",
       "is_active": true,
-      "order": 2
+      "order": 2,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -47,7 +51,9 @@
       "key_quote": "Every Circuit Court of Appeals to address this issue [First, Fifth, Seventh, Ninth, and Eleventh] has held that there is a First Amendment right to record police activity in public.",
       "jurisdiction_notes": "Controlling in 3d Circuit (PA, NJ, DE, Virgin Islands).",
       "is_active": true,
-      "order": 3
+      "order": 3,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -64,7 +70,9 @@
       "key_quote": "The act of making an audio or audiovisual recording is necessarily included within the First Amendment's guarantee of speech and press rights as a corollary of the right to disseminate the resulting recording.",
       "jurisdiction_notes": "Controlling in 7th Circuit (IL, IN, WI).",
       "is_active": true,
-      "order": 4
+      "order": 4,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -81,7 +89,9 @@
       "key_quote": "The First Amendment protects the right to gather information about what public officials do on public property, and specifically, a right to record matters of public interest.",
       "jurisdiction_notes": "Controlling in 11th Circuit (AL, FL, GA).",
       "is_active": true,
-      "order": 5
+      "order": 5,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -94,11 +104,13 @@
       "court": "U.S. Supreme Court",
       "year": 2019,
       "holding_summary": "A plaintiff bringing a First Amendment retaliatory arrest claim generally must plead and prove the absence of probable cause for the arrest. A narrow exception exists where a plaintiff shows objective evidence that others not engaged in protected speech were not arrested under similar circumstances.",
-      "why_it_matters": "This is the current Supreme Court standard for retaliatory arrest claims. Crucial for auditors arrested after filming police — must allege facts showing either no probable cause OR comparable non-speakers were not arrested. Don't skip pleading absence of probable cause.",
+      "why_it_matters": "This is the current Supreme Court standard for retaliatory arrest claims. Crucial for auditors arrested after filming police \u2014 must allege facts showing either no probable cause OR comparable non-speakers were not arrested. Don't skip pleading absence of probable cause.",
       "key_quote": "The plaintiff pressing a retaliatory arrest claim must plead and prove the absence of probable cause for the arrest.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 6
+      "order": 6,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -114,7 +126,9 @@
       "why_it_matters": "Establishes the pleading standard for retaliatory prosecution claims (as distinct from retaliatory arrest). If you were charged with a crime after exercising protected speech, this case governs.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 7
+      "order": 7,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -126,12 +140,14 @@
       "citation": "490 U.S. 386 (1989)",
       "court": "U.S. Supreme Court",
       "year": 1989,
-      "holding_summary": "Claims of excessive force by law enforcement during an arrest, investigatory stop, or other seizure are analyzed under the Fourth Amendment's objective reasonableness standard — not under substantive due process.",
+      "holding_summary": "Claims of excessive force by law enforcement during an arrest, investigatory stop, or other seizure are analyzed under the Fourth Amendment's objective reasonableness standard \u2014 not under substantive due process.",
       "why_it_matters": "The foundational excessive force case. Any 1983 excessive force claim must be framed under Graham. Courts weigh three factors: (1) severity of the crime at issue, (2) whether the suspect posed an immediate threat, and (3) whether the suspect was actively resisting or attempting to flee. Reasonableness is judged from the officer's perspective at the scene, not with hindsight.",
       "key_quote": "The 'reasonableness' of a particular use of force must be judged from the perspective of a reasonable officer on the scene, rather than with the 20/20 vision of hindsight.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 8
+      "order": 8,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -148,7 +164,9 @@
       "key_quote": "It is not better that all felony suspects die than that they escape. Where the suspect poses no immediate threat to the officer and no threat to others, the harm resulting from failing to apprehend him does not justify the use of deadly force to do so.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 9
+      "order": 9,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -160,11 +178,13 @@
       "citation": "392 U.S. 1 (1968)",
       "court": "U.S. Supreme Court",
       "year": 1968,
-      "holding_summary": "A police officer may briefly detain a person for investigative purposes based on reasonable suspicion — a lower standard than probable cause — that criminal activity is afoot. The officer may conduct a limited pat-down for weapons if there is reasonable suspicion the person is armed and dangerous.",
+      "holding_summary": "A police officer may briefly detain a person for investigative purposes based on reasonable suspicion \u2014 a lower standard than probable cause \u2014 that criminal activity is afoot. The officer may conduct a limited pat-down for weapons if there is reasonable suspicion the person is armed and dangerous.",
       "why_it_matters": "Governs the lawfulness of brief investigative stops (Terry stops) and pat-downs. If you were detained without reasonable suspicion, or patted down without grounds to believe you were armed, Terry is the measuring stick.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 10
+      "order": 10,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -176,12 +196,14 @@
       "citation": "501 U.S. 429 (1991)",
       "court": "U.S. Supreme Court",
       "year": 1991,
-      "holding_summary": "A police encounter is consensual — and thus not a seizure requiring Fourth Amendment justification — only if, in view of all the circumstances, a reasonable person would feel free to decline the officer's requests or otherwise terminate the encounter.",
+      "holding_summary": "A police encounter is consensual \u2014 and thus not a seizure requiring Fourth Amendment justification \u2014 only if, in view of all the circumstances, a reasonable person would feel free to decline the officer's requests or otherwise terminate the encounter.",
       "why_it_matters": "Distinguishes consensual encounters from seizures. Auditors often cite this when officers claim an interaction was voluntary; the test is whether a reasonable person would feel free to walk away, considering the totality of circumstances.",
       "key_quote": "So long as a reasonable person would feel free to disregard the police and go about his business, the encounter is consensual and no reasonable suspicion is required.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 11
+      "order": 11,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -194,11 +216,13 @@
       "court": "U.S. Supreme Court",
       "year": 1982,
       "holding_summary": "Government officials performing discretionary functions are shielded from liability for civil damages so long as their conduct does not violate clearly established statutory or constitutional rights of which a reasonable person would have known.",
-      "why_it_matters": "Foundation of the qualified immunity doctrine that officers will invariably invoke as a defense. To defeat it, you must show (1) a constitutional violation and (2) that the right was clearly established at the time — typically meaning a prior case with sufficiently similar facts put the officer on notice.",
+      "why_it_matters": "Foundation of the qualified immunity doctrine that officers will invariably invoke as a defense. To defeat it, you must show (1) a constitutional violation and (2) that the right was clearly established at the time \u2014 typically meaning a prior case with sufficiently similar facts put the officer on notice.",
       "key_quote": "Government officials performing discretionary functions generally are shielded from liability for civil damages insofar as their conduct does not violate clearly established statutory or constitutional rights of which a reasonable person would have known.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 12
+      "order": 12,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -214,7 +238,9 @@
       "why_it_matters": "Overruled the mandatory two-step sequence from Saucier v. Katz. Relevant because courts can now grant qualified immunity without ever deciding the underlying constitutional question, which can prevent rights from ever becoming 'clearly established.'",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 13
+      "order": 13,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -226,12 +252,14 @@
       "citation": "436 U.S. 658 (1978)",
       "court": "U.S. Supreme Court",
       "year": 1978,
-      "holding_summary": "Local government units (cities, counties) are 'persons' subject to suit under Section 1983 and may be held liable when a constitutional violation is caused by an official policy, custom, or practice. Municipalities cannot be held liable solely under a theory of respondeat superior — there must be a policy or custom that caused the injury.",
+      "holding_summary": "Local government units (cities, counties) are 'persons' subject to suit under Section 1983 and may be held liable when a constitutional violation is caused by an official policy, custom, or practice. Municipalities cannot be held liable solely under a theory of respondeat superior \u2014 there must be a policy or custom that caused the injury.",
       "why_it_matters": "Foundation of municipal liability. If you want to sue the city or county itself (not just the individual officer), you must plead a policy, widespread custom, or failure to train/supervise that caused your injury. Individual officer misconduct alone is not enough.",
-      "key_quote": "Congress did intend municipalities and other local government units to be included among those persons to whom § 1983 applies.",
+      "key_quote": "Congress did intend municipalities and other local government units to be included among those persons to whom \u00a7 1983 applies.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 14
+      "order": 14,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   },
   {
@@ -244,11 +272,13 @@
       "court": "U.S. Supreme Court",
       "year": 1961,
       "holding_summary": "An official acting beyond the scope of, or in violation of, state law still acts 'under color of' state law for purposes of Section 1983 liability. The statute reaches 'misuse of power, possessed by virtue of state law and made possible only because the wrongdoer is clothed with the authority of state law.'",
-      "why_it_matters": "Establishes the modern scope of Section 1983. Defendants often argue their misconduct was not authorized by state law and therefore not 'under color of law' — Monroe forecloses that defense. An officer who unlawfully arrests you is still acting under color of law.",
+      "why_it_matters": "Establishes the modern scope of Section 1983. Defendants often argue their misconduct was not authorized by state law and therefore not 'under color of law' \u2014 Monroe forecloses that defense. An officer who unlawfully arrests you is still acting under color of law.",
       "key_quote": "Misuse of power, possessed by virtue of state law and made possible only because the wrongdoer is clothed with the authority of state law, is action taken 'under color of' state law.",
       "jurisdiction_notes": "Binding nationwide (U.S. Supreme Court).",
       "is_active": true,
-      "order": 15
+      "order": 15,
+      "created_at": "2026-04-20T00:00:00Z",
+      "updated_at": "2026-04-20T00:00:00Z"
     }
   }
 ]
