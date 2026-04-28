@@ -10,6 +10,7 @@ from django.views.decorators.http import require_GET
 from .models import (
     Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview,
     Defendant, GovernmentEntity, ConstitutionalClaim, Evidence, Witness,
+    Damages, ReliefSought, PriorComplaints,
 )
 
 
@@ -871,8 +872,7 @@ def wizard_step5(request, document_slug):
             session.save(update_fields=['current_step', 'updated_at'])
 
         messages.success(request, 'Evidence and witnesses saved.')
-        # TODO: redirect to Step 6 once built
-        return redirect('documents:wizard_step5', document_slug=doc.slug)
+        return redirect('documents:wizard_step6', document_slug=doc.slug)
 
     evidence = list(doc.evidence.all().values(
         'pk', 'evidence_type', 'description', 'date_and_time', 'recorded_by',
@@ -891,6 +891,67 @@ def wizard_step5(request, document_slug):
         'evidence_count': len(evidence),
         'witness_count': len(witnesses),
         'evidence_type_choices': Evidence.EVIDENCE_TYPE_CHOICES,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Step 6 — Damages, Relief, & Prior Complaints
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step6(request, document_slug):
+    """Step 6 — Damages suffered, relief sought, and prior complaints (all OneToOne)."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+    damages, _ = Damages.objects.get_or_create(document=doc)
+    relief, _ = ReliefSought.objects.get_or_create(document=doc)
+    prior, _ = PriorComplaints.objects.get_or_create(document=doc)
+
+    if request.method == 'POST':
+        # --- Damages ---
+        damages.physical_injury_description = request.POST.get(
+            'physical_injury_description', ''
+        ).strip()
+        damages.emotional_distress_description = request.POST.get(
+            'emotional_distress_description', ''
+        ).strip()
+        damages.lost_wages = request.POST.get('lost_wages', '').strip()
+        damages.property_damage_amount = request.POST.get('property_damage_amount', '').strip()
+        damages.punitive_basis = request.POST.get('punitive_basis', '').strip()
+        damages.save()
+
+        # --- Relief Sought ---
+        relief.compensatory_damages = request.POST.get('compensatory_damages') == 'on'
+        comp_amount = request.POST.get('compensatory_amount', '').strip()
+        relief.compensatory_amount = comp_amount if comp_amount else None
+        relief.punitive_damages = request.POST.get('punitive_damages') == 'on'
+        relief.declaratory_judgment = request.POST.get('declaratory_judgment') == 'on'
+        relief.injunctive_relief = request.POST.get('injunctive_relief') == 'on'
+        relief.attorney_fees = request.POST.get('attorney_fees') == 'on'
+        relief.costs_of_suit = request.POST.get('costs_of_suit') == 'on'
+        relief.other_relief = request.POST.get('other_relief', '').strip()
+        relief.save()
+
+        # --- Prior Complaints ---
+        prior.filed_complaints = request.POST.get('filed_complaints') == 'on'
+        prior.description = request.POST.get('prior_description', '').strip()
+        prior.outcomes = request.POST.get('prior_outcomes', '').strip()
+        prior.save()
+
+        if session.current_step < 7:
+            session.current_step = 7
+            session.save(update_fields=['current_step', 'updated_at'])
+
+        messages.success(request, 'Damages and relief saved.')
+        # TODO: redirect to Step 7 once built
+        return redirect('documents:wizard_step6', document_slug=doc.slug)
+
+    return render(request, 'documents/wizard_step6.html', {
+        'document': doc,
+        'session': session,
+        'damages': damages,
+        'relief': relief,
+        'prior': prior,
     })
 
 

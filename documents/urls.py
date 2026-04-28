@@ -13,5 +13,6 @@ urlpatterns = [
     path('<str:document_slug>/wizard/step3/', views.wizard_step3, name='wizard_step3'),
     path('<str:document_slug>/wizard/step4/', views.wizard_step4, name='wizard_step4'),
     path('<str:document_slug>/wizard/step5/', views.wizard_step5, name='wizard_step5'),
+    path('<str:document_slug>/wizard/step6/', views.wizard_step6, name='wizard_step6'),
     path('lookup-district-court/', views.lookup_district_court, name='lookup_district_court'),
 ]

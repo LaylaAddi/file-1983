@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 6 — Damages & Relief — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .field-group {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        margin-bottom: 1.25rem;
+        background: #fff;
+    }
+    .field-group-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+        color: #0a3880;
+    }
+    .field-group-title i { margin-right: 0.4rem; }
+    .relief-check {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.5rem;
+        background: #fff;
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .relief-check:hover { border-color: #0d6efd; }
+    .relief-check.checked {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+    }
+    .relief-check .form-check-label { cursor: pointer; }
+    .relief-check small.d-block { color: #6c757d; }
+
+    [data-theme="dark"] .field-group {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .field-group-title { color: #93c5fd; }
+    [data-theme="dark"] .relief-check {
+        background: #1a1f2e;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .relief-check:hover { border-color: #3d6fd6; }
+    [data-theme="dark"] .relief-check.checked {
+        background: #0f1f36;
+        border-color: #3d6fd6;
+    }
+    [data-theme="dark"] .relief-check small.d-block { color: #adb5bd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="step6()">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+
+            {% include 'documents/_wizard_progress.html' with current_step=6 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step5' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 5
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 6 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Damages &amp; Relief</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    Describe how the violation harmed you, what relief you're asking the court
+                    to grant, and any prior complaints you've filed about this conduct.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Damages -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-bandaid"></i>How were you harmed?
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Describe each type of harm you suffered. The more specific, the stronger
+                        your claim — but only describe what actually happened.
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="physical_injury_description" class="form-label">Physical Injury</label>
+                        <textarea class="form-control" id="physical_injury_description"
+                                  name="physical_injury_description" rows="2"
+                                  placeholder="e.g. Bruised wrists from tight handcuffs, scraped knee from being pushed to the ground">{{ damages.physical_injury_description }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="emotional_distress_description" class="form-label">Emotional Distress</label>
+                        <textarea class="form-control" id="emotional_distress_description"
+                                  name="emotional_distress_description" rows="2"
+                                  placeholder="e.g. Anxiety, sleep disruption, fear of police encounters since the incident">{{ damages.emotional_distress_description }}</textarea>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label for="lost_wages" class="form-label">Lost Wages / Income</label>
+                            <input type="text" class="form-control" id="lost_wages"
+                                   name="lost_wages"
+                                   value="{{ damages.lost_wages }}"
+                                   placeholder='e.g. "Missed 2 work shifts, ~$300"'>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="property_damage_amount" class="form-label">Property Damage</label>
+                            <input type="text" class="form-control" id="property_damage_amount"
+                                   name="property_damage_amount"
+                                   value="{{ damages.property_damage_amount }}"
+                                   placeholder='e.g. "Phone screen cracked, ~$200"'>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label for="punitive_basis" class="form-label">
+                            Basis for Punitive Damages <span class="text-muted small">(optional)</span>
+                        </label>
+                        <textarea class="form-control" id="punitive_basis"
+                                  name="punitive_basis" rows="2"
+                                  placeholder="Describe any malicious, reckless, or callous conduct that justifies punitive damages">{{ damages.punitive_basis }}</textarea>
+                        <div class="form-text">
+                            Punitive damages require conduct that's malicious, reckless, or
+                            shows callous indifference to your rights — beyond ordinary negligence.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relief Sought -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-scales"></i>What are you asking the court for?
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Check every type of relief you want to request. You can request more
+                        than one — most 1983 cases include several.
+                    </p>
+
+                    <div class="relief-check" :class="{checked: comp}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="compensatory_damages"
+                                   name="compensatory_damages" x-model="comp">
+                            <label class="form-check-label fw-semibold" for="compensatory_damages">
+                                Compensatory damages
+                            </label>
+                            <small class="d-block">Money to compensate for actual harm — injuries, lost wages, emotional distress, property damage.</small>
+                            <div class="mt-2" x-show="comp" x-cloak>
+                                <label for="compensatory_amount" class="form-label small mb-1">
+                                    Approximate amount <span class="text-muted">(optional)</span>
+                                </label>
+                                <div class="input-group input-group-sm" style="max-width: 220px;">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" min="0"
+                                           class="form-control" id="compensatory_amount"
+                                           name="compensatory_amount"
+                                           value="{{ relief.compensatory_amount|default:'' }}"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relief-check" :class="{checked: pun}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="punitive_damages"
+                                   name="punitive_damages" x-model="pun">
+                            <label class="form-check-label fw-semibold" for="punitive_damages">
+                                Punitive damages
+                            </label>
+                            <small class="d-block">Money intended to punish malicious or reckless conduct and deter future violations.</small>
+                        </div>
+                    </div>
+
+                    <div class="relief-check" :class="{checked: dec}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="declaratory_judgment"
+                                   name="declaratory_judgment" x-model="dec">
+                            <label class="form-check-label fw-semibold" for="declaratory_judgment">
+                                Declaratory judgment
+                            </label>
+                            <small class="d-block">A court ruling formally declaring that defendants violated your constitutional rights.</small>
+                        </div>
+                    </div>
+
+                    <div class="relief-check" :class="{checked: inj}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="injunctive_relief"
+                                   name="injunctive_relief" x-model="inj">
+                            <label class="form-check-label fw-semibold" for="injunctive_relief">
+                                Injunctive relief
+                            </label>
+                            <small class="d-block">A court order requiring defendants to stop the unconstitutional conduct or change a policy.</small>
+                        </div>
+                    </div>
+
+                    <div class="relief-check" :class="{checked: fees}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="attorney_fees"
+                                   name="attorney_fees" x-model="fees">
+                            <label class="form-check-label fw-semibold" for="attorney_fees">
+                                Attorney's fees
+                            </label>
+                            <small class="d-block">42 U.S.C. § 1988 allows prevailing 1983 plaintiffs to recover reasonable attorney's fees.</small>
+                        </div>
+                    </div>
+
+                    <div class="relief-check" :class="{checked: costs}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="costs_of_suit"
+                                   name="costs_of_suit" x-model="costs">
+                            <label class="form-check-label fw-semibold" for="costs_of_suit">
+                                Costs of suit
+                            </label>
+                            <small class="d-block">Court filing fees, service of process, deposition costs, and other case expenses.</small>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 mb-0">
+                        <label for="other_relief" class="form-label">
+                            Other Relief <span class="text-muted small">(optional)</span>
+                        </label>
+                        <textarea class="form-control" id="other_relief"
+                                  name="other_relief" rows="2"
+                                  placeholder="Any other relief you want to request, e.g. expungement of an arrest record, return of seized property">{{ relief.other_relief }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Prior Complaints -->
+                <div class="field-group">
+                    <div class="field-group-title">
+                        <i class="bi bi-clipboard-check"></i>Prior Complaints
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Have you previously filed complaints about this incident or related conduct?
+                        This includes internal affairs complaints, civilian review board complaints,
+                        or formal grievances. Optional — skip if none.
+                    </p>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="filed_complaints"
+                               name="filed_complaints" x-model="filed">
+                        <label class="form-check-label fw-semibold" for="filed_complaints">
+                            I have previously filed a complaint about this or related conduct
+                        </label>
+                    </div>
+
+                    <div x-show="filed" x-cloak x-transition>
+                        <div class="mb-3">
+                            <label for="prior_description" class="form-label">Description of Complaint(s)</label>
+                            <textarea class="form-control" id="prior_description"
+                                      name="prior_description" rows="2"
+                                      placeholder="e.g. Filed an internal affairs complaint with Denver PD in March 2024">{{ prior.description }}</textarea>
+                        </div>
+                        <div class="mb-0">
+                            <label for="prior_outcomes" class="form-label">Outcomes</label>
+                            <textarea class="form-control" id="prior_outcomes"
+                                      name="prior_outcomes" rows="2"
+                                      placeholder="e.g. Complaint closed with no findings, never received a response">{{ prior.outcomes }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <a href="{% url 'documents:wizard_step5' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold">
+                        Save &amp; Continue <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function step6() {
+    return {
+        comp:  {{ relief.compensatory_damages|yesno:"true,false" }},
+        pun:   {{ relief.punitive_damages|yesno:"true,false" }},
+        dec:   {{ relief.declaratory_judgment|yesno:"true,false" }},
+        inj:   {{ relief.injunctive_relief|yesno:"true,false" }},
+        fees:  {{ relief.attorney_fees|yesno:"true,false" }},
+        costs: {{ relief.costs_of_suit|yesno:"true,false" }},
+        filed: {{ prior.filed_complaints|yesno:"true,false" }},
+    };
+}
+</script>
+{% endblock %}
