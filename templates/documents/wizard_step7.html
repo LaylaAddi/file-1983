@@ -1,0 +1,622 @@
+{% extends 'base.html' %}
+
+{% block title %}Step 7 — Review — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .review-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        background: #fff;
+        margin-bottom: 1.25rem;
+        overflow: hidden;
+    }
+    .review-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1.25rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .review-card-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #0a3880;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .review-card-title i { color: #0d6efd; }
+    .review-edit-btn {
+        font-size: 0.85rem;
+        text-decoration: none;
+    }
+    .review-card-body { padding: 1.25rem; }
+    .review-row {
+        display: flex;
+        gap: 1rem;
+        padding: 0.4rem 0;
+        border-bottom: 1px dashed #eef0f3;
+    }
+    .review-row:last-child { border-bottom: none; }
+    .review-label {
+        flex: 0 0 38%;
+        font-weight: 500;
+        color: #495057;
+        font-size: 0.88rem;
+    }
+    .review-value {
+        flex: 1;
+        font-size: 0.92rem;
+        color: #1e2734;
+        word-break: break-word;
+    }
+    .review-value.empty { color: #adb5bd; font-style: italic; }
+    .sub-card {
+        border: 1px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.6rem;
+        background: #fcfcfd;
+    }
+    .sub-card:last-child { margin-bottom: 0; }
+    .sub-card-title {
+        font-weight: 600;
+        font-size: 0.92rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .pill {
+        display: inline-block;
+        font-size: 0.72rem;
+        padding: 0.15rem 0.55rem;
+        border-radius: 1rem;
+        background: #e7f1ff;
+        color: #0a58ca;
+        font-weight: 600;
+    }
+    .pill.gray { background: #eef0f3; color: #495057; }
+    .relief-badge {
+        display: inline-block;
+        padding: 0.35rem 0.7rem;
+        margin: 0.2rem 0.4rem 0.2rem 0;
+        border-radius: 0.4rem;
+        background: #e7f1ff;
+        color: #0a58ca;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .review-card { background: #1a1f2e; border-color: #2d3548; }
+    [data-theme="dark"] .review-card-header { background: #131826; border-bottom-color: #2d3548; }
+    [data-theme="dark"] .review-card-title { color: #93c5fd; }
+    [data-theme="dark"] .review-row { border-bottom-color: #232a3b; }
+    [data-theme="dark"] .review-label { color: #adb5bd; }
+    [data-theme="dark"] .review-value { color: #e9ecef; }
+    [data-theme="dark"] .review-value.empty { color: #6c757d; }
+    [data-theme="dark"] .sub-card { background: #131826; border-color: #2d3548; }
+    [data-theme="dark"] .pill { background: #0a2a50; color: #93c5fd; }
+    [data-theme="dark"] .pill.gray { background: #2d3548; color: #adb5bd; }
+    [data-theme="dark"] .relief-badge { background: #0a2a50; color: #93c5fd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            {% include 'documents/_wizard_progress.html' with current_step=7 %}
+
+            <!-- Step header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step6' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Step 6
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 7 of 7</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Review Your Complaint</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    Review every section below. Click <i class="bi bi-pencil"></i> Edit on any
+                    section to go back and make changes. When everything looks right, continue
+                    to add supporting case law and generate your complaint.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Document basics -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-file-earmark-text"></i>Document
+                    </h3>
+                    <a href="{% url 'documents:wizard_story' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit Story
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    <div class="review-row">
+                        <div class="review-label">Title</div>
+                        <div class="review-value {% if not document.title %}empty{% endif %}">
+                            {{ document.title|default:"No title yet" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Jury Trial Demanded</div>
+                        <div class="review-value">
+                            {% if document.jury_trial_demand %}Yes{% else %}No{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plaintiff -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-person"></i>Plaintiff
+                    </h3>
+                    <a href="{% url 'accounts:profile' %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if plaintiff %}
+                    <div class="review-row">
+                        <div class="review-label">Full Name</div>
+                        <div class="review-value {% if not plaintiff.full_name %}empty{% endif %}">
+                            {{ plaintiff.full_name|default:"Not provided" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Address</div>
+                        <div class="review-value {% if not plaintiff.address %}empty{% endif %}">
+                            {{ plaintiff.address|default:"Not provided" }}{% if plaintiff.city %}, {{ plaintiff.city }}{% endif %}{% if plaintiff.state %}, {{ plaintiff.state }}{% endif %} {{ plaintiff.zip_code }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Phone</div>
+                        <div class="review-value {% if not plaintiff.phone %}empty{% endif %}">
+                            {{ plaintiff.phone|default:"Not provided" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Email</div>
+                        <div class="review-value {% if not plaintiff.email %}empty{% endif %}">
+                            {{ plaintiff.email|default:"Not provided" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Filing Pro Se</div>
+                        <div class="review-value">
+                            {% if plaintiff.filing_pro_se %}Yes (without an attorney){% else %}No (represented by counsel){% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-muted small">No plaintiff information yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Jurisdiction -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-bank"></i>Federal Jurisdiction
+                    </h3>
+                    <a href="{% url 'documents:wizard_step1' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    <div class="review-row">
+                        <div class="review-label">Federal District Court</div>
+                        <div class="review-value {% if not incident.federal_district_court %}empty{% endif %}">
+                            {{ incident.federal_district_court|default:"Not set" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Confirmed</div>
+                        <div class="review-value">
+                            {% if incident.court_confirmed %}
+                                <span class="pill"><i class="bi bi-check-circle me-1"></i>Confirmed</span>
+                            {% else %}
+                                <span class="pill gray">Not confirmed</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incident -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-geo-alt"></i>Incident
+                    </h3>
+                    <a href="{% url 'documents:wizard_step2' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if incident %}
+                    <div class="review-row">
+                        <div class="review-label">Date</div>
+                        <div class="review-value {% if not incident.incident_date %}empty{% endif %}">
+                            {{ incident.incident_date|date:"F j, Y"|default:"Not provided" }}
+                            {% if incident.incident_time %} at {{ incident.incident_time|time:"g:i A" }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Location</div>
+                        <div class="review-value {% if not incident.address and not incident.city %}empty{% endif %}">
+                            {% if incident.address %}{{ incident.address }}{% endif %}{% if incident.address and incident.city %}, {% endif %}{% if incident.city %}{{ incident.city }}{% endif %}{% if incident.state %}, {{ incident.state }}{% endif %}
+                            {% if not incident.address and not incident.city and not incident.state %}Not provided{% endif %}
+                        </div>
+                    </div>
+                    {% if incident.county %}
+                    <div class="review-row">
+                        <div class="review-label">County</div>
+                        <div class="review-value">{{ incident.county }}</div>
+                    </div>
+                    {% endif %}
+                    {% if incident.location_description %}
+                    <div class="review-row">
+                        <div class="review-label">Description</div>
+                        <div class="review-value">{{ incident.location_description }}</div>
+                    </div>
+                    {% endif %}
+                    {% if incident.location_type %}
+                    <div class="review-row">
+                        <div class="review-label">Location Type</div>
+                        <div class="review-value">{{ incident.get_location_type_display }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="review-row">
+                        <div class="review-label">Public Forum</div>
+                        <div class="review-value {% if incident.is_public_forum is None %}empty{% endif %}">
+                            {% if incident.is_public_forum is True %}Yes
+                            {% elif incident.is_public_forum is False %}No
+                            {% else %}Unknown{% endif %}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">What You Were Doing</div>
+                        <div class="review-value {% if not incident.plaintiff_activity %}empty{% endif %}">
+                            {{ incident.plaintiff_activity|default:"Not described" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Force Used</div>
+                        <div class="review-value {% if incident.force_used is None %}empty{% endif %}">
+                            {% if incident.force_used is True %}Yes
+                            {% elif incident.force_used is False %}No
+                            {% else %}Unknown{% endif %}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Equipment Seized / Damaged</div>
+                        <div class="review-value {% if incident.equipment_seized_or_damaged is None %}empty{% endif %}">
+                            {% if incident.equipment_seized_or_damaged is True %}Yes
+                            {% elif incident.equipment_seized_or_damaged is False %}No
+                            {% else %}Unknown{% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-muted small">No incident details yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Defendants -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-people-fill"></i>Defendants
+                        <span class="pill gray">{{ defendants|length }}</span>
+                    </h3>
+                    <a href="{% url 'documents:wizard_step3' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if defendants %}
+                        {% for d in defendants %}
+                        <div class="sub-card">
+                            <div class="sub-card-title">
+                                {{ d.full_name|default:"Unknown" }}
+                                {% if d.is_supervisor %}<span class="pill">Supervisor</span>{% endif %}
+                            </div>
+                            <div class="small text-muted">
+                                {% if d.rank_title %}{{ d.rank_title }}{% endif %}
+                                {% if d.badge_number %} · Badge #{{ d.badge_number }}{% endif %}
+                                {% if d.agency_name %}<br>{{ d.agency_name }}{% endif %}
+                                <br>Sued: {{ d.get_capacity_sued_display }}
+                                {% if d.acting_under_color_of_law %} · acting under color of law{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted small">No defendants added.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Government Entity (Monell) -->
+            {% if gov_entity and gov_entity.entity_name %}
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-building"></i>Government Entity (Monell)
+                    </h3>
+                    <a href="{% url 'documents:wizard_step3' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    <div class="review-row">
+                        <div class="review-label">Entity Name</div>
+                        <div class="review-value">{{ gov_entity.entity_name }}</div>
+                    </div>
+                    {% if gov_entity.entity_address %}
+                    <div class="review-row">
+                        <div class="review-label">Address</div>
+                        <div class="review-value">{{ gov_entity.entity_address }}</div>
+                    </div>
+                    {% endif %}
+                    {% if gov_entity.policy_or_custom_description %}
+                    <div class="review-row">
+                        <div class="review-label">Policy / Custom</div>
+                        <div class="review-value">{{ gov_entity.policy_or_custom_description }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Constitutional Claims -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-shield-check"></i>Constitutional Claims
+                        <span class="pill gray">{{ claims|length }}</span>
+                    </h3>
+                    <a href="{% url 'documents:wizard_step4' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if claims %}
+                        {% for c in claims %}
+                        <div class="sub-card">
+                            <div class="sub-card-title">
+                                <i class="bi bi-bookmark-star text-primary"></i>
+                                {{ c.get_amendment_display }}
+                            </div>
+                            {% if c.how_violated %}
+                            <div class="small">{{ c.how_violated }}</div>
+                            {% else %}
+                            <div class="small text-muted fst-italic">No description provided.</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted small">No claims added.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Evidence -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-camera-video"></i>Evidence
+                        <span class="pill gray">{{ evidence|length }}</span>
+                    </h3>
+                    <a href="{% url 'documents:wizard_step5' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if evidence %}
+                        {% for ev in evidence %}
+                        <div class="sub-card">
+                            <div class="sub-card-title">
+                                <span class="pill">{{ ev.get_evidence_type_display }}</span>
+                                {% if ev.date_and_time %}<span class="text-muted small">{{ ev.date_and_time }}</span>{% endif %}
+                            </div>
+                            {% if ev.description %}<div class="small">{{ ev.description }}</div>{% endif %}
+                            {% if ev.recorded_by %}<div class="small text-muted">Recorded by: {{ ev.recorded_by }}</div>{% endif %}
+                            {% if ev.public_url %}<div class="small"><a href="{{ ev.public_url }}" target="_blank" rel="noopener">{{ ev.public_url }}</a></div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted small">No evidence added.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Witnesses -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-people"></i>Witnesses
+                        <span class="pill gray">{{ witnesses|length }}</span>
+                    </h3>
+                    <a href="{% url 'documents:wizard_step5' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if witnesses %}
+                        {% for w in witnesses %}
+                        <div class="sub-card">
+                            <div class="sub-card-title">
+                                {{ w.full_name|default:"Unnamed witness" }}
+                                {% if w.has_video %}<span class="pill">Has video</span>{% endif %}
+                                {% if w.willing_to_testify %}<span class="pill">Willing to testify</span>{% endif %}
+                            </div>
+                            {% if w.relationship_to_plaintiff %}<div class="small text-muted">{{ w.relationship_to_plaintiff }}</div>{% endif %}
+                            {% if w.what_they_witnessed %}<div class="small">{{ w.what_they_witnessed }}</div>{% endif %}
+                            {% if w.contact_info %}<div class="small text-muted">Contact: {{ w.contact_info }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted small">No witnesses added.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Damages -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-bandaid"></i>Damages
+                    </h3>
+                    <a href="{% url 'documents:wizard_step6' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if damages %}
+                    <div class="review-row">
+                        <div class="review-label">Physical Injury</div>
+                        <div class="review-value {% if not damages.physical_injury_description %}empty{% endif %}">
+                            {{ damages.physical_injury_description|default:"None described" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Emotional Distress</div>
+                        <div class="review-value {% if not damages.emotional_distress_description %}empty{% endif %}">
+                            {{ damages.emotional_distress_description|default:"None described" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Lost Wages</div>
+                        <div class="review-value {% if not damages.lost_wages %}empty{% endif %}">
+                            {{ damages.lost_wages|default:"None described" }}
+                        </div>
+                    </div>
+                    <div class="review-row">
+                        <div class="review-label">Property Damage</div>
+                        <div class="review-value {% if not damages.property_damage_amount %}empty{% endif %}">
+                            {{ damages.property_damage_amount|default:"None described" }}
+                        </div>
+                    </div>
+                    {% if damages.punitive_basis %}
+                    <div class="review-row">
+                        <div class="review-label">Punitive Basis</div>
+                        <div class="review-value">{{ damages.punitive_basis }}</div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-muted small">No damages described yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Relief Sought -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-scales"></i>Relief Sought
+                    </h3>
+                    <a href="{% url 'documents:wizard_step6' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if relief %}
+                        <div class="mb-2">
+                            {% if relief.compensatory_damages %}
+                                <span class="relief-badge">Compensatory damages{% if relief.compensatory_amount %} (${{ relief.compensatory_amount }}){% endif %}</span>
+                            {% endif %}
+                            {% if relief.punitive_damages %}<span class="relief-badge">Punitive damages</span>{% endif %}
+                            {% if relief.declaratory_judgment %}<span class="relief-badge">Declaratory judgment</span>{% endif %}
+                            {% if relief.injunctive_relief %}<span class="relief-badge">Injunctive relief</span>{% endif %}
+                            {% if relief.attorney_fees %}<span class="relief-badge">Attorney's fees</span>{% endif %}
+                            {% if relief.costs_of_suit %}<span class="relief-badge">Costs of suit</span>{% endif %}
+                        </div>
+                        {% if relief.other_relief %}
+                        <div class="review-row">
+                            <div class="review-label">Other Relief</div>
+                            <div class="review-value">{{ relief.other_relief }}</div>
+                        </div>
+                        {% endif %}
+                        {% if not relief.compensatory_damages and not relief.punitive_damages and not relief.declaratory_judgment and not relief.injunctive_relief and not relief.attorney_fees and not relief.costs_of_suit and not relief.other_relief %}
+                        <div class="text-muted small fst-italic">No relief selected yet.</div>
+                        {% endif %}
+                    {% else %}
+                    <div class="text-muted small">No relief selected yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Prior Complaints -->
+            {% if prior and prior.filed_complaints %}
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-clipboard-check"></i>Prior Complaints
+                    </h3>
+                    <a href="{% url 'documents:wizard_step6' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    {% if prior.description %}
+                    <div class="review-row">
+                        <div class="review-label">Description</div>
+                        <div class="review-value">{{ prior.description }}</div>
+                    </div>
+                    {% endif %}
+                    {% if prior.outcomes %}
+                    <div class="review-row">
+                        <div class="review-label">Outcomes</div>
+                        <div class="review-value">{{ prior.outcomes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Final actions -->
+            <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="small">
+                    <strong>What's next:</strong> Once you're satisfied with the review above,
+                    you'll have the option to add supporting case law (real federal cases like
+                    <em>Glik v. Cunniffe</em> and <em>Graham v. Connor</em>) and then generate
+                    your complaint as a PDF ready to file.
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{% url 'documents:wizard_step6' document.slug %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <button type="button" class="btn btn-primary btn-lg px-5 fw-semibold" disabled>
+                    <i class="bi bi-book me-1"></i>Add Supporting Case Law
+                    <span class="badge bg-light text-primary ms-2">Coming next</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -943,8 +943,7 @@ def wizard_step6(request, document_slug):
             session.save(update_fields=['current_step', 'updated_at'])
 
         messages.success(request, 'Damages and relief saved.')
-        # TODO: redirect to Step 7 once built
-        return redirect('documents:wizard_step6', document_slug=doc.slug)
+        return redirect('documents:wizard_step7', document_slug=doc.slug)
 
     return render(request, 'documents/wizard_step6.html', {
         'document': doc,
@@ -952,6 +951,46 @@ def wizard_step6(request, document_slug):
         'damages': damages,
         'relief': relief,
         'prior': prior,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Step 7 — Final Review
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_step7(request, document_slug):
+    """Step 7 — Read-only review of every section with Edit links to each step."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    plaintiff = getattr(doc, 'plaintiff_info', None)
+    incident = getattr(doc, 'incident_overview', None)
+    if incident:
+        _heal_state_code(incident)
+    gov_entity = getattr(doc, 'government_entity', None)
+    damages = getattr(doc, 'damages', None)
+    relief = getattr(doc, 'relief_sought', None)
+    prior = getattr(doc, 'prior_complaints', None)
+
+    defendants = list(doc.defendants.all())
+    claims = list(doc.constitutional_claims.all())
+    evidence = list(doc.evidence.all())
+    witnesses = list(doc.witnesses.all())
+
+    return render(request, 'documents/wizard_step7.html', {
+        'document': doc,
+        'session': session,
+        'plaintiff': plaintiff,
+        'incident': incident,
+        'gov_entity': gov_entity,
+        'damages': damages,
+        'relief': relief,
+        'prior': prior,
+        'defendants': defendants,
+        'claims': claims,
+        'evidence': evidence,
+        'witnesses': witnesses,
     })
 
 
