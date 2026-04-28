@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('documents', '0005_caselaw'),
+        ('documents', '0006_alter_caselaw_id'),
     ]
 
     operations = [
