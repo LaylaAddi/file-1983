@@ -95,6 +95,25 @@ def normalize_amendment(value):
 
     return 'other'
 
+
+# ---------------------------------------------------------------------------
+# State normalization — maps full state names ("Florida") to 2-letter codes
+# ("FL") so the Step 2 dropdown pre-selects correctly. The dropdown options
+# use 2-letter codes as values.
+# ---------------------------------------------------------------------------
+
+def normalize_state(value):
+    """Convert a state name or code to its 2-letter uppercase code."""
+    if not value:
+        return ''
+    from documents.services.court_lookup_service import CourtLookupService
+    s = str(value).strip().upper()
+    # Already a 2-letter code
+    if len(s) == 2 and s.isalpha():
+        return s
+    return CourtLookupService.STATE_NAME_TO_CODE.get(s, value)
+
+
 # ---------------------------------------------------------------------------
 # Default system prompt (used if no active AIPrompt row exists in DB)
 # ---------------------------------------------------------------------------
@@ -349,6 +368,8 @@ def _populate_models(session, ai_analysis):
 
     # Step 1 — PlaintiffInfo (only overwrite fields GPT found; keep profile defaults)
     p = ai_analysis.get('plaintiff') or {}
+    if p.get('state'):
+        p['state'] = normalize_state(p['state'])
     pi, _ = PlaintiffInfo.objects.get_or_create(document=doc)
     for field in ['full_name', 'address', 'city', 'state', 'zip_code', 'phone', 'email',
                   'attorney_name', 'attorney_bar_number', 'attorney_address']:
@@ -363,6 +384,8 @@ def _populate_models(session, ai_analysis):
     inc = ai_analysis.get('incident') or {}
     if inc:
         defaults = {k: v for k, v in inc.items() if v is not None}
+        if defaults.get('state'):
+            defaults['state'] = normalize_state(defaults['state'])
         defaults['federal_district_court'] = ''
         defaults['court_confirmed'] = False
         IncidentOverview.objects.update_or_create(

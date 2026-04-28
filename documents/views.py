@@ -294,6 +294,7 @@ def wizard_step1(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     session = doc.wizard_session
     incident, _ = IncidentOverview.objects.get_or_create(document=doc)
+    _heal_state_code(incident)
 
     # Auto-run court lookup if we have city+state but no court yet
     if incident.city and incident.state and not incident.federal_district_court:
@@ -346,6 +347,21 @@ def _parse_tristate(value):
     return None
 
 
+def _heal_state_code(incident):
+    """
+    Convert a stored full state name like "Florida" to its 2-letter code "FL"
+    so the Step 2 dropdown pre-selects correctly. Older extractions stored the
+    full name; the dropdown values are 2-letter codes.
+    """
+    if not incident.state:
+        return
+    from documents.services.openai_service import normalize_state
+    normalized = normalize_state(incident.state)
+    if normalized and normalized != incident.state:
+        incident.state = normalized
+        incident.save(update_fields=['state'])
+
+
 # ---------------------------------------------------------------------------
 # Step 2 — Incident Details
 # ---------------------------------------------------------------------------
@@ -356,6 +372,7 @@ def wizard_step2(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     session = doc.wizard_session
     incident, _ = IncidentOverview.objects.get_or_create(document=doc)
+    _heal_state_code(incident)
 
     if request.method == 'POST':
         # Parse date
