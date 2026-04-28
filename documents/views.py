@@ -994,6 +994,49 @@ def wizard_step7(request, document_slug):
     })
 
 
+# ---------------------------------------------------------------------------
+# Case Law Strategy — post-review optional choice
+# ---------------------------------------------------------------------------
+
+@login_required
+def wizard_caselaw_strategy(request, document_slug):
+    """
+    Let the user choose how (if at all) supporting case law should appear
+    in the final complaint. Critical for pro se credibility — heavy inline
+    citations can make a complaint look ghostwritten.
+    """
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    if request.method == 'POST':
+        choice = request.POST.get('caselaw_strategy', '').strip()
+        valid_choices = {key for key, _ in Document.CASELAW_STRATEGY_CHOICES}
+        if choice not in valid_choices:
+            messages.error(request, 'Please pick one of the four options.')
+            return redirect('documents:wizard_caselaw_strategy', document_slug=doc.slug)
+
+        doc.caselaw_strategy = choice
+        doc.save(update_fields=['caselaw_strategy', 'updated_at'])
+
+        if choice == 'none':
+            messages.success(
+                request,
+                "Saved — your complaint will plead facts only, no case law citations."
+            )
+        else:
+            messages.success(
+                request,
+                f"Saved — case law strategy set to '{doc.get_caselaw_strategy_display()}'."
+            )
+        return redirect('documents:wizard_step7', document_slug=doc.slug)
+
+    return render(request, 'documents/wizard_caselaw_strategy.html', {
+        'document': doc,
+        'session': session,
+        'strategy_choices': Document.CASELAW_STRATEGY_CHOICES,
+    })
+
+
 @require_GET
 @login_required
 def lookup_district_court(request):

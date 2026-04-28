@@ -595,14 +595,40 @@
             </div>
             {% endif %}
 
+            <!-- Case law strategy summary -->
+            <div class="review-card">
+                <div class="review-card-header">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-book"></i>Case Law Strategy
+                    </h3>
+                    <a href="{% url 'documents:wizard_caselaw_strategy' document.slug %}" class="review-edit-btn">
+                        <i class="bi bi-pencil"></i> {% if document.caselaw_strategy and document.caselaw_strategy != 'none' %}Change{% else %}Choose{% endif %}
+                    </a>
+                </div>
+                <div class="review-card-body">
+                    <div class="review-row">
+                        <div class="review-label">Approach</div>
+                        <div class="review-value">
+                            {{ document.get_caselaw_strategy_display }}
+                        </div>
+                    </div>
+                    {% if not document.caselaw_strategy or document.caselaw_strategy == 'none' %}
+                    <div class="text-muted small mt-2">
+                        Default — your complaint will plead facts only. This is usually the
+                        strongest move for pro se filers. Click <strong>Choose</strong> above
+                        to read the trade-offs of each option.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Final actions -->
             <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
                 <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
                 <div class="small">
-                    <strong>What's next:</strong> Once you're satisfied with the review above,
-                    you'll have the option to add supporting case law (real federal cases like
-                    <em>Glik v. Cunniffe</em> and <em>Graham v. Connor</em>) and then generate
-                    your complaint as a PDF ready to file.
+                    <strong>What's next:</strong> Once you're satisfied with the review above
+                    and your case-law strategy, you'll be able to generate your complaint as
+                    a PDF ready to file. PDF generation is the final piece — coming next.
                 </div>
             </div>
 
@@ -610,10 +636,9 @@
                 <a href="{% url 'documents:wizard_step6' document.slug %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back
                 </a>
-                <button type="button" class="btn btn-primary btn-lg px-5 fw-semibold" disabled>
-                    <i class="bi bi-book me-1"></i>Add Supporting Case Law
-                    <span class="badge bg-light text-primary ms-2">Coming next</span>
-                </button>
+                <a href="{% url 'documents:wizard_caselaw_strategy' document.slug %}" class="btn btn-primary btn-lg px-5 fw-semibold">
+                    <i class="bi bi-book me-1"></i>{% if document.caselaw_strategy and document.caselaw_strategy != 'none' %}Change Case Law Strategy{% else %}Choose Case Law Strategy{% endif %}
+                </a>
             </div>
 
         </div>

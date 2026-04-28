@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+
+{% block title %}Case Law Strategy — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .strategy-card {
+        border: 2px solid #dee2e6;
+        border-radius: 0.75rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .strategy-card:hover { border-color: #0d6efd; }
+    .strategy-card.selected {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+        box-shadow: 0 0 0 0.15rem rgba(13,110,253,0.15);
+    }
+    .strategy-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    .strategy-card-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin: 0;
+        color: #0a3880;
+    }
+    .strategy-card-radio {
+        flex-shrink: 0;
+        width: 24px; height: 24px;
+        border: 2px solid #adb5bd;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.15rem;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .strategy-card.selected .strategy-card-radio {
+        border-color: #0d6efd;
+        background: #0d6efd;
+    }
+    .strategy-card.selected .strategy-card-radio::after {
+        content: '';
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        background: #fff;
+    }
+    .strategy-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0.6rem 0 0.5rem;
+    }
+    .strategy-pill {
+        font-size: 0.72rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 1rem;
+        font-weight: 600;
+    }
+    .strategy-pill.good { background: #d1f0e0; color: #0c5132; }
+    .strategy-pill.warn { background: #fff3cd; color: #6c5400; }
+    .strategy-pill.gray { background: #eef0f3; color: #495057; }
+    .strategy-card .small-text { font-size: 0.88rem; }
+    .pros-cons {
+        background: #fafbfc;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-top: 0.6rem;
+        font-size: 0.88rem;
+    }
+    .pros-cons ul { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+    .pros-cons li { margin-bottom: 0.2rem; }
+    .pros-cons .pros-label, .pros-cons .cons-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .pros-cons .pros-label { color: #0c5132; }
+    .pros-cons .cons-label { color: #842029; }
+
+    [data-theme="dark"] .strategy-card { background: #1a1f2e; border-color: #2d3548; }
+    [data-theme="dark"] .strategy-card:hover { border-color: #3d6fd6; }
+    [data-theme="dark"] .strategy-card.selected {
+        background: #0f1f36;
+        border-color: #3d6fd6;
+        box-shadow: 0 0 0 0.15rem rgba(61,111,214,0.25);
+    }
+    [data-theme="dark"] .strategy-card-title { color: #93c5fd; }
+    [data-theme="dark"] .strategy-pill.good { background: #103b22; color: #6ee7a8; }
+    [data-theme="dark"] .strategy-pill.warn { background: #3b3413; color: #ffd54a; }
+    [data-theme="dark"] .strategy-pill.gray { background: #2d3548; color: #adb5bd; }
+    [data-theme="dark"] .pros-cons { background: #131826; }
+    [data-theme="dark"] .pros-cons .pros-label { color: #6ee7a8; }
+    [data-theme="dark"] .pros-cons .cons-label { color: #ff8e96; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5" x-data="{ choice: '{{ document.caselaw_strategy|default:'none' }}' }">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            <!-- Header -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <a href="{% url 'documents:wizard_step7' document.slug %}" class="text-muted text-decoration-none small">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Review
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-1">
+                    <span class="badge bg-info rounded-pill px-3 py-2">Optional</span>
+                    <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Case Law Strategy</h2>
+                </div>
+                <p class="text-muted mt-2 mb-0">
+                    How (if at all) should supporting case law appear in your final document?
+                    Read the explanation below, then pick the option that fits you best.
+                </p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Why this matters -->
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="small">
+                    <strong>Why this matters for pro se filers.</strong>
+                    A federal complaint is supposed to plead <em>facts</em>, not argue law
+                    (<em>Twombly</em> / <em>Iqbal</em>). Even attorneys don't usually load
+                    complaints with case citations — that work happens later, in response to
+                    a motion to dismiss. Heavy inline citations can actually make a pro se
+                    complaint look <em>ghostwritten</em>, which some judges view skeptically
+                    and which some districts require to be disclosed. Federal courts do hold
+                    pro se filings to a more lenient standard (<em>Haines v. Kerner</em>),
+                    so a clean factual complaint is usually the strongest move.
+                </div>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Option: None -->
+                <label class="strategy-card d-block" :class="{selected: choice === 'none'}" @click="choice = 'none'">
+                    <div class="strategy-card-header">
+                        <div>
+                            <h3 class="strategy-card-title">No case law</h3>
+                            <div class="text-muted small">Plead the facts. Save the legal authority for later if defendants challenge the complaint.</div>
+                            <div class="strategy-meta">
+                                <span class="strategy-pill good">Most pro se</span>
+                                <span class="strategy-pill good">Lowest risk</span>
+                                <span class="strategy-pill gray">Recommended for most</span>
+                            </div>
+                        </div>
+                        <span class="strategy-card-radio"></span>
+                    </div>
+                    <div class="pros-cons">
+                        <div class="pros-label">Why this is usually the best move</div>
+                        <ul>
+                            <li>Looks unmistakably pro se — no ghostwriting concerns</li>
+                            <li>Tracks how complaints actually work: facts now, law later</li>
+                            <li>You still get to cite cases later in response to a motion to dismiss</li>
+                        </ul>
+                        <div class="cons-label mt-2">Trade-off</div>
+                        <ul>
+                            <li>If a judge skims and isn't familiar with First Amendment auditor cases, they won't see controlling authority on the face of the complaint</li>
+                        </ul>
+                    </div>
+                    <input type="radio" name="caselaw_strategy" value="none" x-model="choice" class="d-none">
+                </label>
+
+                <!-- Option: Inline -->
+                <label class="strategy-card d-block" :class="{selected: choice === 'inline'}" @click="choice = 'inline'">
+                    <div class="strategy-card-header">
+                        <div>
+                            <h3 class="strategy-card-title">Light inline citations</h3>
+                            <div class="text-muted small">One controlling case per claim, woven into the legal-claim section in plain language.</div>
+                            <div class="strategy-meta">
+                                <span class="strategy-pill good">Balanced</span>
+                                <span class="strategy-pill warn">Some risk</span>
+                            </div>
+                        </div>
+                        <span class="strategy-card-radio"></span>
+                    </div>
+                    <div class="pros-cons">
+                        <div class="pros-label">Pros</div>
+                        <ul>
+                            <li>Surfaces controlling precedent (e.g. <em>Glik v. Cunniffe</em>) on the face of the complaint</li>
+                            <li>Stays light enough to read pro se — one case per claim, not a footnote-heavy brief</li>
+                        </ul>
+                        <div class="cons-label mt-2">Cons</div>
+                        <ul>
+                            <li>Even one citation per claim can read as more polished than a typical pro se complaint</li>
+                            <li>You'll need to choose which case to cite per claim (we'll suggest controlling ones from the case library)</li>
+                        </ul>
+                    </div>
+                    <input type="radio" name="caselaw_strategy" value="inline" x-model="choice" class="d-none">
+                </label>
+
+                <!-- Option: Memorandum -->
+                <label class="strategy-card d-block" :class="{selected: choice === 'memorandum'}" @click="choice = 'memorandum'">
+                    <div class="strategy-card-header">
+                        <div>
+                            <h3 class="strategy-card-title">Separate memorandum of supporting authority</h3>
+                            <div class="text-muted small">A standalone companion document. Filed alongside the complaint or held in reserve for a motion-to-dismiss response.</div>
+                            <div class="strategy-meta">
+                                <span class="strategy-pill good">Keeps complaint clean</span>
+                                <span class="strategy-pill gray">Most flexible</span>
+                            </div>
+                        </div>
+                        <span class="strategy-card-radio"></span>
+                    </div>
+                    <div class="pros-cons">
+                        <div class="pros-label">Pros</div>
+                        <ul>
+                            <li>Complaint stays clean and pro se in tone — case law lives in its own document</li>
+                            <li>Closest to how this actually works in federal practice</li>
+                            <li>You decide later whether to file it now or wait until you actually need it</li>
+                        </ul>
+                        <div class="cons-label mt-2">Cons</div>
+                        <ul>
+                            <li>Two documents to manage instead of one</li>
+                            <li>A memorandum at the complaint stage is unusual — most are filed in response to motions</li>
+                        </ul>
+                    </div>
+                    <input type="radio" name="caselaw_strategy" value="memorandum" x-model="choice" class="d-none">
+                </label>
+
+                <!-- Option: Appendix -->
+                <label class="strategy-card d-block" :class="{selected: choice === 'appendix'}" @click="choice = 'appendix'">
+                    <div class="strategy-card-header">
+                        <div>
+                            <h3 class="strategy-card-title">Appendix attached to the complaint</h3>
+                            <div class="text-muted small">A "Statement of Legal Authority" appendix listing controlling cases per claim, attached to the back of the complaint.</div>
+                            <div class="strategy-meta">
+                                <span class="strategy-pill warn">Unusual format</span>
+                                <span class="strategy-pill gray">Visible but separate</span>
+                            </div>
+                        </div>
+                        <span class="strategy-card-radio"></span>
+                    </div>
+                    <div class="pros-cons">
+                        <div class="pros-label">Pros</div>
+                        <ul>
+                            <li>Cases are right there with the complaint, but separate from the body — keeps the complaint factual</li>
+                            <li>Gives the judge something concrete to flip to if they're not familiar with the area</li>
+                        </ul>
+                        <div class="cons-label mt-2">Cons</div>
+                        <ul>
+                            <li>Attaching a legal-authority appendix to a complaint is uncommon — courts vary in how they receive it</li>
+                            <li>Some judges may treat it as improperly filed legal argument and disregard it</li>
+                        </ul>
+                    </div>
+                    <input type="radio" name="caselaw_strategy" value="appendix" x-model="choice" class="d-none">
+                </label>
+
+                <!-- Disclaimer -->
+                <div class="alert alert-light border d-flex gap-3 align-items-start mb-4 mt-4">
+                    <i class="bi bi-info-circle fs-5 flex-shrink-0 mt-1 text-muted"></i>
+                    <div class="small text-muted">
+                        This is general information, not legal advice. Local rules vary by district —
+                        if you have access to a civil rights attorney, even a free clinic consultation,
+                        ask them which approach fits your case and your judge.
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'documents:wizard_step7' document.slug %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Review
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 fw-semibold">
+                        Save Choice <i class="bi bi-check-lg ms-1"></i>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

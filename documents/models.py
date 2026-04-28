@@ -109,6 +109,13 @@ class Document(models.Model):
         ('expired', 'Expired'),
     ]
 
+    CASELAW_STRATEGY_CHOICES = [
+        ('none', 'No case law — pleads facts only'),
+        ('inline', 'Light inline citations within the complaint'),
+        ('memorandum', 'Separate memorandum of supporting authority'),
+        ('appendix', 'Appendix attached to the complaint'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -122,6 +129,10 @@ class Document(models.Model):
     jury_trial_demand = models.BooleanField(
         default=True,
         help_text='Whether to include a jury trial demand in the complaint'
+    )
+    caselaw_strategy = models.CharField(
+        max_length=20, choices=CASELAW_STRATEGY_CHOICES, default='none',
+        help_text='How (if at all) supporting case law should appear in the final document'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
