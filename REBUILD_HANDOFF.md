@@ -106,6 +106,10 @@ DEFAULT_FROM_EMAIL=
 /documents/<slug>/wizard/step2/            → Step 2: incident details (date, location, activity, force)
 /documents/<slug>/wizard/step3/            → Step 3: defendants (add/edit/delete) + government entity
 /documents/<slug>/wizard/step4/            → Step 4: constitutional claims (add/edit/delete)
+/documents/<slug>/wizard/step5/            → Step 5: evidence & witnesses (multi-record)
+/documents/<slug>/wizard/step6/            → Step 6: damages, relief, prior complaints
+/documents/<slug>/wizard/step7/            → Step 7: final review (read-only with edit links)
+/documents/<slug>/wizard/caselaw/          → Case law strategy choice (post-review, optional)
 /documents/lookup-district-court/          → AJAX: GET ?city=&state= → court name JSON
 /api/v1/token/                             → JWT obtain
 /api/v1/token/refresh/                     → JWT refresh
@@ -133,10 +137,13 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — Step 4 guidance: plain-English amendment descriptions + examples per claim, attorney-consultation disclaimer, "Suggested from your story" badge on GPT-populated claims
 - [x] `documents` — amendment normalization (`normalize_amendment()`) so GPT loose values like "First" map to canonical keys like `1st_retaliation`; applied in extraction and Step 4 render
 - [x] `documents` — CaseLaw model + admin + 15 foundational cases fixture (wired in later — no UI yet)
-- [ ] **Step 5: Evidence & Witnesses (multi-record)** ← BUILD NEXT
-- [ ] Step 6: Damages & Relief
-- [ ] Step 7: Final review
-- [ ] PDF generation (WeasyPrint)
+- [x] `documents` — Step 5: evidence & witnesses (Alpine.js multi-record, two sections on one page)
+- [x] `documents` — Step 6: damages, relief sought, prior complaints (single-form, all OneToOne)
+- [x] `documents` — Step 7: final review (read-only summary of every section with pencil-edit links back to each step)
+- [x] `documents` — case law strategy chooser (`/wizard/<slug>/caselaw/`) — 4-option page (none / inline / memorandum / appendix) with pro-se / Twombly-Iqbal / Haines explanation; saved on `Document.caselaw_strategy`
+- [x] `documents` — state code normalization (`normalize_state()` in openai_service) so GPT "Florida" → "FL" matches the Step 2 dropdown; self-heals existing rows on Step 1/2 render
+- [ ] **PDF generation (WeasyPrint)** ← BUILD NEXT (replace Step 7's "Generate Complaint — Coming next" placeholder)
+- [ ] Per-claim case law selection UI (only relevant if user picked `inline` / `memorandum` / `appendix` strategy — `none` skips this)
 - [ ] Stripe payment integration
 - [ ] Landing page CMS (`public_pages`)
 - [ ] Deploy config (Render, gunicorn, whitenoise)
@@ -185,8 +192,35 @@ DEFAULT_FROM_EMAIL=
    - **Amendment normalization**: `normalize_amendment()` in `openai_service.py` maps loose AI values ("First", "Fourth Amendment — Retaliation", etc.) to canonical keys. Applied at render time so stale DB values still pre-select the dropdown; canonical value saved back on next form submission
    - Duplicate amendment detection (client-side warning + server-side skip) since `(document, amendment)` is unique_together
    - Indexed POST fields (`claim_0_amendment`, etc.)
-   - On save: advances `current_step` to 5, redirects to Step 5 (placeholder until built)
-   - Footer placeholder teases upcoming case law selection feature
+   - On save: advances `current_step` to 5, redirects to Step 5
+8. Step 5 (`wizard_step5`) — evidence & witnesses
+   - Two sections on one page, both Alpine.js multi-record cards (same pattern as Step 3)
+   - **Evidence cards**: type dropdown (video / photo / police_report / body_cam / foia_request / citation / medical_record / physical / document / other), description, date_and_time (free text), recorded_by, public_url, defendant_aware_of_recording (tristate select)
+   - **Witness cards**: full_name, contact_info, relationship_to_plaintiff, what_they_witnessed, has_video (tristate select), willing_to_testify (tristate select)
+   - Both sections start at zero cards (optional — informational alert if empty)
+   - Indexed POST fields (`ev_N_*`, `wit_N_*`); update-by-pk for existing, create for new, delete removed
+   - Empty rows skipped server-side (evidence: must have description or public_url; witness: must have full_name or what_they_witnessed)
+   - On save: advances `current_step` to 6, redirects to Step 6
+9. Step 6 (`wizard_step6`) — damages, relief, prior complaints
+   - Single-form page (no Alpine cards) since all three models — `Damages`, `ReliefSought`, `PriorComplaints` — are OneToOne with Document
+   - **Damages**: physical injury, emotional distress, lost wages, property damage, punitive basis (all text)
+   - **Relief Sought**: 6 checkbox cards with plain-English explanations — compensatory (with optional `$` amount that reveals when checked), punitive, declaratory, injunctive, attorney's fees (cites § 1988), costs of suit, plus an "other relief" catch-all
+   - **Prior Complaints**: `filed_complaints` checkbox; description + outcomes textareas reveal when checked (Alpine `x-show`)
+   - On save: advances `current_step` to 7, redirects to Step 7
+10. Step 7 (`wizard_step7`) — final review
+    - Read-only summary of every section with pencil-edit links back to each step
+    - Cards: Document, Plaintiff, Jurisdiction, Incident, Defendants, Government Entity (Monell, only shown if `entity_name`), Constitutional Claims, Evidence, Witnesses, Damages, Relief Sought, Prior Complaints (only shown if `filed_complaints=True`), Case Law Strategy
+    - Empty fields render in muted italic so missing data is visible
+    - Plaintiff card edit link goes to `accounts:profile` (since plaintiff data syncs from the user profile)
+    - Bottom action: disabled "Generate Complaint — Coming next" button (placeholder for PDF generation)
+    - Includes `_heal_state_code()` call so any stale `incident.state` value (e.g. "Florida") gets rewritten to the 2-letter code on render
+11. Case law strategy (`wizard_caselaw_strategy` at `/wizard/<slug>/caselaw/`) — post-review, optional
+    - Reachable from the Case Law Strategy review card on Step 7 (pencil link)
+    - 4 click-to-select cards: **none** (default — plead facts only, most pro se), **inline** (one controlling case per claim woven in), **memorandum** (separate companion document), **appendix** (Statement of Legal Authority attached)
+    - Top of page explains the *Twombly/Iqbal* fact-pleading rule, *Haines v. Kerner* pro se leniency, and the ghostwriting concern
+    - Each card shows pros/cons + risk/credibility pills (Most pro se / Some risk / Balanced / etc.)
+    - Saves to `Document.caselaw_strategy` (CharField with 4 choices, default `none`); migration `0007_document_caselaw_strategy`
+    - On save: redirects back to Step 7 with a flash message confirming the choice
 
 ### GPT Extraction (`documents/services/openai_service.py`)
 - `extract_story(session, dry_run=False)` — calls GPT-4o, parses JSON, calls `_populate_models()`
@@ -211,6 +245,17 @@ DEFAULT_FROM_EMAIL=
 - `WizardSession.ai_extraction_succeeded` controls which state the story page renders
 - All wizard model fields are `blank=True` / `null=True` — partial extraction never breaks anything
 - Document ownership enforced on every view: `get_object_or_404(Document, slug=slug, user=request.user)`
+- `Document.caselaw_strategy` — CharField with choices `none / inline / memorandum / appendix`, default `none`. Read this when generating the PDF to decide whether (and how) to include `CaseLaw` rows.
+- `IncidentOverview.state` is stored as a 2-letter code (e.g. `FL`, not `Florida`). `normalize_state()` in `openai_service.py` enforces this at extraction time; `_heal_state_code()` in `views.py` self-heals any old rows on Step 1, 2, or 7 render.
+
+### Migration History
+- `0001_initial` — all initial models
+- `0002_examplestory` — ExampleStory model
+- `0003_damages_wages_to_textfield` — `Damages.lost_wages` + `property_damage_amount` AutoField → TextField
+- `0004_expand_location_type_choices` — added 27 grouped location types
+- `0005_caselaw` — CaseLaw model
+- `0006_alter_caselaw_id` — auto: AutoField → BigAutoField on CaseLaw.id (DEFAULT_AUTO_FIELD alignment)
+- `0007_document_caselaw_strategy` — adds `Document.caselaw_strategy`
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`):
 ```json
@@ -258,20 +303,49 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 
 ---
 
-## Next Step: Wizard Step 5 — Evidence & Witnesses
+## Next Step: PDF Generation
 
-**URL:** `GET/POST /documents/<slug>/wizard/step5/`
-**Models:** `Evidence` + `Witness` (both multi-record, FK to Document)
-**Template:** `templates/documents/wizard_step5.html`
+The wizard is **complete end-to-end** — story → extraction → 7 review/edit steps → final review → optional case law strategy choice. The only thing standing between a user and a filed complaint is rendering it as a PDF.
 
-### What it needs:
-- Two sections on one page: Evidence list + Witnesses list
-- Evidence fields: evidence_type (dropdown), description, date_and_time, recorded_by, public_url, defendant_aware_of_recording
-- Witness fields: full_name, contact_info, relationship_to_plaintiff, what_they_witnessed, has_video, willing_to_testify
-- Add/edit/delete via Alpine.js (same pattern as Steps 3 & 4)
-- Navigation: back → Step 4, continue → Step 6
-- On POST: save all, advance `session.current_step` to 6 if < 6
-- Use `_wizard_progress.html` include with `current_step=5`
+**Replace** the disabled "Generate Complaint — Coming next" button at the bottom of `templates/documents/wizard_step7.html`.
+
+**URL to add:** `GET /documents/<slug>/wizard/generate/` — calls WeasyPrint, streams a PDF response.
+
+### What the PDF needs to render
+A federal §1983 complaint in the standard form:
+1. **Caption** — court (`incident.federal_district_court`), parties (plaintiff vs. each defendant), case no. blank, "COMPLAINT FOR VIOLATION OF CIVIL RIGHTS"
+2. **Jurisdiction & Venue** — federal question (28 U.S.C. § 1331), § 1983 (42 U.S.C. § 1983), venue facts from `incident`
+3. **Parties** — Plaintiff section + one section per Defendant + Government Entity (Monell) if `gov_entity.entity_name`
+4. **Factual Allegations** — narrative built from `incident.plaintiff_activity` + ordered `TimelineEntry` rows + force/equipment facts
+5. **Constitutional Claims** — one count per `ConstitutionalClaim`. Use `c.get_amendment_display()` as count title and `c.how_violated` as the substantive paragraphs
+6. **Evidence & Witnesses** — short prose listing of each, often combined into the factual allegations or a separate "Supporting Evidence" section
+7. **Damages** — paragraphs from `Damages` fields
+8. **Prayer for Relief** — one bullet per checked `ReliefSought` field + `other_relief`
+9. **Jury Demand** — one line if `document.jury_trial_demand`
+10. **Signature block** — plaintiff name, address, phone, email, "Pro Se" if `plaintiff.filing_pro_se`
+11. **Case law** — depends on `document.caselaw_strategy`:
+    - `none` — omit entirely
+    - `inline` — add a sentence per claim like "The right to record police was clearly established in *Glik v. Cunniffe*, 655 F.3d 78 (1st Cir. 2011)" (case selection UI not yet built — for now hardcode one controlling case per amendment from the `CaseLaw` library)
+    - `memorandum` — generate as a SEPARATE PDF (or PDF appendix), not in the complaint body
+    - `appendix` — append a "STATEMENT OF LEGAL AUTHORITY" section after the prayer for relief
+
+### Pro se voice rule
+Per design discussion 2026-04-29: keep factual allegations in **plain first person** ("On March 3, 2024, I was filming…"), not third-person legalese ("Plaintiff was engaged in protected First Amendment activity when…"). Reserve formal legal phrasing for the count headings and the prayer for relief — those are unavoidably formal. **Do not** use Bluebook parentheticals, signal abbreviations, or Latin beyond the few unavoidable terms (e.g. "pro se" itself). Goal: a complaint that reads as competent but unmistakably written by the plaintiff.
+
+### Files to add
+- `documents/services/pdf_service.py` — main entry point: `render_complaint_pdf(document)` returns bytes
+- `templates/documents/pdf/complaint.html` — WeasyPrint template (HTML/CSS, federal court style: 12pt Times, 1in margins, double-spaced body, numbered paragraphs)
+- `templates/documents/pdf/_complaint_caption.html`, `_complaint_count.html`, etc. — partials per section
+- `documents/views.py:wizard_generate` — view that builds context, calls service, returns `HttpResponse(content_type='application/pdf')`
+- New URL `wizard_generate` at `/documents/<slug>/wizard/generate/`
+
+### Stack notes
+- **WeasyPrint** is already in the planned stack — needs `apt-get install` of system libs (libpango, libcairo, etc.) in the Dockerfile if not already present. Check `Dockerfile` first.
+- Numbered paragraphs are a federal court convention — use a CSS counter (`counter-reset` / `counter-increment`) on the body
+- Keep the template in pure HTML/CSS; do not require JavaScript to render
+
+### Stripe gate
+PDF generation is the natural place to insert the **payment gate**. For now, allow free PDF download. When Stripe is wired, gate the `wizard_generate` view on `document.payment_status == 'paid'`. The wizard itself stays free; payment only unlocks the final document.
 
 ---
 
