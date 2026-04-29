@@ -636,9 +636,10 @@
                 <a href="{% url 'documents:wizard_step6' document.slug %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back
                 </a>
-                <a href="{% url 'documents:wizard_caselaw_strategy' document.slug %}" class="btn btn-primary btn-lg px-5 fw-semibold">
-                    <i class="bi bi-book me-1"></i>{% if document.caselaw_strategy and document.caselaw_strategy != 'none' %}Change Case Law Strategy{% else %}Choose Case Law Strategy{% endif %}
-                </a>
+                <button type="button" class="btn btn-primary btn-lg px-5 fw-semibold" disabled>
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Generate Complaint
+                    <span class="badge bg-light text-primary ms-2">Coming next</span>
+                </button>
             </div>
 
         </div>
