@@ -1,20 +1,23 @@
 {% comment %}
 Reusable wizard step progress indicator.
-Context: current_step (int 1-7), document (Document instance — needed for step URLs)
+Context:
+  current_step (int 1-7) — which step the user is currently viewing (active highlight)
+  session — WizardSession (used for session.current_step = furthest step ever reached)
+  document — Document instance (needed for step URLs)
 
-Usage: {% include 'documents/_wizard_progress.html' with current_step=session.current_step %}
+Usage: {% include 'documents/_wizard_progress.html' with current_step=6 %}
 {% endcomment %}
 
 <div class="wizard-progress mb-4" role="navigation" aria-label="Wizard progress">
     <div class="d-flex align-items-center justify-content-between">
 
         {% with step_num=1 label="Jurisdiction" url_name='documents:wizard_step1' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -26,15 +29,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 1 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 1 or current_step > 1 %}filled{% endif %}"></div>
 
         {% with step_num=2 label="Incident" url_name='documents:wizard_step2' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -46,15 +49,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 2 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 2 or current_step > 2 %}filled{% endif %}"></div>
 
         {% with step_num=3 label="Defendants" url_name='documents:wizard_step3' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -66,15 +69,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 3 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 3 or current_step > 3 %}filled{% endif %}"></div>
 
         {% with step_num=4 label="Claims" url_name='documents:wizard_step4' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -86,15 +89,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 4 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 4 or current_step > 4 %}filled{% endif %}"></div>
 
         {% with step_num=5 label="Evidence" url_name='documents:wizard_step5' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -106,15 +109,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 5 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 5 or current_step > 5 %}filled{% endif %}"></div>
 
         {% with step_num=6 label="Damages" url_name='documents:wizard_step6' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
@@ -126,15 +129,15 @@ Usage: {% include 'documents/_wizard_progress.html' with current_step=session.cu
         {% endif %}
         {% endwith %}
 
-        <div class="wizard-connector flex-grow-1 mx-1 {% if current_step > 6 %}filled{% endif %}"></div>
+        <div class="wizard-connector flex-grow-1 mx-1 {% if session.current_step > 6 or current_step > 6 %}filled{% endif %}"></div>
 
         {% with step_num=7 label="Review" url_name='documents:wizard_step7' %}
-        {% if current_step >= step_num %}
+        {% if session.current_step >= step_num or current_step >= step_num %}
         <a href="{% url url_name document.slug %}"
-           class="wizard-step text-center text-decoration-none {% if current_step > step_num %}completed{% elif current_step == step_num %}active{% endif %} clickable"
+           class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable"
            title="Go to {{ label }}">
-            <div class="wizard-dot {% if current_step > step_num %}bg-success{% elif current_step == step_num %}bg-primary{% else %}bg-secondary opacity-50{% endif %}">
-                {% if current_step > step_num %}<i class="bi bi-check-lg text-white"></i>{% else %}{{ step_num }}{% endif %}
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
             </div>
             <small class="d-none d-sm-block mt-1">{{ label }}</small>
         </a>
