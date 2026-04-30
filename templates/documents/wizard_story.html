@@ -236,6 +236,19 @@ function storyWizard() {
                 }
             }, 1800);
         },
+
+        init() {
+            // If the user navigates back via the browser, the bfcache may restore
+            // this page with analyzing=true left over from the prior submit.
+            // Reset the UI so the form is shown again. No GPT call is made on
+            // back navigation — the view only triggers extraction on POST.
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    this.analyzing = false;
+                    this.analysisStep = 0;
+                }
+            });
+        },
     }
 }
 </script>
