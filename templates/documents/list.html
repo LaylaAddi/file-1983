@@ -102,6 +102,17 @@
                                         <i class="bi bi-arrow-right me-1"></i>Start
                                     </a>
                                 {% endif %}
+
+                                {% if request.user.is_staff %}
+                                <form method="post" action="{% url 'documents:delete' doc.slug %}"
+                                      onsubmit="return confirm('Delete this document? This cannot be undone.');"
+                                      class="m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm px-3">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                                {% endif %}
                             </div>
 
                         </div>

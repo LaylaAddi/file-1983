@@ -1,11 +1,11 @@
 import json
 import pprint
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.conf import settings
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import (
     Document, WizardSession, PlaintiffInfo, ExampleStory, IncidentOverview,
@@ -18,6 +18,17 @@ from .models import (
 def document_list(request):
     documents = Document.objects.filter(user=request.user).select_related('wizard_session')
     return render(request, 'documents/list.html', {'documents': documents})
+
+
+@login_required
+@require_POST
+@user_passes_test(lambda u: u.is_staff)
+def document_delete(request, document_slug):
+    doc = get_object_or_404(Document, slug=document_slug)
+    title = doc.title or 'Untitled Complaint'
+    doc.delete()
+    messages.success(request, f'Deleted "{title}".')
+    return redirect('documents:list')
 
 
 @login_required
