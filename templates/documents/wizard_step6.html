@@ -49,6 +49,34 @@
         border-color: #3d6fd6;
     }
     [data-theme="dark"] .relief-check small.d-block { color: #adb5bd; }
+
+    .relief-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.15rem 0.55rem;
+        border-radius: 1rem;
+        margin-left: 0.5rem;
+        vertical-align: 1px;
+    }
+    .relief-badge.standard { background: #d1e7dd; color: #0f5132; }
+    .relief-badge.common   { background: #cfe2ff; color: #084298; }
+    .relief-badge.specific { background: #e9ecef; color: #495057; }
+
+    [data-theme="dark"] .relief-badge.standard { background: #14432d; color: #75d6a3; }
+    [data-theme="dark"] .relief-badge.common   { background: #0a2e5c; color: #8ab8ff; }
+    [data-theme="dark"] .relief-badge.specific { background: #2d3548; color: #adb5bd; }
+
+    .recommended-banner {
+        background: #f0f7ff;
+        border: 1px dashed #9ec5fe;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+    }
+    [data-theme="dark"] .recommended-banner {
+        background: #0f1f36;
+        border-color: #3d6fd6;
+    }
 </style>
 {% endblock %}
 
@@ -153,12 +181,29 @@
                         than one — most 1983 cases include several.
                     </p>
 
+                    <div class="recommended-banner d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="small">
+                            <i class="bi bi-stars text-primary me-1"></i>
+                            <strong>Not sure what to ask for?</strong>
+                            Use the standard 1983 request — compensatory, punitive, declaratory, injunctive, attorney's fees, and costs.
+                        </div>
+                        <div class="d-flex gap-2 flex-shrink-0">
+                            <button type="button" class="btn btn-primary btn-sm" @click="useRecommended">
+                                <i class="bi bi-check2-all me-1"></i>Use recommended
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearAll">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="relief-check" :class="{checked: comp}">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="compensatory_damages"
                                    name="compensatory_damages" x-model="comp">
                             <label class="form-check-label fw-semibold" for="compensatory_damages">
                                 Compensatory damages
+                                <span class="relief-badge standard">Standard</span>
                             </label>
                             <small class="d-block">Money to compensate for actual harm — injuries, lost wages, emotional distress, property damage.</small>
                             <div class="mt-2" x-show="comp" x-cloak>
@@ -183,6 +228,7 @@
                                    name="punitive_damages" x-model="pun">
                             <label class="form-check-label fw-semibold" for="punitive_damages">
                                 Punitive damages
+                                <span class="relief-badge standard">Standard</span>
                             </label>
                             <small class="d-block">Money intended to punish malicious or reckless conduct and deter future violations.</small>
                         </div>
@@ -194,6 +240,7 @@
                                    name="declaratory_judgment" x-model="dec">
                             <label class="form-check-label fw-semibold" for="declaratory_judgment">
                                 Declaratory judgment
+                                <span class="relief-badge common">Common</span>
                             </label>
                             <small class="d-block">A court ruling formally declaring that defendants violated your constitutional rights.</small>
                         </div>
@@ -205,6 +252,7 @@
                                    name="injunctive_relief" x-model="inj">
                             <label class="form-check-label fw-semibold" for="injunctive_relief">
                                 Injunctive relief
+                                <span class="relief-badge specific">Specific cases</span>
                             </label>
                             <small class="d-block">A court order requiring defendants to stop the unconstitutional conduct or change a policy.</small>
                         </div>
@@ -216,6 +264,7 @@
                                    name="attorney_fees" x-model="fees">
                             <label class="form-check-label fw-semibold" for="attorney_fees">
                                 Attorney's fees
+                                <span class="relief-badge standard">Standard</span>
                             </label>
                             <small class="d-block">42 U.S.C. § 1988 allows prevailing 1983 plaintiffs to recover reasonable attorney's fees.</small>
                         </div>
@@ -227,6 +276,7 @@
                                    name="costs_of_suit" x-model="costs">
                             <label class="form-check-label fw-semibold" for="costs_of_suit">
                                 Costs of suit
+                                <span class="relief-badge standard">Standard</span>
                             </label>
                             <small class="d-block">Court filing fees, service of process, deposition costs, and other case expenses.</small>
                         </div>
@@ -304,6 +354,24 @@ function step6() {
         fees:  {{ relief.attorney_fees|yesno:"true,false" }},
         costs: {{ relief.costs_of_suit|yesno:"true,false" }},
         filed: {{ prior.filed_complaints|yesno:"true,false" }},
+
+        useRecommended() {
+            this.comp = true;
+            this.pun = true;
+            this.dec = true;
+            this.inj = true;
+            this.fees = true;
+            this.costs = true;
+        },
+
+        clearAll() {
+            this.comp = false;
+            this.pun = false;
+            this.dec = false;
+            this.inj = false;
+            this.fees = false;
+            this.costs = false;
+        },
     };
 }
 </script>
