@@ -245,6 +245,13 @@
                         {{ c.how_violated }}
                     </div>
                     {% endif %}
+                    {% if caselaw_strategy == 'inline' and c.supporting_case %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">&nbsp;</span>
+                        This claim is supported by <em>{{ c.supporting_case.case_name }}</em>, {{ c.supporting_case.citation }}
+                        ({{ c.supporting_case.holding_summary|truncatewords:30 }}).
+                    </div>
+                    {% endif %}
                     <div class="numbered-allegation">
                         <span class="allegation-num">&nbsp;</span>
                         As a direct and proximate result of Defendants' conduct, Plaintiff suffered damages as set forth below.
@@ -305,6 +312,24 @@
                     <p>Plaintiff hereby demands a trial by jury on all issues so triable.</p>
                     {% endif %}
 
+                    {# ----- APPENDIX: STATEMENT OF LEGAL AUTHORITY ----- #}
+                    {% if caselaw_strategy == 'appendix' and supporting_cases %}
+                    <div class="complaint-section-title">VII. Statement of Legal Authority</div>
+                    <p>The constitutional rights asserted in this complaint are supported by the following federal cases:</p>
+                    <ol>
+                        {% for sc in supporting_cases %}
+                        <li style="margin-bottom: 0.75em;">
+                            <strong><em>{{ sc.case.case_name }}</em>, {{ sc.case.citation }}</strong>
+                            {% if sc.case.court %} ({{ sc.case.court }}){% endif %}.
+                            <div>{{ sc.case.holding_summary }}</div>
+                            {% if sc.case.key_quote %}
+                            <div style="margin-top: 0.4em; padding-left: 1em; border-left: 2px solid #ccc; font-style: italic;">"{{ sc.case.key_quote }}"</div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% endif %}
+
                     {# ----- SIGNATURE ----- #}
                     <div class="signature-block">
                         <p>Respectfully submitted,</p>
@@ -314,6 +339,27 @@
                         {% if plaintiff.phone %}<div>{{ plaintiff.phone }}</div>{% endif %}
                         {% if plaintiff.email %}<div>{{ plaintiff.email }}</div>{% endif %}
                     </div>
+
+                    {# ----- MEMORANDUM (separate companion section) ----- #}
+                    {% if caselaw_strategy == 'memorandum' and supporting_cases %}
+                    <div style="border-top: 2px dashed #999; margin-top: 3rem; padding-top: 2rem;">
+                        <div class="complaint-section-title" style="font-size: 13pt;">Memorandum of Supporting Authority</div>
+                        <p>This memorandum sets forth the federal cases supporting the constitutional claims pleaded above. It accompanies the foregoing complaint and may be filed and served as a separate document.</p>
+                        <ol>
+                            {% for sc in supporting_cases %}
+                            <li style="margin-bottom: 1em;">
+                                <strong><em>{{ sc.case.case_name }}</em>, {{ sc.case.citation }}</strong>
+                                {% if sc.case.court %} ({{ sc.case.court }}){% endif %}.
+                                <div>{{ sc.case.holding_summary }}</div>
+                                {% if sc.case.why_it_matters %}<div style="margin-top: 0.3em;"><strong>Why it matters:</strong> {{ sc.case.why_it_matters }}</div>{% endif %}
+                                {% if sc.case.key_quote %}
+                                <div style="margin-top: 0.4em; padding-left: 1em; border-left: 2px solid #ccc; font-style: italic;">"{{ sc.case.key_quote }}"</div>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                    {% endif %}
                 </div>
 
                 {# ----- ACTION BAR ----- #}

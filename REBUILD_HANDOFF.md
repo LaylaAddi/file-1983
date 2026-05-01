@@ -148,8 +148,10 @@ DEFAULT_FROM_EMAIL=
 - [x] Step 7 "Generate Complaint" button now links to the draft page (placeholder removed)
 - [x] Migration `0008_document_factual_allegations_json` adds the JSON cache field
 - [x] Dockerfile: added `fonts-liberation` + `fonts-dejavu` for WeasyPrint
-- [ ] Per-claim case law selection UI (only relevant if user picked `inline` / `memorandum` / `appendix` strategy — `none` skips this)
-- [ ] Wire `caselaw_strategy` into the PDF — currently the draft + PDF templates ignore it (renders the same complaint regardless of strategy). Once per-claim selection UI exists, plumb selected `CaseLaw` rows into the templates: inline → one short cite per count, memorandum → separate PDF, appendix → "STATEMENT OF LEGAL AUTHORITY" section after prayer.
+- [x] `documents` — `caselaw_picker.py` auto-selects one foundational `CaseLaw` row per claim based on the claim's amendment (Glik for `1st`, Nieves for `1st_retaliation`, Graham for `4th_excessive_force`, Terry for `4th_seizure`, etc.). Adds Monell automatically when the document has a named government entity. Skips amendments with no curated case rather than citing something unrelated.
+- [x] `documents` — `caselaw_strategy` now drives draft + PDF rendering: `inline` → one-sentence cite under each count; `appendix` → "VII. Statement of Legal Authority" section after the prayer; `memorandum` → separate "Memorandum of Supporting Authority" page after the signature; `none` → omitted (default).
+- [x] Step 7: when strategy ≠ `none`, the Case Law Strategy card lists the exact cases that will be cited so the user can preview before clicking Generate.
+- [ ] Per-claim case law selection UI (Option B — let users curate which cases apply to which claims rather than auto-pick by amendment). Only worth building once we see whether users actually want curation; the auto-pick covers most auditor cases.
 - [ ] Stripe payment integration — gate `wizard_generate` view on `document.payment_status == 'paid'` once wired
 - [ ] Landing page CMS (`public_pages`)
 - [ ] Deploy config (Render, gunicorn, whitenoise)

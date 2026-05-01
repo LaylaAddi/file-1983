@@ -990,6 +990,12 @@ def wizard_step7(request, document_slug):
     evidence = list(doc.evidence.all())
     witnesses = list(doc.witnesses.all())
 
+    # Supporting case law preview — only when strategy != 'none'
+    supporting_cases = []
+    if doc.caselaw_strategy and doc.caselaw_strategy != 'none':
+        from documents.services.caselaw_picker import select_supporting_cases
+        supporting_cases = select_supporting_cases(doc)
+
     return render(request, 'documents/wizard_step7.html', {
         'document': doc,
         'session': session,
@@ -1003,6 +1009,7 @@ def wizard_step7(request, document_slug):
         'claims': claims,
         'evidence': evidence,
         'witnesses': witnesses,
+        'supporting_cases': supporting_cases,
     })
 
 
@@ -1055,6 +1062,8 @@ def wizard_caselaw_strategy(request, document_slug):
 
 def _build_complaint_context(doc):
     """Build the shared template context for the draft + PDF templates."""
+    from documents.services.caselaw_picker import select_supporting_cases
+
     plaintiff = getattr(doc, 'plaintiff_info', None)
     incident = getattr(doc, 'incident_overview', None)
     if incident:
@@ -1066,6 +1075,23 @@ def _build_complaint_context(doc):
 
     paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
 
+    # Case law: skip the lookup entirely when the user picked 'none' so we
+    # don't even hit the DB unnecessarily.
+    if doc.caselaw_strategy and doc.caselaw_strategy != 'none':
+        supporting_cases = select_supporting_cases(doc)
+    else:
+        supporting_cases = []
+
+    # Attach each claim's supporting case directly to the claim object so the
+    # template can read `claim.supporting_case` without needing a dict filter.
+    case_by_claim_id = {
+        sc['claim'].id: sc['case']
+        for sc in supporting_cases if sc['kind'] == 'claim' and sc['claim']
+    }
+    claims = list(doc.constitutional_claims.all())
+    for c in claims:
+        c.supporting_case = case_by_claim_id.get(c.id)
+
     return {
         'document': doc,
         'plaintiff': plaintiff,
@@ -1075,10 +1101,12 @@ def _build_complaint_context(doc):
         'relief': relief,
         'prior': prior,
         'defendants': list(doc.defendants.all()),
-        'claims': list(doc.constitutional_claims.all()),
+        'claims': claims,
         'evidence': list(doc.evidence.all()),
         'witnesses': list(doc.witnesses.all()),
         'paragraphs': paragraphs,
+        'supporting_cases': supporting_cases,
+        'caselaw_strategy': doc.caselaw_strategy or 'none',
     }
 
 

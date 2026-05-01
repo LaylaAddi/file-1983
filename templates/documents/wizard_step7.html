@@ -618,6 +618,36 @@
                         strongest move for pro se filers. Click <strong>Choose</strong> above
                         to read the trade-offs of each option.
                     </div>
+                    {% else %}
+                        {% if supporting_cases %}
+                        <div class="review-row">
+                            <div class="review-label">Cases that will be cited</div>
+                            <div class="review-value">
+                                <ul class="list-unstyled mb-0 small">
+                                    {% for sc in supporting_cases %}
+                                    <li class="mb-2">
+                                        <strong><em>{{ sc.case.case_name }}</em></strong>, {{ sc.case.citation }}
+                                        {% if sc.kind == 'monell' %}
+                                        <span class="badge bg-info text-dark ms-1">Monell / municipal liability</span>
+                                        {% elif sc.claim %}
+                                        <span class="text-muted">— for your {{ sc.claim.get_amendment_display }} claim</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="text-muted small mt-2">
+                                    These are auto-selected from the foundational case-law library based on the
+                                    amendments in your claims. You can change the strategy or pick "No case law"
+                                    to omit them.
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-muted small mt-2 fst-italic">
+                            None of your current claims map to a curated foundational case in our library —
+                            the complaint will be drafted without supporting authority for those claims.
+                        </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
