@@ -1,6 +1,7 @@
 import json
 import pprint
 from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
@@ -1046,6 +1047,127 @@ def wizard_caselaw_strategy(request, document_slug):
         'session': session,
         'strategy_choices': Document.CASELAW_STRATEGY_CHOICES,
     })
+
+
+# ---------------------------------------------------------------------------
+# Complaint draft + PDF generation
+# ---------------------------------------------------------------------------
+
+def _build_complaint_context(doc):
+    """Build the shared template context for the draft + PDF templates."""
+    plaintiff = getattr(doc, 'plaintiff_info', None)
+    incident = getattr(doc, 'incident_overview', None)
+    if incident:
+        _heal_state_code(incident)
+    gov_entity = getattr(doc, 'government_entity', None)
+    damages = getattr(doc, 'damages', None)
+    relief = getattr(doc, 'relief_sought', None)
+    prior = getattr(doc, 'prior_complaints', None)
+
+    paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
+
+    return {
+        'document': doc,
+        'plaintiff': plaintiff,
+        'incident': incident,
+        'gov_entity': gov_entity,
+        'damages': damages,
+        'relief': relief,
+        'prior': prior,
+        'defendants': list(doc.defendants.all()),
+        'claims': list(doc.constitutional_claims.all()),
+        'evidence': list(doc.evidence.all()),
+        'witnesses': list(doc.witnesses.all()),
+        'paragraphs': paragraphs,
+    }
+
+
+@login_required
+def wizard_draft(request, document_slug):
+    """
+    Draft preview page. Shows the full complaint with editable factual
+    allegations. On first GET (or when user clicks 'Re-draft from story'),
+    GPT generates the paragraphs. POST saves user edits.
+    """
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'regenerate':
+            from documents.services.complaint_drafter import generate_factual_allegations
+            new_paragraphs, error = generate_factual_allegations(doc)
+            if error:
+                messages.error(request, f'Could not draft your allegations: {error}')
+            else:
+                doc.factual_allegations_json = {'paragraphs': new_paragraphs}
+                doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+                messages.success(request, 'Draft regenerated from your story.')
+            return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+        # action == 'save' or default: persist edits
+        edited = []
+        i = 0
+        while True:
+            key = f'paragraph_{i}'
+            if key not in request.POST:
+                break
+            text = request.POST.get(key, '').strip()
+            if text:
+                edited.append(text)
+            i += 1
+
+        doc.factual_allegations_json = {'paragraphs': edited}
+        doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+
+        if action == 'generate_pdf':
+            return redirect('documents:wizard_generate', document_slug=doc.slug)
+
+        messages.success(request, 'Draft saved.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    # GET — auto-generate on first load if we don't have a draft yet
+    if not paragraphs:
+        from documents.services.complaint_drafter import generate_factual_allegations
+        new_paragraphs, error = generate_factual_allegations(doc)
+        if error:
+            messages.error(request, f'Could not draft your allegations: {error}')
+        else:
+            doc.factual_allegations_json = {'paragraphs': new_paragraphs}
+            doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+            paragraphs = new_paragraphs
+
+    ctx = _build_complaint_context(doc)
+    ctx['session'] = session
+    ctx['paragraphs'] = paragraphs
+    return render(request, 'documents/wizard_draft.html', ctx)
+
+
+@login_required
+def wizard_generate(request, document_slug):
+    """Render the saved complaint as a PDF via WeasyPrint."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
+
+    if not paragraphs:
+        messages.warning(request, 'Draft your factual allegations first.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    ctx = _build_complaint_context(doc)
+    html_string = render_to_string('documents/pdf/complaint.html', ctx, request=request)
+
+    from weasyprint import HTML
+    pdf_bytes = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
+
+    from django.http import HttpResponse
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    safe_title = (doc.title or 'complaint').strip().replace(' ', '_')
+    filename = f'{safe_title}_{doc.slug}.pdf'
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
 
 
 @require_GET

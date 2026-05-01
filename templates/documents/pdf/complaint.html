@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ document.title|default:"Complaint" }}</title>
+    <style>
+        @page {
+            size: Letter;
+            margin: 1in;
+            @bottom-center {
+                content: counter(page) " of " counter(pages);
+                font-family: 'Times New Roman', Times, serif;
+                font-size: 10pt;
+                color: #555;
+            }
+        }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            line-height: 2;
+            color: #000;
+        }
+        .caption {
+            text-align: center;
+            line-height: 1.4;
+            margin-bottom: 1.5em;
+        }
+        .caption .court-line {
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .caption .parties {
+            text-align: left;
+            margin: 1em auto;
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
+            padding: 0.75em 0.5em;
+            line-height: 1.5;
+        }
+        .caption .vs { text-align: center; font-style: italic; }
+        .caption .case-title { margin-top: 1em; font-weight: bold; }
+        .caption .jury-demand { margin-top: 0.4em; font-style: italic; font-size: 11pt; }
+
+        h1.section-title {
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 12pt;
+            margin: 1.4em 0 0.7em;
+            letter-spacing: 0.05em;
+        }
+        h2.count-title {
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 12pt;
+            margin: 1.2em 0 0.5em;
+        }
+
+        ol.allegations {
+            margin: 0;
+            padding-left: 0;
+            list-style: none;
+            counter-reset: allegation;
+        }
+        ol.allegations li {
+            counter-increment: allegation;
+            padding-left: 2.5em;
+            text-indent: -2.5em;
+            margin: 0.5em 0;
+        }
+        ol.allegations li::before {
+            content: counter(allegation) ".";
+            font-weight: bold;
+            display: inline-block;
+            width: 2em;
+        }
+
+        ul.prayer {
+            margin: 0.5em 0 0.5em 1.5em;
+            padding: 0;
+        }
+        ul.prayer li { margin: 0.4em 0; }
+
+        .signature {
+            margin-top: 3em;
+            page-break-inside: avoid;
+        }
+        .sig-line {
+            border-top: 1px solid #000;
+            width: 4in;
+            margin: 1.5em 0 0.25em;
+        }
+        .no-break { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+
+{# ===== CAPTION ===== #}
+<div class="caption no-break">
+    <div class="court-line">In the United States District Court</div>
+    <div class="court-line">
+        {% if incident.federal_district_court %}
+            for the {{ incident.federal_district_court }}
+        {% else %}
+            for the [DISTRICT COURT NOT SET]
+        {% endif %}
+    </div>
+
+    <div class="parties">
+        <div>
+            <strong>{{ plaintiff.full_name|default:"[PLAINTIFF NAME]"|upper }}</strong>,<br>
+            <span style="margin-left: 2em;">Plaintiff,</span>
+        </div>
+        <div class="vs">v.</div>
+        <div>
+            {% for d in defendants %}
+                <strong>{{ d.full_name|default:"UNKNOWN OFFICER"|upper }}</strong>{% if d.badge_number %}, Badge #{{ d.badge_number }}{% endif %}{% if d.agency_name %}, {{ d.agency_name }}{% endif %}{% if not forloop.last %};<br>{% endif %}
+            {% empty %}
+                <strong>[DEFENDANTS NOT SET]</strong>
+            {% endfor %}
+            {% if gov_entity and gov_entity.entity_name %}
+                {% if defendants %};<br>{% endif %}
+                <strong>{{ gov_entity.entity_name|upper }}</strong>
+            {% endif %},<br>
+            <span style="margin-left: 2em;">Defendants.</span>
+        </div>
+    </div>
+
+    <div>Case No. _______________________</div>
+    <div class="case-title">COMPLAINT FOR VIOLATION OF CIVIL RIGHTS (42 U.S.C. § 1983)</div>
+    {% if document.jury_trial_demand %}
+    <div class="jury-demand">Jury Trial Demanded</div>
+    {% endif %}
+</div>
+
+{# ===== JURISDICTION & VENUE ===== #}
+<h1 class="section-title">I. Jurisdiction and Venue</h1>
+<ol class="allegations">
+    <li>This action arises under 42 U.S.C. § 1983 and the Constitution of the United States. This Court has subject matter jurisdiction under 28 U.S.C. §§ 1331 and 1343.</li>
+    <li>Venue is proper in this District under 28 U.S.C. § 1391(b) because the events giving rise to this action occurred in {% if incident.city and incident.state %}{{ incident.city }}, {{ incident.state }}{% if incident.county %}, {{ incident.county }} County{% endif %}{% else %}this District{% endif %}.</li>
+
+{# ===== PARTIES ===== #}
+</ol>
+<h1 class="section-title">II. Parties</h1>
+<ol class="allegations" style="counter-reset: allegation 2;">
+    <li>Plaintiff {{ plaintiff.full_name|default:"[PLAINTIFF NAME]" }} is a resident of {% if plaintiff.city and plaintiff.state %}{{ plaintiff.city }}, {{ plaintiff.state }}{% else %}the United States{% endif %}{% if plaintiff.filing_pro_se %} and brings this action pro se{% endif %}.</li>
+    {% for d in defendants %}
+    <li>Defendant {{ d.full_name|default:"Unknown Officer" }}{% if d.rank_title %}, {{ d.rank_title }}{% endif %}{% if d.badge_number %}, Badge #{{ d.badge_number }}{% endif %}, was at all relevant times{% if d.agency_name %} an officer of the {{ d.agency_name }}{% else %} a law-enforcement officer{% endif %} acting under color of state law. {{ d.full_name|default:"This defendant" }} is sued in {% if d.capacity_sued == 'individual' %}their individual capacity{% elif d.capacity_sued == 'official' %}their official capacity{% else %}both individual and official capacities{% endif %}.</li>
+    {% endfor %}
+    {% if gov_entity and gov_entity.entity_name %}
+    <li>Defendant {{ gov_entity.entity_name }} is a municipal entity responsible for the policies, practices, and customs of its officers and employees.{% if gov_entity.policy_or_custom_description %} {{ gov_entity.policy_or_custom_description }}{% endif %}</li>
+    {% endif %}
+</ol>
+
+{# ===== FACTUAL ALLEGATIONS ===== #}
+<h1 class="section-title">III. Factual Allegations</h1>
+<ol class="allegations">
+    {% for p in paragraphs %}<li>{{ p }}</li>{% endfor %}
+</ol>
+
+{# ===== COUNTS ===== #}
+{% for c in claims %}
+<h2 class="count-title">Count {{ forloop.counter }} — {{ c.get_amendment_display }}</h2>
+<ol class="allegations">
+    <li>Plaintiff incorporates and re-alleges each of the foregoing paragraphs as though fully set forth herein.</li>
+    {% if c.how_violated %}<li>{{ c.how_violated }}</li>{% endif %}
+    <li>As a direct and proximate result of Defendants' conduct, Plaintiff suffered damages as set forth below.</li>
+</ol>
+{% endfor %}
+
+{# ===== DAMAGES ===== #}
+{% if damages and damages.physical_injury_description or damages.emotional_distress_description or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis %}
+<h1 class="section-title">IV. Damages</h1>
+<ol class="allegations">
+    {% if damages.physical_injury_description %}<li>Physical injury: {{ damages.physical_injury_description }}</li>{% endif %}
+    {% if damages.emotional_distress_description %}<li>Emotional distress: {{ damages.emotional_distress_description }}</li>{% endif %}
+    {% if damages.lost_wages %}<li>Lost wages: {{ damages.lost_wages }}</li>{% endif %}
+    {% if damages.property_damage_amount %}<li>Property damage: {{ damages.property_damage_amount }}</li>{% endif %}
+    {% if damages.punitive_basis %}<li>Basis for punitive damages: {{ damages.punitive_basis }}</li>{% endif %}
+</ol>
+{% endif %}
+
+{# ===== PRAYER FOR RELIEF ===== #}
+<h1 class="section-title">V. Prayer for Relief</h1>
+<p>WHEREFORE, Plaintiff respectfully requests that this Court:</p>
+<ul class="prayer">
+    {% if relief.compensatory_damages %}<li>Award compensatory damages{% if relief.compensatory_amount %} in the amount of ${{ relief.compensatory_amount }}{% endif %} for the harm Plaintiff suffered;</li>{% endif %}
+    {% if relief.punitive_damages %}<li>Award punitive damages against the individual Defendants in an amount sufficient to punish their conduct and deter similar conduct in the future;</li>{% endif %}
+    {% if relief.declaratory_judgment %}<li>Enter a declaratory judgment that Defendants violated Plaintiff's constitutional rights;</li>{% endif %}
+    {% if relief.injunctive_relief %}<li>Issue injunctive relief restraining Defendants from continuing the unconstitutional conduct described above;</li>{% endif %}
+    {% if relief.attorney_fees %}<li>Award reasonable attorney's fees pursuant to 42 U.S.C. § 1988;</li>{% endif %}
+    {% if relief.costs_of_suit %}<li>Award costs of suit;</li>{% endif %}
+    {% if relief.other_relief %}<li>{{ relief.other_relief }};</li>{% endif %}
+    <li>Grant such other and further relief as the Court deems just and proper.</li>
+</ul>
+
+{# ===== JURY DEMAND ===== #}
+{% if document.jury_trial_demand %}
+<h1 class="section-title">VI. Jury Demand</h1>
+<p>Plaintiff hereby demands a trial by jury on all issues so triable.</p>
+{% endif %}
+
+{# ===== SIGNATURE ===== #}
+<div class="signature no-break">
+    <p>Respectfully submitted,</p>
+    <div class="sig-line"></div>
+    <div>{{ plaintiff.full_name|default:"[PLAINTIFF NAME]" }}{% if plaintiff.filing_pro_se %}, Pro Se{% endif %}</div>
+    {% if plaintiff.address %}<div>{{ plaintiff.address }}{% if plaintiff.city %}, {{ plaintiff.city }}{% endif %}{% if plaintiff.state %}, {{ plaintiff.state }}{% endif %}{% if plaintiff.zip_code %} {{ plaintiff.zip_code }}{% endif %}</div>{% endif %}
+    {% if plaintiff.phone %}<div>{{ plaintiff.phone }}</div>{% endif %}
+    {% if plaintiff.email %}<div>{{ plaintiff.email }}</div>{% endif %}
+</div>
+
+</body>
+</html>

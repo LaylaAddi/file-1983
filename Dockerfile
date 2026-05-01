@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     libpangoft2-1.0-0 \
     libharfbuzz0b \
     libffi-dev \
+    fonts-liberation \
+    fonts-dejavu \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

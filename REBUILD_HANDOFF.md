@@ -142,9 +142,15 @@ DEFAULT_FROM_EMAIL=
 - [x] `documents` — Step 7: final review (read-only summary of every section with pencil-edit links back to each step)
 - [x] `documents` — case law strategy chooser (`/wizard/<slug>/caselaw/`) — 4-option page (none / inline / memorandum / appendix) with pro-se / Twombly-Iqbal / Haines explanation; saved on `Document.caselaw_strategy`
 - [x] `documents` — state code normalization (`normalize_state()` in openai_service) so GPT "Florida" → "FL" matches the Step 2 dropdown; self-heals existing rows on Step 1/2 render
-- [ ] **PDF generation (WeasyPrint)** ← BUILD NEXT (replace Step 7's "Generate Complaint — Coming next" placeholder)
+- [x] `documents` — complaint draft page (`/wizard/<slug>/draft/`) with AI-drafted, user-editable factual allegations + full preview of the complaint (caption, jurisdiction, parties, counts, damages, prayer, signature)
+- [x] `documents` — `complaint_drafter.py` GPT service that turns `story_text` + structured wizard data into numbered first-person factual allegations. Hard-rule prompt: no new facts, no legal characterization, no citations, plain English. Returns `{"paragraphs": [...]}`. Cached on `Document.factual_allegations_json` so re-opens don't re-call GPT.
+- [x] `documents` — PDF generation (`/wizard/<slug>/generate/`) via WeasyPrint, federal-court formatting (Times 12pt, 1in margins, double-spaced, numbered paragraphs)
+- [x] Step 7 "Generate Complaint" button now links to the draft page (placeholder removed)
+- [x] Migration `0008_document_factual_allegations_json` adds the JSON cache field
+- [x] Dockerfile: added `fonts-liberation` + `fonts-dejavu` for WeasyPrint
 - [ ] Per-claim case law selection UI (only relevant if user picked `inline` / `memorandum` / `appendix` strategy — `none` skips this)
-- [ ] Stripe payment integration
+- [ ] Wire `caselaw_strategy` into the PDF — currently the draft + PDF templates ignore it (renders the same complaint regardless of strategy). Once per-claim selection UI exists, plumb selected `CaseLaw` rows into the templates: inline → one short cite per count, memorandum → separate PDF, appendix → "STATEMENT OF LEGAL AUTHORITY" section after prayer.
+- [ ] Stripe payment integration — gate `wizard_generate` view on `document.payment_status == 'paid'` once wired
 - [ ] Landing page CMS (`public_pages`)
 - [ ] Deploy config (Render, gunicorn, whitenoise)
 

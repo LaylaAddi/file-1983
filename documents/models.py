@@ -134,6 +134,11 @@ class Document(models.Model):
         max_length=20, choices=CASELAW_STRATEGY_CHOICES, default='none',
         help_text='How (if at all) supporting case law should appear in the final document'
     )
+    factual_allegations_json = models.JSONField(
+        default=dict, blank=True,
+        help_text='AI-drafted (and user-edited) numbered factual allegations. '
+                  'Shape: {"paragraphs": ["...", "..."]}.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

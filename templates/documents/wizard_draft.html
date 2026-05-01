@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Your Draft — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .draft-banner {
+        background: #fff8e1;
+        border: 1px solid #ffe082;
+        border-radius: 0.5rem;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    [data-theme="dark"] .draft-banner {
+        background: #2d2410;
+        border-color: #6b5510;
+        color: #ffe082;
+    }
+
+    .complaint-paper {
+        background: #fff;
+        color: #111;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 2.5rem 3rem;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        line-height: 1.55;
+    }
+    [data-theme="dark"] .complaint-paper {
+        background: #f8f9fa;
+        color: #111;
+    }
+
+    .complaint-paper h1, .complaint-paper h2, .complaint-paper h3 {
+        font-family: 'Times New Roman', Times, serif;
+        font-weight: bold;
+        color: #111;
+    }
+    .caption-block {
+        text-align: center;
+        margin-bottom: 2rem;
+        line-height: 1.4;
+    }
+    .caption-court { text-transform: uppercase; font-weight: bold; }
+    .caption-parties {
+        text-align: left;
+        margin: 1.5rem 0;
+        border-top: 1px solid #111;
+        border-bottom: 1px solid #111;
+        padding: 1rem 0;
+    }
+    .caption-vs { text-align: center; font-style: italic; margin: 0.5rem 0; }
+
+    .complaint-section-title {
+        text-align: center;
+        text-transform: uppercase;
+        font-weight: bold;
+        margin: 2rem 0 1rem;
+        letter-spacing: 0.05em;
+    }
+    .complaint-count-title {
+        text-transform: uppercase;
+        font-weight: bold;
+        margin: 1.5rem 0 0.75rem;
+    }
+    .numbered-allegation {
+        margin: 0.75rem 0;
+        padding-left: 2.25rem;
+        text-indent: -2.25rem;
+    }
+    .allegation-num { font-weight: bold; margin-right: 0.5rem; }
+
+    .editable-paragraph {
+        position: relative;
+        padding: 0.5rem;
+        margin: 0.4rem -0.5rem;
+        border-radius: 0.25rem;
+        transition: background 0.15s;
+    }
+    .editable-paragraph:hover { background: #fffbe6; }
+    .editable-paragraph textarea {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        line-height: 1.55;
+        width: 100%;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding: 0.5rem;
+        background: #fff;
+        color: #111;
+        resize: vertical;
+        min-height: 3em;
+    }
+
+    .signature-block {
+        margin-top: 3rem;
+        line-height: 1.6;
+    }
+    .signature-line {
+        border-top: 1px solid #111;
+        width: 18rem;
+        margin: 1.5rem 0 0.25rem;
+    }
+
+    .action-bar {
+        position: sticky;
+        bottom: 1rem;
+        z-index: 10;
+        margin-top: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <a href="{% url 'documents:wizard_step7' document.slug %}" class="text-muted text-decoration-none small">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Review
+                </a>
+            </div>
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <span class="badge bg-primary rounded-pill px-3 py-2">Draft</span>
+                <h2 class="mb-0" style="font-family:'Playfair Display',serif;">Your Complaint Draft</h2>
+            </div>
+
+            <div class="draft-banner">
+                <i class="bi bi-stars me-1 text-warning"></i>
+                <strong>AI drafted the numbered facts below from your story.</strong>
+                Review every paragraph carefully — only you know what actually happened.
+                Click any paragraph to edit it. Everything else (caption, jurisdiction, claims, prayer) comes from the data you entered in the wizard.
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" id="draftForm">
+                {% csrf_token %}
+
+                <div class="complaint-paper shadow-sm">
+
+                    {# ----- CAPTION ----- #}
+                    <div class="caption-block">
+                        <div class="caption-court">
+                            In the United States District Court<br>
+                            {% if incident.federal_district_court %}
+                                for the {{ incident.federal_district_court }}
+                            {% else %}
+                                for the [DISTRICT COURT NOT SET]
+                            {% endif %}
+                        </div>
+                        <div class="caption-parties">
+                            <div>
+                                <strong>{{ plaintiff.full_name|default:"[PLAINTIFF NAME]"|upper }}</strong>,<br>
+                                <span style="margin-left: 1.5rem;">Plaintiff,</span>
+                            </div>
+                            <div class="caption-vs">v.</div>
+                            <div>
+                                {% for d in defendants %}
+                                    <strong>{{ d.full_name|default:"UNKNOWN OFFICER"|upper }}</strong>{% if d.badge_number %}, Badge #{{ d.badge_number }}{% endif %}{% if d.agency_name %}, {{ d.agency_name }}{% endif %}{% if not forloop.last %};<br>{% endif %}
+                                {% empty %}
+                                    <strong>[DEFENDANTS NOT SET]</strong>
+                                {% endfor %}
+                                {% if gov_entity and gov_entity.entity_name %}
+                                    {% if defendants %};<br>{% endif %}
+                                    <strong>{{ gov_entity.entity_name|upper }}</strong>
+                                {% endif %},<br>
+                                <span style="margin-left: 1.5rem;">Defendants.</span>
+                            </div>
+                        </div>
+                        <div>
+                            Case No. <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>
+                        </div>
+                        <div style="margin-top: 1rem;"><strong>COMPLAINT FOR VIOLATION OF CIVIL RIGHTS (42 U.S.C. § 1983)</strong></div>
+                        {% if document.jury_trial_demand %}
+                        <div style="margin-top: 0.5rem;"><em>Jury Trial Demanded</em></div>
+                        {% endif %}
+                    </div>
+
+                    {# ----- JURISDICTION & VENUE ----- #}
+                    <div class="complaint-section-title">I. Jurisdiction and Venue</div>
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">1.</span>
+                        This action arises under 42 U.S.C. § 1983 and the Constitution of the United States.
+                        This Court has subject matter jurisdiction under 28 U.S.C. §§ 1331 and 1343.
+                    </div>
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">2.</span>
+                        Venue is proper in this District under 28 U.S.C. § 1391(b) because the events giving rise to this action occurred in
+                        {% if incident.city and incident.state %}{{ incident.city }}, {{ incident.state }}{% if incident.county %}, {{ incident.county }} County{% endif %}{% else %}this District{% endif %}.
+                    </div>
+
+                    {# ----- PARTIES ----- #}
+                    <div class="complaint-section-title">II. Parties</div>
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">3.</span>
+                        Plaintiff {{ plaintiff.full_name|default:"[PLAINTIFF NAME]" }} is a resident of
+                        {% if plaintiff.city and plaintiff.state %}{{ plaintiff.city }}, {{ plaintiff.state }}{% else %}the United States{% endif %}{% if plaintiff.filing_pro_se %} and brings this action pro se{% endif %}.
+                    </div>
+                    {% for d in defendants %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">{{ forloop.counter|add:3 }}.</span>
+                        Defendant {{ d.full_name|default:"Unknown Officer" }}{% if d.rank_title %}, {{ d.rank_title }}{% endif %}{% if d.badge_number %}, Badge #{{ d.badge_number }}{% endif %}, was at all relevant times{% if d.agency_name %} an officer of the {{ d.agency_name }}{% else %} a law-enforcement officer{% endif %} acting under color of state law. {{ d.full_name|default:"This defendant" }} is sued in {% if d.capacity_sued == 'individual' %}their individual capacity{% elif d.capacity_sued == 'official' %}their official capacity{% else %}both individual and official capacities{% endif %}.
+                    </div>
+                    {% endfor %}
+                    {% if gov_entity and gov_entity.entity_name %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">{{ defendants|length|add:4 }}.</span>
+                        Defendant {{ gov_entity.entity_name }} is a municipal entity responsible for the policies, practices, and customs of its officers and employees.
+                    </div>
+                    {% endif %}
+
+                    {# ----- FACTUAL ALLEGATIONS (EDITABLE) ----- #}
+                    <div class="complaint-section-title">III. Factual Allegations</div>
+                    {% if paragraphs %}
+                        {% for p in paragraphs %}
+                        <div class="editable-paragraph">
+                            <textarea name="paragraph_{{ forloop.counter0 }}" rows="2"
+                                      oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">{{ p }}</textarea>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted fst-italic">No factual allegations drafted yet. Click "Re-draft from story" below.</p>
+                    {% endif %}
+
+                    {# ----- COUNTS ----- #}
+                    {% for c in claims %}
+                    <div class="complaint-section-title">Count {{ forloop.counter }} — {{ c.get_amendment_display }}</div>
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">&nbsp;</span>
+                        Plaintiff incorporates and re-alleges each of the foregoing paragraphs as though fully set forth herein.
+                    </div>
+                    {% if c.how_violated %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">&nbsp;</span>
+                        {{ c.how_violated }}
+                    </div>
+                    {% endif %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">&nbsp;</span>
+                        As a direct and proximate result of Defendants' conduct, Plaintiff suffered damages as set forth below.
+                    </div>
+                    {% endfor %}
+
+                    {# ----- DAMAGES ----- #}
+                    {% if damages and damages.physical_injury_description or damages.emotional_distress_description or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis %}
+                    <div class="complaint-section-title">IV. Damages</div>
+                    {% if damages.physical_injury_description %}
+                    <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Physical injury: {{ damages.physical_injury_description }}</div>
+                    {% endif %}
+                    {% if damages.emotional_distress_description %}
+                    <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Emotional distress: {{ damages.emotional_distress_description }}</div>
+                    {% endif %}
+                    {% if damages.lost_wages %}
+                    <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Lost wages: {{ damages.lost_wages }}</div>
+                    {% endif %}
+                    {% if damages.property_damage_amount %}
+                    <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Property damage: {{ damages.property_damage_amount }}</div>
+                    {% endif %}
+                    {% if damages.punitive_basis %}
+                    <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Basis for punitive damages: {{ damages.punitive_basis }}</div>
+                    {% endif %}
+                    {% endif %}
+
+                    {# ----- PRAYER FOR RELIEF ----- #}
+                    <div class="complaint-section-title">V. Prayer for Relief</div>
+                    <p>WHEREFORE, Plaintiff respectfully requests that this Court:</p>
+                    <ul>
+                        {% if relief.compensatory_damages %}
+                        <li>Award compensatory damages{% if relief.compensatory_amount %} in the amount of ${{ relief.compensatory_amount }}{% endif %} for the harm Plaintiff suffered;</li>
+                        {% endif %}
+                        {% if relief.punitive_damages %}
+                        <li>Award punitive damages against the individual Defendants in an amount sufficient to punish their conduct and deter similar conduct in the future;</li>
+                        {% endif %}
+                        {% if relief.declaratory_judgment %}
+                        <li>Enter a declaratory judgment that Defendants violated Plaintiff's constitutional rights;</li>
+                        {% endif %}
+                        {% if relief.injunctive_relief %}
+                        <li>Issue injunctive relief restraining Defendants from continuing the unconstitutional conduct described above;</li>
+                        {% endif %}
+                        {% if relief.attorney_fees %}
+                        <li>Award reasonable attorney's fees pursuant to 42 U.S.C. § 1988;</li>
+                        {% endif %}
+                        {% if relief.costs_of_suit %}
+                        <li>Award costs of suit;</li>
+                        {% endif %}
+                        {% if relief.other_relief %}
+                        <li>{{ relief.other_relief }};</li>
+                        {% endif %}
+                        <li>Grant such other and further relief as the Court deems just and proper.</li>
+                    </ul>
+
+                    {# ----- JURY DEMAND ----- #}
+                    {% if document.jury_trial_demand %}
+                    <div class="complaint-section-title">VI. Jury Demand</div>
+                    <p>Plaintiff hereby demands a trial by jury on all issues so triable.</p>
+                    {% endif %}
+
+                    {# ----- SIGNATURE ----- #}
+                    <div class="signature-block">
+                        <p>Respectfully submitted,</p>
+                        <div class="signature-line"></div>
+                        <div>{{ plaintiff.full_name|default:"[PLAINTIFF NAME]" }}{% if plaintiff.filing_pro_se %}, Pro Se{% endif %}</div>
+                        {% if plaintiff.address %}<div>{{ plaintiff.address }}{% if plaintiff.city %}, {{ plaintiff.city }}{% endif %}{% if plaintiff.state %}, {{ plaintiff.state }}{% endif %}{% if plaintiff.zip_code %} {{ plaintiff.zip_code }}{% endif %}</div>{% endif %}
+                        {% if plaintiff.phone %}<div>{{ plaintiff.phone }}</div>{% endif %}
+                        {% if plaintiff.email %}<div>{{ plaintiff.email }}</div>{% endif %}
+                    </div>
+                </div>
+
+                {# ----- ACTION BAR ----- #}
+                <div class="action-bar d-flex justify-content-between align-items-center gap-2 flex-wrap p-3 bg-body-tertiary rounded shadow-sm border">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'documents:wizard_step7' document.slug %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Back
+                        </a>
+                        <button type="submit" name="action" value="save" class="btn btn-outline-primary">
+                            <i class="bi bi-floppy me-1"></i>Save edits
+                        </button>
+                        <button type="submit" name="action" value="regenerate"
+                                class="btn btn-outline-warning"
+                                onclick="return confirm('Re-draft the factual allegations from your original story? Your current edits will be replaced.');">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Re-draft from story
+                        </button>
+                    </div>
+                    <button type="submit" name="action" value="generate_pdf" class="btn btn-primary btn-lg px-4 fw-semibold">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-size all textareas to fit their content on load
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.editable-paragraph textarea').forEach(t => {
+            t.style.height = 'auto';
+            t.style.height = t.scrollHeight + 'px';
+        });
+    });
+</script>
+{% endblock %}
