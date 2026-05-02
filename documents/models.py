@@ -837,3 +837,50 @@ class ExampleStory(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# ---------------------------------------------------------------------------
+# PDF Branding — admin-editable watermark + footer text shown on draft PDFs
+# ---------------------------------------------------------------------------
+
+class PdfBranding(models.Model):
+    """
+    Admin-editable copy used on draft (unpaid) PDF complaints. Singleton-style:
+    only the row marked is_active=True is read at render time. If no active row
+    exists, the model's defaults are used.
+    """
+    name = models.CharField(
+        max_length=50, default='default', unique=True,
+        help_text='Internal label so you can keep multiple drafts and toggle '
+                  '`is_active` to swap between them.'
+    )
+    watermark_text = models.CharField(
+        max_length=100,
+        default='DRAFT — NOT FOR FILING',
+        help_text='Diagonal watermark stamped across every page of unpaid PDFs.'
+    )
+    footer_text = models.CharField(
+        max_length=255,
+        default='Draft preview — upgrade at www.file1983.com to download a clean copy.',
+        help_text='Footer line shown at the bottom of every page of unpaid PDFs.'
+    )
+    website_url = models.CharField(
+        max_length=255,
+        default='www.file1983.com',
+        help_text='Site URL shown alongside the watermark/footer.'
+    )
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'PDF Branding'
+        verbose_name_plural = 'PDF Branding'
+
+    def __str__(self):
+        return f'PDF Branding ({self.name})'
+
+    @classmethod
+    def get_active(cls):
+        """Return the active branding row, or an unsaved default if none exist."""
+        obj = cls.objects.filter(is_active=True).order_by('-updated_at').first()
+        return obj or cls(name='default')

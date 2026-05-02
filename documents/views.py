@@ -1213,6 +1213,16 @@ def _build_complaint_context(doc):
 
     section_num = {name: _to_roman(i + 1) for i, name in enumerate(section_names)}
 
+    # Watermark + footer for draft (unpaid) PDFs. Once Stripe lands and the
+    # document gets payment_status='paid', this flips to False and the PDF
+    # renders cleanly with no template change required.
+    is_draft_preview = doc.payment_status != 'paid'
+    if is_draft_preview:
+        from documents.models import PdfBranding
+        branding = PdfBranding.get_active()
+    else:
+        branding = None
+
     return {
         'document': doc,
         'plaintiff': plaintiff,
@@ -1230,6 +1240,8 @@ def _build_complaint_context(doc):
         'supporting_cases': supporting_cases,
         'caselaw_strategy': doc.caselaw_strategy or 'none',
         'section_num': section_num,
+        'is_draft_preview': is_draft_preview,
+        'branding': branding,
     }
 
 

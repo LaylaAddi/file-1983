@@ -4,7 +4,7 @@ from .models import (
     TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
     Evidence, Witness, Damages, PriorComplaints, ReliefSought,
     AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest, ExampleStory,
-    CaseLaw,
+    CaseLaw, PdfBranding,
 )
 
 
@@ -148,5 +148,22 @@ class CaseLawAdmin(admin.ModelAdmin):
         }),
         ('Display', {
             'fields': ['is_active', 'order'],
+        }),
+    ]
+
+
+@admin.register(PdfBranding)
+class PdfBrandingAdmin(admin.ModelAdmin):
+    list_display = ['name', 'watermark_text', 'website_url', 'is_active', 'updated_at']
+    list_editable = ['is_active']
+    fieldsets = [
+        ('Identification', {
+            'fields': ['name', 'is_active'],
+            'description': 'Only one row should be active at a time. The active row is used '
+                           'for every draft (unpaid) PDF. Edit the text below to change what '
+                           'appears across the watermark and footer.',
+        }),
+        ('Watermark + Footer Text', {
+            'fields': ['watermark_text', 'footer_text', 'website_url'],
         }),
     ]
