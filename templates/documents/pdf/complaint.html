@@ -182,7 +182,7 @@
         {% if ev.description %}{{ ev.description }}{% endif %}
         {% if ev.recorded_by %} Recorded by {{ ev.recorded_by }}.{% endif %}
         {% if ev.date_and_time %} ({{ ev.date_and_time }}){% endif %}
-        {% if ev.public_url %} Available at: {{ ev.public_url }}{% endif %}
+        {% if ev.public_url %} Available at: <a href="{{ ev.play_url }}">{{ ev.public_url }}</a>{% endif %}
         {% if ev.key_timestamp %} <strong>Key moment at {{ ev.key_timestamp }}.</strong>{% endif %}
     </li>
     {% endfor %}

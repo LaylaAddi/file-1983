@@ -442,7 +442,18 @@
                             </div>
                             {% if ev.description %}<div class="small">{{ ev.description }}</div>{% endif %}
                             {% if ev.recorded_by %}<div class="small text-muted">Recorded by: {{ ev.recorded_by }}</div>{% endif %}
-                            {% if ev.public_url %}<div class="small"><a href="{{ ev.public_url }}" target="_blank" rel="noopener">{{ ev.public_url }}</a></div>{% endif %}
+                            {% if ev.public_url %}
+                            <div class="small">
+                                <a href="{{ ev.play_url }}" target="_blank" rel="noopener">{{ ev.public_url }}</a>
+                                {% if ev.key_timestamp %}
+                                <span class="badge bg-info text-dark ms-1" title="Video will start playing at this timestamp">
+                                    <i class="bi bi-play-circle me-1"></i>Starts at {{ ev.key_timestamp }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% elif ev.key_timestamp %}
+                            <div class="small text-muted">Key moment at {{ ev.key_timestamp }}</div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     {% else %}

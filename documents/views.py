@@ -360,6 +360,56 @@ def _parse_tristate(value):
     return None
 
 
+def _timestamp_to_seconds(timestamp):
+    """Convert "HH:MM:SS" or "MM:SS" to total seconds. Returns 0 for invalid."""
+    if not timestamp:
+        return 0
+    cleaned = str(timestamp).replace('.', ':').strip()
+    parts = [p for p in cleaned.split(':') if p != '']
+    try:
+        nums = [int(p) for p in parts]
+    except ValueError:
+        return 0
+    if not nums or len(nums) > 3:
+        return 0
+    if len(nums) == 1:
+        h, m, s = 0, 0, nums[0]
+    elif len(nums) == 2:
+        h, m, s = 0, nums[0], nums[1]
+    else:
+        h, m, s = nums
+    return max(0, h) * 3600 + max(0, m) * 60 + max(0, s)
+
+
+def _build_play_url(url, timestamp):
+    """
+    Return a URL that opens at the given timestamp. YouTube + Vimeo + HTML5
+    media-fragment-aware players will start playback at that moment. Falls
+    back to the bare URL if there's no timestamp.
+    """
+    if not url:
+        return url
+    seconds = _timestamp_to_seconds(timestamp)
+    if seconds <= 0:
+        return url
+
+    lower = url.lower()
+    if 'youtube.com' in lower or 'youtu.be' in lower:
+        sep = '&' if '?' in url else '?'
+        return f'{url}{sep}t={seconds}s'
+    if 'vimeo.com' in lower:
+        return f'{url}#t={seconds}s'
+    # Generic fallback: Media Fragments URI — works for many HTML5 players.
+    return f'{url}#t={seconds}'
+
+
+def _attach_play_urls(evidence_list):
+    """Mutate each evidence object in place, adding a `play_url` attribute."""
+    for ev in evidence_list:
+        ev.play_url = _build_play_url(ev.public_url, ev.key_timestamp)
+    return evidence_list
+
+
 def _normalize_timestamp(value):
     """
     Coerce a user-entered video timestamp into "HH:MM:SS".
@@ -1026,7 +1076,7 @@ def wizard_step7(request, document_slug):
 
     defendants = list(doc.defendants.all())
     claims = list(doc.constitutional_claims.all())
-    evidence = list(doc.evidence.all())
+    evidence = _attach_play_urls(list(doc.evidence.all()))
     witnesses = list(doc.witnesses.all())
 
     # Supporting case law preview — only when strategy != 'none'
@@ -1142,7 +1192,7 @@ def _build_complaint_context(doc):
     for c in claims:
         c.supporting_case = case_by_claim_id.get(c.id)
 
-    evidence_list = list(doc.evidence.all())
+    evidence_list = _attach_play_urls(list(doc.evidence.all()))
     has_damages = bool(damages and (
         damages.physical_injury_description or damages.emotional_distress_description
         or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis
