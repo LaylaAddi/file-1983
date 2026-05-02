@@ -31,37 +31,30 @@
         }
         {% if is_draft_preview and branding %}
         /* Diagonal draft watermark on every page */
-        .watermark {
+        .watermark-wrap {
             position: fixed;
-            top: 45%;
+            top: 32%;
             left: 0;
             right: 0;
             transform: rotate(-30deg);
             transform-origin: center;
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 48pt;
-            font-weight: bold;
-            color: rgba(220, 53, 69, 0.12);
             text-align: center;
-            white-space: nowrap;
+            font-family: 'Helvetica', 'Arial', sans-serif;
             z-index: 1000;
             pointer-events: none;
-            letter-spacing: 0.05em;
         }
-        .watermark-sub {
-            position: fixed;
-            top: calc(45% + 50pt);
-            left: 0;
-            right: 0;
-            transform: rotate(-30deg);
-            transform-origin: center;
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 14pt;
+        .watermark-main {
+            font-size: 60pt;
+            font-weight: bold;
+            color: rgba(220, 53, 69, 0.13);
+            letter-spacing: 0.05em;
+            line-height: 1.05;
+        }
+        .watermark-url {
+            margin-top: 1.4em;
+            font-size: 16pt;
             font-weight: 600;
             color: rgba(220, 53, 69, 0.16);
-            text-align: center;
-            z-index: 1000;
-            pointer-events: none;
         }
         {% endif %}
         .caption {
@@ -152,8 +145,10 @@
 <body>
 
 {% if is_draft_preview and branding %}
-<div class="watermark">{{ branding.watermark_text }}</div>
-<div class="watermark-sub">{{ branding.website_url }}</div>
+<div class="watermark-wrap">
+    <div class="watermark-main">{{ branding.watermark_text|linebreaksbr }}</div>
+    <div class="watermark-url">{{ branding.website_url }}</div>
+</div>
 {% endif %}
 
 {# ===== CAPTION ===== #}

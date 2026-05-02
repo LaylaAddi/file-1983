@@ -854,10 +854,10 @@ class PdfBranding(models.Model):
         help_text='Internal label so you can keep multiple drafts and toggle '
                   '`is_active` to swap between them.'
     )
-    watermark_text = models.CharField(
-        max_length=100,
-        default='DRAFT — NOT FOR FILING',
-        help_text='Diagonal watermark stamped across every page of unpaid PDFs.'
+    watermark_text = models.TextField(
+        default='DRAFT\nNOT FOR FILING',
+        help_text='Diagonal watermark stamped across every page of unpaid PDFs. '
+                  'Newlines render as line breaks so the text wraps cleanly.'
     )
     footer_text = models.CharField(
         max_length=255,
