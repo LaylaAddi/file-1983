@@ -258,9 +258,25 @@
                     </div>
                     {% endfor %}
 
+                    {# ----- SUPPORTING EVIDENCE ----- #}
+                    {% if evidence %}
+                    <div class="complaint-section-title">{{ section_num.evidence }}. Supporting Evidence</div>
+                    {% for ev in evidence %}
+                    <div class="numbered-allegation">
+                        <span class="allegation-num">&nbsp;</span>
+                        <strong>{{ ev.get_evidence_type_display }}.</strong>
+                        {% if ev.description %}{{ ev.description }}{% endif %}
+                        {% if ev.recorded_by %} Recorded by {{ ev.recorded_by }}.{% endif %}
+                        {% if ev.date_and_time %} ({{ ev.date_and_time }}){% endif %}
+                        {% if ev.public_url %}<br>Available at: {{ ev.public_url }}{% endif %}
+                        {% if ev.key_timestamp %}<br><strong>Key moment at {{ ev.key_timestamp }}.</strong>{% endif %}
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
                     {# ----- DAMAGES ----- #}
-                    {% if damages and damages.physical_injury_description or damages.emotional_distress_description or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis %}
-                    <div class="complaint-section-title">IV. Damages</div>
+                    {% if has_damages %}
+                    <div class="complaint-section-title">{{ section_num.damages }}. Damages</div>
                     {% if damages.physical_injury_description %}
                     <div class="numbered-allegation"><span class="allegation-num">&nbsp;</span>Physical injury: {{ damages.physical_injury_description }}</div>
                     {% endif %}
@@ -279,7 +295,7 @@
                     {% endif %}
 
                     {# ----- PRAYER FOR RELIEF ----- #}
-                    <div class="complaint-section-title">V. Prayer for Relief</div>
+                    <div class="complaint-section-title">{{ section_num.prayer }}. Prayer for Relief</div>
                     <p>WHEREFORE, Plaintiff respectfully requests that this Court:</p>
                     <ul>
                         {% if relief.compensatory_damages %}
@@ -308,13 +324,13 @@
 
                     {# ----- JURY DEMAND ----- #}
                     {% if document.jury_trial_demand %}
-                    <div class="complaint-section-title">VI. Jury Demand</div>
+                    <div class="complaint-section-title">{{ section_num.jury }}. Jury Demand</div>
                     <p>Plaintiff hereby demands a trial by jury on all issues so triable.</p>
                     {% endif %}
 
                     {# ----- APPENDIX: STATEMENT OF LEGAL AUTHORITY ----- #}
                     {% if caselaw_strategy == 'appendix' and supporting_cases %}
-                    <div class="complaint-section-title">VII. Statement of Legal Authority</div>
+                    <div class="complaint-section-title">{{ section_num.appendix }}. Statement of Legal Authority</div>
                     <p>The constitutional rights asserted in this complaint are supported by the following federal cases:</p>
                     <ol>
                         {% for sc in supporting_cases %}

@@ -158,6 +158,39 @@
                                 </div>
                             </div>
 
+                            <div class="mb-3" x-show="ev.evidence_type === 'video' || ev.evidence_type === 'body_cam'" x-cloak>
+                                <label class="form-label">
+                                    Key Timestamp
+                                    <span class="text-muted small">(optional, HH:MM:SS)</span>
+                                </label>
+                                <div class="input-group" style="max-width: 280px;">
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            tabindex="-1"
+                                            @click="ev.key_timestamp = adjustTimestamp(ev.key_timestamp, -1)">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <input type="text" class="form-control text-center"
+                                           :name="'ev_' + idx + '_key_timestamp'"
+                                           x-model="ev.key_timestamp"
+                                           @input="ev.key_timestamp = ev.key_timestamp.replace(/\./g, ':')"
+                                           @blur="ev.key_timestamp = normalizeTimestamp(ev.key_timestamp)"
+                                           @focus="if (!ev.key_timestamp) ev.key_timestamp = '00:00:00'"
+                                           placeholder="00:00:00"
+                                           inputmode="numeric"
+                                           style="font-family: monospace;">
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            tabindex="-1"
+                                            @click="ev.key_timestamp = adjustTimestamp(ev.key_timestamp, 1)">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    Where in the recording the key moment happens — so the judge knows when to start watching.
+                                    Type with periods (e.g. <code>1.30.45</code>) and they'll be converted to colons. Use the
+                                    <i class="bi bi-plus"></i> / <i class="bi bi-dash"></i> buttons to nudge by one second.
+                                </div>
+                            </div>
+
                             <div class="mb-0">
                                 <label class="form-label">Were defendants aware it was being recorded?</label>
                                 <select class="form-select"
@@ -348,6 +381,16 @@ function step5() {
         removeWitness(idx) {
             this.witnesses.splice(idx, 1);
         },
+
+        normalizeTimestamp(value) {
+            return normalizeTimestamp(value);
+        },
+
+        adjustTimestamp(value, delta) {
+            const total = parseTimestampToSeconds(value) + delta;
+            const clamped = Math.max(0, Math.min(total, 99 * 3600 + 59 * 60 + 59));
+            return secondsToTimestamp(clamped);
+        },
     };
 }
 
@@ -365,8 +408,36 @@ function emptyEvidence() {
         date_and_time: '',
         recorded_by: '',
         public_url: '',
+        key_timestamp: '',
         defendant_aware_of_recording: '',
     };
+}
+
+function parseTimestampToSeconds(value) {
+    if (!value) return 0;
+    const cleaned = String(value).replace(/\./g, ':').trim();
+    const parts = cleaned.split(':').filter(p => p !== '');
+    const nums = parts.map(p => parseInt(p, 10)).filter(n => !isNaN(n));
+    if (nums.length === 0) return 0;
+    let h = 0, m = 0, s = 0;
+    if (nums.length === 1) { s = nums[0]; }
+    else if (nums.length === 2) { m = nums[0]; s = nums[1]; }
+    else { h = nums[0]; m = nums[1]; s = nums[2]; }
+    return Math.max(0, h) * 3600 + Math.max(0, m) * 60 + Math.max(0, s);
+}
+
+function secondsToTimestamp(total) {
+    const t = Math.max(0, Math.floor(total));
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function normalizeTimestamp(value) {
+    if (!value || !String(value).trim()) return '';
+    return secondsToTimestamp(parseTimestampToSeconds(value));
 }
 
 function emptyWitness() {

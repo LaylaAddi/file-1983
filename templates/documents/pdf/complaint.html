@@ -172,9 +172,26 @@
 </ol>
 {% endfor %}
 
+{# ===== SUPPORTING EVIDENCE ===== #}
+{% if evidence %}
+<h1 class="section-title">{{ section_num.evidence }}. Supporting Evidence</h1>
+<ol class="allegations">
+    {% for ev in evidence %}
+    <li>
+        <strong>{{ ev.get_evidence_type_display }}.</strong>
+        {% if ev.description %}{{ ev.description }}{% endif %}
+        {% if ev.recorded_by %} Recorded by {{ ev.recorded_by }}.{% endif %}
+        {% if ev.date_and_time %} ({{ ev.date_and_time }}){% endif %}
+        {% if ev.public_url %} Available at: {{ ev.public_url }}{% endif %}
+        {% if ev.key_timestamp %} <strong>Key moment at {{ ev.key_timestamp }}.</strong>{% endif %}
+    </li>
+    {% endfor %}
+</ol>
+{% endif %}
+
 {# ===== DAMAGES ===== #}
-{% if damages and damages.physical_injury_description or damages.emotional_distress_description or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis %}
-<h1 class="section-title">IV. Damages</h1>
+{% if has_damages %}
+<h1 class="section-title">{{ section_num.damages }}. Damages</h1>
 <ol class="allegations">
     {% if damages.physical_injury_description %}<li>Physical injury: {{ damages.physical_injury_description }}</li>{% endif %}
     {% if damages.emotional_distress_description %}<li>Emotional distress: {{ damages.emotional_distress_description }}</li>{% endif %}
@@ -185,7 +202,7 @@
 {% endif %}
 
 {# ===== PRAYER FOR RELIEF ===== #}
-<h1 class="section-title">V. Prayer for Relief</h1>
+<h1 class="section-title">{{ section_num.prayer }}. Prayer for Relief</h1>
 <p>WHEREFORE, Plaintiff respectfully requests that this Court:</p>
 <ul class="prayer">
     {% if relief.compensatory_damages %}<li>Award compensatory damages{% if relief.compensatory_amount %} in the amount of ${{ relief.compensatory_amount }}{% endif %} for the harm Plaintiff suffered;</li>{% endif %}
@@ -200,13 +217,13 @@
 
 {# ===== JURY DEMAND ===== #}
 {% if document.jury_trial_demand %}
-<h1 class="section-title">VI. Jury Demand</h1>
+<h1 class="section-title">{{ section_num.jury }}. Jury Demand</h1>
 <p>Plaintiff hereby demands a trial by jury on all issues so triable.</p>
 {% endif %}
 
 {# ===== APPENDIX: STATEMENT OF LEGAL AUTHORITY ===== #}
 {% if caselaw_strategy == 'appendix' and supporting_cases %}
-<h1 class="section-title">VII. Statement of Legal Authority</h1>
+<h1 class="section-title">{{ section_num.appendix }}. Statement of Legal Authority</h1>
 <p>The constitutional rights asserted in this complaint are supported by the following federal cases:</p>
 <ol class="allegations">
     {% for sc in supporting_cases %}

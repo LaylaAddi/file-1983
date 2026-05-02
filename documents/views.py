@@ -360,6 +360,42 @@ def _parse_tristate(value):
     return None
 
 
+def _normalize_timestamp(value):
+    """
+    Coerce a user-entered video timestamp into "HH:MM:SS".
+
+    Accepts dots or colons as separators (so "1.30.45" → "01:30:45"). One- or
+    two-segment inputs are interpreted as MM:SS or M:SS and prefixed with
+    "00:" for hours. Empty input returns ''. Garbage returns the original
+    input (so the user can see and fix it on next render).
+    """
+    raw = (value or '').strip()
+    if not raw:
+        return ''
+
+    cleaned = raw.replace('.', ':')
+    parts = [p for p in cleaned.split(':') if p != '']
+    if not parts or len(parts) > 3:
+        return raw  # leave as-is, user can re-enter
+
+    try:
+        nums = [int(p) for p in parts]
+    except ValueError:
+        return raw
+
+    if len(nums) == 1:
+        h, m, s = 0, 0, nums[0]
+    elif len(nums) == 2:
+        h, m, s = 0, nums[0], nums[1]
+    else:
+        h, m, s = nums
+
+    h = max(0, min(h, 99))
+    m = max(0, min(m, 59))
+    s = max(0, min(s, 59))
+    return f'{h:02d}:{m:02d}:{s:02d}'
+
+
 def _heal_state_code(incident):
     """
     Convert a stored full state name like "Florida" to its 2-letter code "FL"
@@ -815,6 +851,9 @@ def wizard_step5(request, document_slug):
                 'date_and_time': request.POST.get(f'{prefix}date_and_time', '').strip(),
                 'recorded_by': request.POST.get(f'{prefix}recorded_by', '').strip(),
                 'public_url': public_url,
+                'key_timestamp': _normalize_timestamp(
+                    request.POST.get(f'{prefix}key_timestamp', '')
+                ),
                 'defendant_aware_of_recording': _parse_tristate(
                     request.POST.get(f'{prefix}defendant_aware_of_recording', '')
                 ),
@@ -888,7 +927,7 @@ def wizard_step5(request, document_slug):
 
     evidence = list(doc.evidence.all().values(
         'pk', 'evidence_type', 'description', 'date_and_time', 'recorded_by',
-        'public_url', 'defendant_aware_of_recording', 'order',
+        'public_url', 'key_timestamp', 'defendant_aware_of_recording', 'order',
     ))
     witnesses = list(doc.witnesses.all().values(
         'pk', 'full_name', 'contact_info', 'relationship_to_plaintiff',
@@ -1060,6 +1099,17 @@ def wizard_caselaw_strategy(request, document_slug):
 # Complaint draft + PDF generation
 # ---------------------------------------------------------------------------
 
+def _to_roman(n):
+    vals = [(1000,'M'),(900,'CM'),(500,'D'),(400,'CD'),(100,'C'),(90,'XC'),
+            (50,'L'),(40,'XL'),(10,'X'),(9,'IX'),(5,'V'),(4,'IV'),(1,'I')]
+    out = ''
+    for v, sym in vals:
+        while n >= v:
+            out += sym
+            n -= v
+    return out
+
+
 def _build_complaint_context(doc):
     """Build the shared template context for the draft + PDF templates."""
     from documents.services.caselaw_picker import select_supporting_cases
@@ -1092,21 +1142,44 @@ def _build_complaint_context(doc):
     for c in claims:
         c.supporting_case = case_by_claim_id.get(c.id)
 
+    evidence_list = list(doc.evidence.all())
+    has_damages = bool(damages and (
+        damages.physical_injury_description or damages.emotional_distress_description
+        or damages.lost_wages or damages.property_damage_amount or damages.punitive_basis
+    ))
+
+    # Build section numbers dynamically — Jurisdiction and Parties are always
+    # I and II; everything after them shifts based on what's present.
+    section_names = ['jurisdiction', 'parties']
+    if evidence_list:
+        section_names.append('evidence')
+    if has_damages:
+        section_names.append('damages')
+    section_names.append('prayer')
+    if doc.jury_trial_demand:
+        section_names.append('jury')
+    if doc.caselaw_strategy == 'appendix' and supporting_cases:
+        section_names.append('appendix')
+
+    section_num = {name: _to_roman(i + 1) for i, name in enumerate(section_names)}
+
     return {
         'document': doc,
         'plaintiff': plaintiff,
         'incident': incident,
         'gov_entity': gov_entity,
         'damages': damages,
+        'has_damages': has_damages,
         'relief': relief,
         'prior': prior,
         'defendants': list(doc.defendants.all()),
         'claims': claims,
-        'evidence': list(doc.evidence.all()),
+        'evidence': evidence_list,
         'witnesses': list(doc.witnesses.all()),
         'paragraphs': paragraphs,
         'supporting_cases': supporting_cases,
         'caselaw_strategy': doc.caselaw_strategy or 'none',
+        'section_num': section_num,
     }
 
 

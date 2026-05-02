@@ -582,6 +582,11 @@ class Evidence(models.Model):
         blank=True,
         help_text='Public URL if evidence is accessible online (e.g. YouTube)'
     )
+    key_timestamp = models.CharField(
+        max_length=20, blank=True,
+        help_text='HH:MM:SS timestamp into the recording where the key moment '
+                  'happens — so the judge knows when to start watching.'
+    )
     defendant_aware_of_recording = models.BooleanField(
         null=True, blank=True,
         help_text='Relevant to First Amendment retaliation claims'
