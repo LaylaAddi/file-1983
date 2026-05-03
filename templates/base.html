@@ -319,6 +319,73 @@
         })();
     </script>
 
+    <!-- Web Speech API helper — mix into any Alpine component to dictate into a string property.
+         Usage:
+             function myComponent() {
+                 return {
+                     storyText: '',
+                     ...withVoice('storyText'),
+                     init() { this.initVoice(); }
+                 }
+             }
+         Then in markup:
+             <button x-show="voiceSupported" @click="voiceToggle"
+                     :class="voiceRecording ? 'btn-danger' : 'btn-outline-secondary'">
+                 <i class="bi" :class="voiceRecording ? 'bi-stop-circle-fill' : 'bi-mic-fill'"></i>
+             </button>
+    -->
+    <script>
+        function withVoice(targetProp) {
+            return {
+                voiceSupported: ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window),
+                voiceRecording: false,
+                voiceError: '',
+                _voiceRec: null,
+
+                initVoice() {
+                    if (!this.voiceSupported) return;
+                    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    const rec = new Rec();
+                    rec.continuous = true;
+                    rec.interimResults = false;
+                    rec.lang = 'en-US';
+                    rec.onresult = (e) => {
+                        let added = '';
+                        for (let i = e.resultIndex; i < e.results.length; i++) {
+                            if (e.results[i].isFinal) added += e.results[i][0].transcript + ' ';
+                        }
+                        if (!added) return;
+                        const cur = this[targetProp] || '';
+                        const sep = (cur.length === 0 || /[\s\n]$/.test(cur)) ? '' : ' ';
+                        this[targetProp] = cur + sep + added;
+                    };
+                    rec.onend = () => { this.voiceRecording = false; };
+                    rec.onerror = (e) => {
+                        this.voiceRecording = false;
+                        this.voiceError = (e && e.error) || 'microphone error';
+                    };
+                    this._voiceRec = rec;
+                },
+
+                voiceToggle() {
+                    if (!this._voiceRec) this.initVoice();
+                    if (!this._voiceRec) return;
+                    if (this.voiceRecording) {
+                        this._voiceRec.stop();
+                    } else {
+                        try {
+                            this._voiceRec.start();
+                            this.voiceRecording = true;
+                            this.voiceError = '';
+                        } catch (err) {
+                            this.voiceError = err.message || 'could not start microphone';
+                        }
+                    }
+                },
+            };
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

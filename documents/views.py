@@ -160,7 +160,23 @@ def wizard_extraction_summary(request, document_slug):
     if not session.ai_extraction_succeeded:
         return redirect('documents:wizard_story', document_slug=doc.slug)
 
-    summary, critical_missing, warnings = _score_extraction(session.ai_analysis)
+    # Re-score against current model state so additions made via addendums
+    # show up here too (the original ai_analysis isn't updated when wizard
+    # steps are edited; we want the summary to reflect what's actually saved).
+    from documents.services.addendum_service import (
+        ADDENDUM_CATEGORIES, _snapshot_category,
+    )
+    live_snapshot = _snapshot_category(session, [
+        'incident', 'plaintiff', 'defendants', 'government_entity',
+        'constitutional_claims', 'evidence', 'witnesses',
+        'damages', 'relief', 'prior_complaints',
+    ])
+    # Fall back to the stored ai_analysis for any keys the snapshot doesn't
+    # cover (e.g. timeline) so _score_extraction still has them.
+    scoring_data = dict(session.ai_analysis or {})
+    scoring_data.update(live_snapshot)
+
+    summary, critical_missing, warnings = _score_extraction(scoring_data)
 
     return render(request, 'documents/wizard_summary.html', {
         'document': doc,
@@ -168,7 +184,48 @@ def wizard_extraction_summary(request, document_slug):
         'summary': summary,
         'critical_missing': critical_missing,
         'warnings': warnings,
+        'addendum_categories': ADDENDUM_CATEGORIES,
     })
+
+
+@login_required
+@require_POST
+def wizard_addendum(request, document_slug):
+    """
+    Apply a category-scoped addendum (typed or dictated) to an analyzed
+    session. Merges into wizard models without deleting existing data, then
+    redirects back to the summary.
+    """
+    from documents.services.addendum_service import (
+        apply_addendum, ADDENDUM_CATEGORIES,
+    )
+
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    session = doc.wizard_session
+
+    if not session.ai_extraction_succeeded:
+        messages.error(request, 'Please analyze your story first.')
+        return redirect('documents:wizard_story', document_slug=doc.slug)
+
+    category = request.POST.get('category', '').strip()
+    text = request.POST.get('text', '').strip()
+
+    if category not in ADDENDUM_CATEGORIES:
+        messages.error(request, 'Unknown category.')
+        return redirect('documents:wizard_summary', document_slug=doc.slug)
+
+    if not text:
+        messages.error(request, 'Please enter what you want to add.')
+        return redirect('documents:wizard_summary', document_slug=doc.slug)
+
+    label = ADDENDUM_CATEGORIES[category]['label']
+    _, error = apply_addendum(session, category, text)
+    if error:
+        messages.error(request, f'Could not add {label}: {error}')
+    else:
+        messages.success(request, f'Added details for {label}.')
+
+    return redirect('documents:wizard_summary', document_slug=doc.slug)
 
 
 def _score_extraction(ai):
@@ -182,7 +239,7 @@ def _score_extraction(ai):
     critical_missing = []
     warnings = []
 
-    def item(label, status, detail, critical=False, icon=None):
+    def item(label, status, detail, critical=False, icon=None, category=None):
         summary.append({
             'label': label,
             'status': status,       # 'found' | 'partial' | 'missing'
@@ -191,6 +248,7 @@ def _score_extraction(ai):
             'icon': icon or ('check-circle-fill' if status == 'found'
                              else 'exclamation-circle-fill' if status == 'partial'
                              else 'x-circle-fill'),
+            'category': category,    # addendum category key, or None if not addendable
         })
         if status == 'missing' and critical:
             critical_missing.append(label)
@@ -200,26 +258,31 @@ def _score_extraction(ai):
     # Incident date
     inc = ai.get('incident') or {}
     if inc.get('incident_date'):
-        item('Incident date', 'found', inc['incident_date'])
+        item('Incident date', 'found', inc['incident_date'], category='incident')
     else:
-        item('Incident date', 'missing', 'Not found — you can add it in Step 2', critical=True)
+        item('Incident date', 'missing', 'Not found — you can add it in Step 2',
+             critical=True, category='incident')
 
     # Location
     city  = inc.get('city', '')
     state = inc.get('state', '')
     if city and state:
-        item('Incident location', 'found', f'{city}, {state}')
+        item('Incident location', 'found', f'{city}, {state}', category='incident')
     elif city or state:
-        item('Incident location', 'partial', f'{city or state} — state or city missing')
+        item('Incident location', 'partial', f'{city or state} — state or city missing',
+             category='incident')
         warnings.append('Incident location')
     else:
-        item('Incident location', 'missing', 'Not found — needed for court lookup', critical=True)
+        item('Incident location', 'missing', 'Not found — needed for court lookup',
+             critical=True, category='incident')
 
     # Plaintiff activity
     if inc.get('plaintiff_activity'):
-        item('What you were doing', 'found', inc['plaintiff_activity'][:80])
+        item('What you were doing', 'found', inc['plaintiff_activity'][:80],
+             category='incident')
     else:
-        item('What you were doing', 'missing', 'Not described — important for your claim')
+        item('What you were doing', 'missing',
+             'Not described — important for your claim', category='incident')
 
     # Timeline
     timeline = ai.get('timeline') or []
@@ -236,10 +299,11 @@ def _score_extraction(ai):
         names = ', '.join(d.get('full_name') or 'Unknown' for d in defendants[:3])
         if len(defendants) > 3:
             names += f' +{len(defendants) - 3} more'
-        item('Defendants / officers', 'found', names)
+        item('Defendants / officers', 'found', names, category='defendants')
     else:
         item('Defendants / officers', 'missing',
-             'No officers or defendants found — describe who confronted you', critical=True)
+             'No officers or defendants found — describe who confronted you',
+             critical=True, category='defendants')
 
     # Constitutional claims
     claims = ai.get('constitutional_claims') or []
@@ -248,34 +312,44 @@ def _score_extraction(ai):
             (c.get('amendment') or '') + ' Amendment'
             for c in claims if c.get('amendment')
         )
-        item('Constitutional claims', 'found', amendments or f'{len(claims)} claim(s)')
+        item('Constitutional claims', 'found', amendments or f'{len(claims)} claim(s)',
+             category='claims')
     else:
         item('Constitutional claims', 'missing',
-             'No rights violations identified — describe what rights were violated', critical=True)
+             'No rights violations identified — describe what rights were violated',
+             critical=True, category='claims')
 
     # Evidence
     evidence = ai.get('evidence') or []
     if len(evidence) >= 1:
-        item('Evidence', 'found', f'{len(evidence)} item(s) — video, photos, documents, etc.')
+        item('Evidence', 'found', f'{len(evidence)} item(s) — video, photos, documents, etc.',
+             category='evidence')
     else:
-        item('Evidence', 'missing', 'None mentioned — you can add it later in Step 5')
+        item('Evidence', 'missing', 'None mentioned — you can add it later in Step 5',
+             category='evidence')
 
     # Witnesses
     witnesses = ai.get('witnesses') or []
     if len(witnesses) >= 1:
-        item('Witnesses', 'found', f'{len(witnesses)} witness(es) identified')
+        item('Witnesses', 'found', f'{len(witnesses)} witness(es) identified',
+             category='witnesses')
     else:
-        item('Witnesses', 'missing', 'None mentioned — you can add witnesses later in Step 5')
+        item('Witnesses', 'missing', 'None mentioned — you can add witnesses later in Step 5',
+             category='witnesses')
 
     # Damages
     dmg = ai.get('damages') or {}
     dmg_fields = [v for v in dmg.values() if v]
     if len(dmg_fields) >= 2:
-        item('Damages', 'found', 'Physical, emotional, or financial harm described')
+        item('Damages', 'found', 'Physical, emotional, or financial harm described',
+             category='damages')
     elif len(dmg_fields) == 1:
-        item('Damages', 'partial', 'Only some damage described — more detail strengthens your case')
+        item('Damages', 'partial',
+             'Only some damage described — more detail strengthens your case',
+             category='damages')
     else:
-        item('Damages', 'missing', 'No harm described — explain how this affected you')
+        item('Damages', 'missing', 'No harm described — explain how this affected you',
+             category='damages')
 
     return summary, critical_missing, warnings
 

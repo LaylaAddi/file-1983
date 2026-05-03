@@ -195,6 +195,15 @@ class WizardSession(models.Model):
         help_text='Structured data extracted by AI from story_text — used to pre-fill wizard steps'
     )
 
+    # Story addendums — targeted snippets the user adds after the initial analysis
+    # to fill in a specific category (officers, evidence, location, etc.). Each
+    # entry is `{"category": str, "text": str, "applied_at": isoformat, "error": str}`.
+    # Stored for audit; merging happens immediately into the related models.
+    story_addendums = models.JSONField(
+        default=list, blank=True,
+        help_text='Per-category snippets the user dictated/typed after the initial analysis'
+    )
+
     # Track whether AI extraction has run and succeeded
     ai_extraction_attempted = models.BooleanField(default=False)
     ai_extraction_succeeded = models.BooleanField(default=False)

@@ -425,3 +425,184 @@ class WizardEndToEndTest(TestCase):
                 r.status_code, 200,
                 msg=f'Step {step} should be reachable after completing the wizard',
             )
+
+
+@override_settings(
+    OPENAI_API_KEY='test-key-not-real',
+    DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
+    STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
+)
+class StoryAddendumTest(TestCase):
+    """
+    Verify that post-extraction addendums (the 'add details about X' modal on
+    the summary page) merge new info into the wizard models WITHOUT deleting
+    or overwriting confirmed data.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='auditor@example.com',
+            password='CorrectHorseBatteryStaple1!',
+            first_name='Aud', last_name='Itor',
+        )
+        self.client.force_login(self.user)
+        self.doc = Document.objects.create(user=self.user)
+        from documents.models import WizardSession, PlaintiffInfo
+        self.session = WizardSession.objects.create(
+            document=self.doc,
+            ai_extraction_succeeded=True,
+            ai_analysis=FAKE_AI_ANALYSIS,
+            status='analyzed',
+            current_step=1,
+        )
+        PlaintiffInfo.objects.create(document=self.doc, full_name='Aud Itor')
+        # Pre-populate models from the fake analysis the way the real extraction would
+        from documents.services.openai_service import _populate_models
+        _populate_models(self.session, FAKE_AI_ANALYSIS)
+
+    def _post_addendum(self, category, text):
+        return self.client.post(
+            reverse('documents:wizard_addendum', kwargs={'document_slug': self.doc.slug}),
+            {'category': category, 'text': text},
+        )
+
+    def test_addendum_adds_new_defendant_without_deleting_existing(self):
+        """User dictates info about a second officer; the first one must remain."""
+        self.assertEqual(self.doc.defendants.count(), 1)
+        original = self.doc.defendants.first()
+        original_name = original.full_name
+
+        merged_response = {
+            'defendants': [
+                {
+                    'full_name': 'Officer J. Smith', 'badge_number': '4567',
+                    'rank_title': 'Officer', 'agency_name': 'Denver Police Department',
+                    'capacity_sued': 'both', 'acting_under_color_of_law': True,
+                    'is_supervisor': False,
+                },
+                {
+                    'full_name': 'Sergeant Maria Lopez', 'badge_number': '8821',
+                    'rank_title': 'Sergeant', 'agency_name': 'Denver Police Department',
+                    'capacity_sued': 'both', 'acting_under_color_of_law': True,
+                    'is_supervisor': True,
+                },
+            ],
+            'government_entity': {
+                'entity_name': 'City and County of Denver',
+                'entity_address': '1437 Bannock St, Denver, CO 80202',
+                'policy_or_custom_description': '',
+            },
+        }
+        with patch(
+            'documents.services.addendum_service._call_openai',
+            return_value=('{"junk": true}', None),  # raw is ignored, _parse_json is patched too
+        ), patch(
+            'documents.services.addendum_service._parse_json',
+            return_value=(merged_response, None),
+        ):
+            response = self._post_addendum(
+                'defendants',
+                'There was a second officer — Sergeant Maria Lopez, badge 8821, supervisor.',
+            )
+        self.assertEqual(response.status_code, 302)
+
+        # Both defendants should now exist
+        self.assertEqual(self.doc.defendants.count(), 2)
+        names = sorted(d.full_name for d in self.doc.defendants.all())
+        self.assertEqual(names, ['Officer J. Smith', 'Sergeant Maria Lopez'])
+
+        # The original row should NOT have been deleted/recreated
+        original.refresh_from_db()
+        self.assertEqual(original.full_name, original_name)
+
+        # Audit log should have an entry
+        self.session.refresh_from_db()
+        self.assertEqual(len(self.session.story_addendums), 1)
+        self.assertEqual(self.session.story_addendums[0]['category'], 'defendants')
+
+    def test_addendum_updates_existing_defendant_match_by_name(self):
+        """If the addendum re-mentions an existing defendant, fields update in place."""
+        original = self.doc.defendants.first()
+        original_pk = original.pk
+
+        merged_response = {
+            'defendants': [{
+                'full_name': 'Officer J. Smith', 'badge_number': '4567',
+                'rank_title': 'Officer', 'agency_name': 'Denver Police Department',
+                'parent_government_entity': 'City and County of Denver',
+                'agency_address': '1331 Cherokee St, Denver, CO',
+                'capacity_sued': 'both', 'acting_under_color_of_law': True,
+                'color_of_law_basis': 'On duty in uniform.',
+                'is_supervisor': False,
+            }],
+            'government_entity': {},
+        }
+        with patch(
+            'documents.services.addendum_service._call_openai',
+            return_value=('{}', None),
+        ), patch(
+            'documents.services.addendum_service._parse_json',
+            return_value=(merged_response, None),
+        ):
+            self._post_addendum(
+                'defendants',
+                "Officer Smith was at 1331 Cherokee St, on duty in uniform.",
+            )
+
+        # Still one defendant — same row, updated fields
+        self.assertEqual(self.doc.defendants.count(), 1)
+        original.refresh_from_db()
+        self.assertEqual(original.pk, original_pk)
+        self.assertEqual(original.agency_address, '1331 Cherokee St, Denver, CO')
+        self.assertEqual(original.color_of_law_basis, 'On duty in uniform.')
+
+    def test_addendum_evidence_appends_new_record(self):
+        """Adding evidence after the fact should create new rows (the original story had none)."""
+        self.assertEqual(self.doc.evidence.count(), 0)
+        merged_response = {
+            'evidence': [{
+                'evidence_type': 'video',
+                'description': 'YouTube livestream of the incident',
+                'public_url': 'https://youtu.be/abc123',
+                'key_timestamp': '00:04:12',
+                'recorded_by': 'Plaintiff',
+            }],
+        }
+        with patch(
+            'documents.services.addendum_service._call_openai',
+            return_value=('{}', None),
+        ), patch(
+            'documents.services.addendum_service._parse_json',
+            return_value=(merged_response, None),
+        ):
+            self._post_addendum(
+                'evidence',
+                'There is a YouTube video at https://youtu.be/abc123 — arrest happens at 4:12.',
+            )
+        self.assertEqual(self.doc.evidence.count(), 1)
+        ev = self.doc.evidence.first()
+        self.assertEqual(ev.public_url, 'https://youtu.be/abc123')
+        self.assertEqual(ev.key_timestamp, '00:04:12')
+
+    def test_addendum_rejects_unknown_category(self):
+        response = self._post_addendum('not-a-real-category', 'anything')
+        self.assertEqual(response.status_code, 302)
+        # No addendum recorded
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.story_addendums, [])
+
+    def test_addendum_rejects_empty_text(self):
+        response = self._post_addendum('defendants', '   ')
+        self.assertEqual(response.status_code, 302)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.story_addendums, [])
+
+    def test_summary_page_renders_addendum_buttons(self):
+        response = self.client.get(
+            reverse('documents:wizard_summary', kwargs={'document_slug': self.doc.slug})
+        )
+        self.assertEqual(response.status_code, 200)
+        # The modal + at least one per-item Add button should be in the markup
+        self.assertContains(response, 'addendum-modal')
+        self.assertContains(response, "open('defendants'")
+        self.assertContains(response, "Pick a category")

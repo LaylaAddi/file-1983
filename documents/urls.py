@@ -9,6 +9,7 @@ urlpatterns = [
     path('<str:document_slug>/delete/', views.document_delete, name='delete'),
     path('<str:document_slug>/wizard/', views.wizard_story, name='wizard_story'),
     path('<str:document_slug>/wizard/summary/', views.wizard_extraction_summary, name='wizard_summary'),
+    path('<str:document_slug>/wizard/addendum/', views.wizard_addendum, name='wizard_addendum'),
     path('<str:document_slug>/wizard/step1/', views.wizard_step1, name='wizard_step1'),
     path('<str:document_slug>/wizard/step2/', views.wizard_step2, name='wizard_step2'),
     path('<str:document_slug>/wizard/step3/', views.wizard_step3, name='wizard_step3'),

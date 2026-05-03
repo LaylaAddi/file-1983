@@ -17,14 +17,35 @@
         flex-shrink: 0;
         margin-top: 0.1rem;
     }
+    .summary-body { flex: 1; min-width: 0; }
     .status-found   { color: #198754; }
     .status-partial { color: #f59e0b; }
     .status-missing { color: #dc3545; }
+    .add-btn {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .addendum-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 1050;
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .addendum-modal {
+        background: var(--bs-body-bg);
+        color: var(--bs-body-color);
+        border-radius: 0.6rem;
+        max-width: 640px; width: 100%;
+        max-height: 90vh; overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+    [x-cloak] { display: none !important; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-5">
+<div class="container py-5" x-data="addendumPanel()">
     <div class="row justify-content-center">
         <div class="col-lg-7">
 
@@ -40,7 +61,8 @@
                     Here's What We Found
                 </h2>
                 <p class="text-muted mb-0">
-                    Review what the AI extracted from your story before continuing.
+                    Review what the AI extracted from your story. You can add more
+                    details for any section without re-typing your whole story.
                 </p>
             </div>
 
@@ -56,8 +78,9 @@
                         <li>{{ item }}</li>
                         {% endfor %}
                     </ul>
-                    We recommend going back and adding more detail to your story, then re-analyzing.
-                    You can still continue and fill these in manually at each step.
+                    Click <strong>Add details</strong> next to any item below to
+                    fill in just that piece — you can speak or type. We'll merge
+                    it in without losing anything you've already entered.
                 </div>
             </div>
             {% elif warnings %}
@@ -65,8 +88,8 @@
                 <i class="bi bi-exclamation-circle-fill fs-5 flex-shrink-0 mt-1"></i>
                 <div>
                     <strong>Some details were not found.</strong>
-                    Your story is mostly complete, but adding more detail could strengthen your complaint.
-                    You can also fill in the gaps manually at each step.
+                    Click <strong>Add details</strong> next to any item to fill
+                    in just that piece — speak or type, and we'll merge it in.
                 </div>
             </div>
             {% else %}
@@ -74,9 +97,19 @@
                 <i class="bi bi-check-circle-fill fs-5 flex-shrink-0 mt-1"></i>
                 <div>
                     <strong>Great extraction!</strong>
-                    We found most of the key information. Review below and continue when ready.
+                    We found most of the key information. You can still add more
+                    details below or continue to review.
                 </div>
             </div>
+            {% endif %}
+
+            <!-- Flash messages -->
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} py-2 px-3 small">
+                    {{ message }}
+                </div>
+                {% endfor %}
             {% endif %}
 
             <!-- Summary card -->
@@ -85,12 +118,46 @@
                     {% for item in summary %}
                     <div class="summary-item">
                         <i class="bi bi-{{ item.icon }} summary-icon status-{{ item.status }}"></i>
-                        <div>
+                        <div class="summary-body">
                             <div class="fw-semibold small">{{ item.label }}</div>
                             <div class="text-muted small">{{ item.detail }}</div>
                         </div>
+                        {% if item.category %}
+                        <button type="button"
+                                class="btn btn-sm add-btn
+                                       {% if item.status == 'missing' %}btn-outline-danger
+                                       {% elif item.status == 'partial' %}btn-outline-warning
+                                       {% else %}btn-outline-secondary{% endif %}"
+                                @click="open('{{ item.category }}', '{{ item.label|escapejs }}')">
+                            <i class="bi bi-plus-circle me-1"></i>{% if item.status == 'found' %}Add more{% else %}Add details{% endif %}
+                        </button>
+                        {% endif %}
                     </div>
                     {% endfor %}
+                </div>
+            </div>
+
+            <!-- "Add other details" picker -->
+            <div class="card border-0 bg-light mb-4">
+                <div class="card-body px-4 py-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <div>
+                            <div class="fw-semibold small mb-1">
+                                <i class="bi bi-plus-circle me-1 text-primary"></i>
+                                Add details about something else
+                            </div>
+                            <div class="text-muted small">
+                                Government entity, prior complaints, relief sought, contact info…
+                            </div>
+                        </div>
+                        <select class="form-select form-select-sm" style="max-width:260px;"
+                                @change="if ($event.target.value) { open($event.target.value, ''); $event.target.value=''; }">
+                            <option value="">— Pick a category —</option>
+                            {% for key, cfg in addendum_categories.items %}
+                            <option value="{{ key }}">{{ cfg.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -98,7 +165,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{% url 'documents:wizard_story' document.slug %}"
                    class="btn btn-outline-secondary px-4">
-                    <i class="bi bi-arrow-left me-1"></i>Improve My Story
+                    <i class="bi bi-arrow-left me-1"></i>Back to Story
                 </a>
                 <a href="{% url 'documents:wizard_step1' document.slug %}"
                    class="btn btn-primary btn-lg px-5 fw-semibold">
@@ -112,10 +179,131 @@
 
             <p class="text-center text-muted small mt-3">
                 <i class="bi bi-info-circle me-1"></i>
-                You can add or edit any information at each step — nothing is locked in.
+                You can also edit any information at each step — nothing is locked in.
             </p>
 
         </div>
     </div>
+
+    <!-- Addendum modal -->
+    <div class="addendum-backdrop" x-show="visible" x-cloak
+         @keydown.escape.window="close()" @click.self="close()">
+        <div class="addendum-modal p-4">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="bi" :class="'bi-' + (categoryIcon || 'plus-circle')"></i>
+                        <span x-text="categoryLabel"></span>
+                    </h5>
+                    <div class="text-muted small">
+                        Speak or type — we'll add it to what we already have.
+                    </div>
+                </div>
+                <button type="button" class="btn-close" aria-label="Close"
+                        @click="close()"></button>
+            </div>
+
+            <form method="post" action="{% url 'documents:wizard_addendum' document.slug %}"
+                  @submit="submitting = true">
+                {% csrf_token %}
+                <input type="hidden" name="category" :value="category">
+
+                <div class="mb-2 d-flex justify-content-end">
+                    <button type="button"
+                            x-show="voiceSupported"
+                            @click="voiceToggle()"
+                            :class="voiceRecording ? 'btn btn-danger btn-sm' : 'btn btn-outline-secondary btn-sm'">
+                        <i class="bi" :class="voiceRecording ? 'bi-stop-circle-fill' : 'bi-mic-fill'"></i>
+                        <span x-text="voiceRecording ? 'Listening…' : 'Dictate'"></span>
+                    </button>
+                </div>
+
+                <textarea name="text" class="form-control mb-2" rows="6"
+                          :placeholder="categoryPlaceholder"
+                          x-model="text"
+                          x-ref="addText"
+                          required></textarea>
+                <div class="text-muted small mb-3" x-show="!voiceError">
+                    Just describe what to add — addresses, names, badge numbers,
+                    timestamps. The AI will figure out which fields to update.
+                </div>
+                <div class="text-danger small mb-3" x-show="voiceError">
+                    Mic: <span x-text="voiceError"></span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary"
+                            @click="close()" :disabled="submitting">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary"
+                            :disabled="submitting || !text.trim()">
+                        <span x-show="!submitting">
+                            <i class="bi bi-stars me-1"></i>Add to my complaint
+                        </span>
+                        <span x-show="submitting" x-cloak>
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            Analyzing…
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.ADDENDUM_CATEGORIES = {
+        {% for key, cfg in addendum_categories.items %}
+        "{{ key }}": {
+            label: "{{ cfg.label|escapejs }}",
+            icon: "{{ cfg.icon|escapejs }}",
+            placeholder: "{{ cfg.placeholder|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    function addendumPanel() {
+        return {
+            visible: false,
+            submitting: false,
+            category: '',
+            categoryLabel: '',
+            categoryIcon: 'plus-circle',
+            categoryPlaceholder: '',
+            text: '',
+            ...withVoice('text'),
+
+            init() {
+                this.initVoice();
+            },
+
+            open(categoryKey, fallbackLabel) {
+                const cfg = window.ADDENDUM_CATEGORIES[categoryKey];
+                if (!cfg) return;
+                this.category = categoryKey;
+                this.categoryLabel = cfg.label || fallbackLabel || 'Add details';
+                this.categoryIcon = cfg.icon || 'plus-circle';
+                this.categoryPlaceholder = cfg.placeholder || '';
+                this.text = '';
+                this.voiceError = '';
+                this.visible = true;
+                this.$nextTick(() => {
+                    if (this.$refs.addText) this.$refs.addText.focus();
+                });
+            },
+
+            close() {
+                if (this.voiceRecording && this._voiceRec) {
+                    try { this._voiceRec.stop(); } catch (e) {}
+                }
+                this.visible = false;
+                this.text = '';
+                this.submitting = false;
+            },
+        };
+    }
+</script>
 {% endblock %}
