@@ -147,6 +147,10 @@ def _mock_generate_factual_allegations(document):
 @override_settings(
     OPENAI_API_KEY='test-key-not-real',
     DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
+    # Disable WhiteNoise's hashed-manifest storage in tests — it requires
+    # `collectstatic` to have populated staticfiles.json first, which the test
+    # runner doesn't do. Plain StaticFilesStorage just resolves paths directly.
+    STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage',
 )
 class WizardEndToEndTest(TestCase):
 
