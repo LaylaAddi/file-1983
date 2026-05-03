@@ -11,6 +11,21 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Render terminates TLS at the load balancer; trust the forwarded header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://file1983.com',
+    'https://www.file1983.com',
+    'https://auditfile1983.com',
+    'https://www.auditfile1983.com',
+]
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+
 AUTH_USER_MODEL = 'accounts.User'
 
 INSTALLED_APPS = [
