@@ -3,6 +3,7 @@
 {% block title %}Step 2 — Incident Details — {{ app_name }}{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <style>
     .field-group {
         border: 1px solid #dee2e6;
@@ -25,6 +26,62 @@
         border-color: #2d3548;
     }
     [data-theme="dark"] .field-group-title { color: #93c5fd; }
+
+    /* Flatpickr dark mode — recolor the popup calendar/time spinner */
+    [data-theme="dark"] .flatpickr-calendar {
+        background: #1a1f2e;
+        color: #e2e8f0;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+        border: 1px solid #2d3548;
+    }
+    [data-theme="dark"] .flatpickr-months,
+    [data-theme="dark"] .flatpickr-month,
+    [data-theme="dark"] .flatpickr-current-month input.cur-year,
+    [data-theme="dark"] .flatpickr-monthDropdown-months,
+    [data-theme="dark"] .flatpickr-weekdays,
+    [data-theme="dark"] span.flatpickr-weekday {
+        background: transparent;
+        color: #e2e8f0;
+    }
+    [data-theme="dark"] .flatpickr-day {
+        color: #e2e8f0;
+        background: transparent;
+        border-color: transparent;
+    }
+    [data-theme="dark"] .flatpickr-day:hover,
+    [data-theme="dark"] .flatpickr-day:focus {
+        background: #2d3548;
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .flatpickr-day.today {
+        border-color: #93c5fd;
+    }
+    [data-theme="dark"] .flatpickr-day.selected,
+    [data-theme="dark"] .flatpickr-day.startRange,
+    [data-theme="dark"] .flatpickr-day.endRange {
+        background: #2563eb; border-color: #2563eb; color: #fff;
+    }
+    [data-theme="dark"] .flatpickr-day.flatpickr-disabled,
+    [data-theme="dark"] .flatpickr-day.prevMonthDay,
+    [data-theme="dark"] .flatpickr-day.nextMonthDay {
+        color: #64748b;
+    }
+    [data-theme="dark"] .flatpickr-time input,
+    [data-theme="dark"] .flatpickr-time .flatpickr-am-pm {
+        background: #1a1f2e; color: #e2e8f0;
+    }
+    [data-theme="dark"] .flatpickr-time input:hover,
+    [data-theme="dark"] .flatpickr-time .flatpickr-am-pm:hover {
+        background: #2d3548;
+    }
+    [data-theme="dark"] .numInputWrapper span.arrowUp,
+    [data-theme="dark"] .numInputWrapper span.arrowDown {
+        border-color: #2d3548;
+    }
+    [data-theme="dark"] .flatpickr-months .flatpickr-prev-month,
+    [data-theme="dark"] .flatpickr-months .flatpickr-next-month {
+        color: #e2e8f0; fill: #e2e8f0;
+    }
 </style>
 {% endblock %}
 
@@ -74,10 +131,10 @@
                             <label for="incident_date" class="form-label">
                                 Incident Date <span class="text-danger">*</span>
                             </label>
-                            <input type="date" class="form-control" id="incident_date"
-                                   name="incident_date"
-                                   x-model="incidentDate"
-                                   required>
+                            <input type="text" class="form-control" id="incident_date"
+                                   name="incident_date" x-ref="dateInput"
+                                   placeholder="Pick a date"
+                                   :value="incidentDate" required>
                             <div class="d-flex flex-wrap gap-1 mt-2">
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
                                         @click="setDateDaysAgo(0)">Today</button>
@@ -92,30 +149,31 @@
                                 <i class="bi bi-check2 text-success me-1"></i>
                                 <span x-text="datePreview"></span>
                             </div>
-                            <div class="form-text" x-show="!datePreview">The date the incident occurred.</div>
+                            <div class="form-text" x-show="!datePreview">Click the field for a calendar.</div>
                         </div>
                         <div class="col-sm-6">
                             <label for="incident_time" class="form-label">Incident Time</label>
-                            <input type="time" class="form-control" id="incident_time"
-                                   name="incident_time"
-                                   x-model="incidentTime">
+                            <input type="text" class="form-control" id="incident_time"
+                                   name="incident_time" x-ref="timeInput"
+                                   placeholder="Pick a time"
+                                   :value="incidentTime">
                             <div class="d-flex flex-wrap gap-1 mt-2">
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
                                         @click="setTimeNow()">Now</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                        @click="incidentTime='09:00'">Morning</button>
+                                        @click="setTime('09:00')">Morning</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                        @click="incidentTime='14:00'">Afternoon</button>
+                                        @click="setTime('14:00')">Afternoon</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                        @click="incidentTime='18:00'">Evening</button>
+                                        @click="setTime('18:00')">Evening</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                        @click="incidentTime='22:00'">Night</button>
+                                        @click="setTime('22:00')">Night</button>
                             </div>
                             <div class="form-text" x-show="timePreview" x-cloak>
                                 <i class="bi bi-check2 text-success me-1"></i>
                                 <span x-text="timePreview"></span>
                             </div>
-                            <div class="form-text" x-show="!timePreview">Approximate time, if known.</div>
+                            <div class="form-text" x-show="!timePreview">Click the field for a spinner.</div>
                         </div>
                     </div>
                 </div>
@@ -287,6 +345,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13"></script>
 <script>
 function step2() {
     return {
@@ -296,6 +355,8 @@ function step2() {
         origState: '{{ incident.state|escapejs }}',
         incidentDate: '{{ incident.incident_date|date:"Y-m-d"|default:"" }}',
         incidentTime: '{{ incident.incident_time|time:"H:i"|default:"" }}',
+        _dateFp: null,
+        _timeFp: null,
 
         get locationChanged() {
             return this.city.toLowerCase() !== this.origCity || this.state !== this.origState;
@@ -310,17 +371,51 @@ function step2() {
             return `${y}-${m}-${day}`;
         },
 
+        init() {
+            // Wait for refs to be in DOM, then attach Flatpickr.
+            this.$nextTick(() => {
+                this._dateFp = flatpickr(this.$refs.dateInput, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'l, F j, Y',
+                    altInputClass: 'form-control',
+                    maxDate: 'today',
+                    defaultDate: this.incidentDate || null,
+                    onChange: (sel, dateStr) => { this.incidentDate = dateStr; },
+                });
+                this._timeFp = flatpickr(this.$refs.timeInput, {
+                    enableTime: true,
+                    noCalendar: true,
+                    dateFormat: 'H:i',
+                    altInput: true,
+                    altFormat: 'h:i K',
+                    altInputClass: 'form-control',
+                    time_24hr: false,
+                    minuteIncrement: 5,
+                    defaultDate: this.incidentTime || null,
+                    onChange: (sel, dateStr) => { this.incidentTime = dateStr; },
+                });
+            });
+        },
+
         setDateDaysAgo(n) {
             const d = new Date();
             d.setDate(d.getDate() - n);
-            this.incidentDate = this._fmtDate(d);
+            const v = this._fmtDate(d);
+            this.incidentDate = v;
+            if (this._dateFp) this._dateFp.setDate(v, false);
+        },
+
+        setTime(value) {
+            this.incidentTime = value;
+            if (this._timeFp) this._timeFp.setDate(value, false);
         },
 
         setTimeNow() {
             const d = new Date();
-            this.incidentTime =
-                String(d.getHours()).padStart(2, '0') + ':' +
-                String(d.getMinutes()).padStart(2, '0');
+            const v = String(d.getHours()).padStart(2, '0') + ':' +
+                      String(d.getMinutes()).padStart(2, '0');
+            this.setTime(v);
         },
 
         get datePreview() {
