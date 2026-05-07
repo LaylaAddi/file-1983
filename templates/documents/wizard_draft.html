@@ -134,6 +134,27 @@
                 Click any paragraph to edit it. Everything else (caption, jurisdiction, claims, prayer) comes from the data you entered in the wizard.
             </div>
 
+            {% if is_draft_stale %}
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-3">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="flex-grow-1">
+                    <strong>Your wizard data has changed since this draft was written.</strong>
+                    The numbered facts below were drafted earlier and may mention old
+                    dates, times, names, or details. Re-draft to refresh the narrative
+                    using your current data — your structural sections (caption,
+                    parties, claims, prayer) update automatically.
+                </div>
+                <form method="post" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" name="action" value="regenerate"
+                            class="btn btn-warning btn-sm fw-semibold"
+                            onclick="return confirm('Re-draft the factual allegations from your current wizard data? Your manual edits to the paragraphs will be replaced.');">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Re-draft now
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
             {% if messages %}
                 {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">

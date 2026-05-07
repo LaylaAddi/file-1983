@@ -1319,6 +1319,26 @@ def _build_complaint_context(doc):
     }
 
 
+def _save_paragraphs(doc, paragraphs):
+    """Persist factual allegations and stamp the draft time so we can detect
+    when later wizard edits make this draft stale."""
+    from django.utils import timezone
+    doc.factual_allegations_json = {'paragraphs': list(paragraphs)}
+    doc.factual_allegations_drafted_at = timezone.now()
+    doc.save(update_fields=[
+        'factual_allegations_json', 'factual_allegations_drafted_at', 'updated_at',
+    ])
+
+
+def _is_draft_stale(doc, session):
+    """True when wizard data was edited after the current draft was saved.
+    Used to nudge the user to re-draft so the AI narrative reflects their edits."""
+    drafted = doc.factual_allegations_drafted_at
+    if not drafted:
+        return False
+    return (session.updated_at or drafted) > drafted
+
+
 @login_required
 def wizard_draft(request, document_slug):
     """
@@ -1340,8 +1360,7 @@ def wizard_draft(request, document_slug):
             if error:
                 messages.error(request, f'Could not draft your allegations: {error}')
             else:
-                doc.factual_allegations_json = {'paragraphs': new_paragraphs}
-                doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+                _save_paragraphs(doc, new_paragraphs)
                 messages.success(request, 'Draft regenerated from your story.')
             return redirect('documents:wizard_draft', document_slug=doc.slug)
 
@@ -1357,8 +1376,7 @@ def wizard_draft(request, document_slug):
                 edited.append(text)
             i += 1
 
-        doc.factual_allegations_json = {'paragraphs': edited}
-        doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+        _save_paragraphs(doc, edited)
 
         if action == 'generate_pdf':
             return redirect('documents:wizard_generate', document_slug=doc.slug)
@@ -1373,13 +1391,13 @@ def wizard_draft(request, document_slug):
         if error:
             messages.error(request, f'Could not draft your allegations: {error}')
         else:
-            doc.factual_allegations_json = {'paragraphs': new_paragraphs}
-            doc.save(update_fields=['factual_allegations_json', 'updated_at'])
+            _save_paragraphs(doc, new_paragraphs)
             paragraphs = new_paragraphs
 
     ctx = _build_complaint_context(doc)
     ctx['session'] = session
     ctx['paragraphs'] = paragraphs
+    ctx['is_draft_stale'] = _is_draft_stale(doc, session)
     return render(request, 'documents/wizard_draft.html', ctx)
 
 

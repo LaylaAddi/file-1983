@@ -139,6 +139,11 @@ class Document(models.Model):
         help_text='AI-drafted (and user-edited) numbered factual allegations. '
                   'Shape: {"paragraphs": ["...", "..."]}.'
     )
+    factual_allegations_drafted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the factual allegations were last (re)drafted or saved. '
+                  'Compared against wizard_session.updated_at to detect stale drafts.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
