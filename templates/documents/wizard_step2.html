@@ -76,16 +76,46 @@
                             </label>
                             <input type="date" class="form-control" id="incident_date"
                                    name="incident_date"
-                                   value="{{ incident.incident_date|date:'Y-m-d'|default:'' }}"
+                                   x-model="incidentDate"
                                    required>
-                            <div class="form-text">The date the incident occurred.</div>
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="setDateDaysAgo(0)">Today</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="setDateDaysAgo(1)">Yesterday</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="setDateDaysAgo(7)">Last week</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="setDateDaysAgo(30)">A month ago</button>
+                            </div>
+                            <div class="form-text" x-show="datePreview" x-cloak>
+                                <i class="bi bi-check2 text-success me-1"></i>
+                                <span x-text="datePreview"></span>
+                            </div>
+                            <div class="form-text" x-show="!datePreview">The date the incident occurred.</div>
                         </div>
                         <div class="col-sm-6">
                             <label for="incident_time" class="form-label">Incident Time</label>
                             <input type="time" class="form-control" id="incident_time"
                                    name="incident_time"
-                                   value="{{ incident.incident_time|time:'H:i'|default:'' }}">
-                            <div class="form-text">Approximate time, if known.</div>
+                                   x-model="incidentTime">
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="setTimeNow()">Now</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="incidentTime='09:00'">Morning</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="incidentTime='14:00'">Afternoon</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="incidentTime='18:00'">Evening</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                        @click="incidentTime='22:00'">Night</button>
+                            </div>
+                            <div class="form-text" x-show="timePreview" x-cloak>
+                                <i class="bi bi-check2 text-success me-1"></i>
+                                <span x-text="timePreview"></span>
+                            </div>
+                            <div class="form-text" x-show="!timePreview">Approximate time, if known.</div>
                         </div>
                     </div>
                 </div>
@@ -264,8 +294,54 @@ function step2() {
         state: '{{ incident.state|escapejs }}',
         origCity: '{{ incident.city|escapejs }}'.toLowerCase(),
         origState: '{{ incident.state|escapejs }}',
+        incidentDate: '{{ incident.incident_date|date:"Y-m-d"|default:"" }}',
+        incidentTime: '{{ incident.incident_time|time:"H:i"|default:"" }}',
+
         get locationChanged() {
             return this.city.toLowerCase() !== this.origCity || this.state !== this.origState;
+        },
+
+        // Format a JS Date as YYYY-MM-DD in the user's local time
+        // (toISOString would shift to UTC and could land on the wrong day).
+        _fmtDate(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        },
+
+        setDateDaysAgo(n) {
+            const d = new Date();
+            d.setDate(d.getDate() - n);
+            this.incidentDate = this._fmtDate(d);
+        },
+
+        setTimeNow() {
+            const d = new Date();
+            this.incidentTime =
+                String(d.getHours()).padStart(2, '0') + ':' +
+                String(d.getMinutes()).padStart(2, '0');
+        },
+
+        get datePreview() {
+            if (!this.incidentDate) return '';
+            const parts = this.incidentDate.split('-').map(Number);
+            if (parts.length !== 3 || parts.some(isNaN)) return '';
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+            });
+        },
+
+        get timePreview() {
+            if (!this.incidentTime) return '';
+            const [h, m] = this.incidentTime.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return '';
+            const d = new Date(2000, 0, 1, h, m);
+            return d.toLocaleTimeString('en-US', {
+                hour: 'numeric', minute: '2-digit',
+            });
         },
     }
 }
