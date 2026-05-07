@@ -1160,6 +1160,7 @@ def wizard_step7(request, document_slug):
         supporting_cases = select_supporting_cases(doc)
 
     has_existing_draft = bool((doc.factual_allegations_json or {}).get('paragraphs'))
+    is_draft_stale = _is_draft_stale(doc, session) if has_existing_draft else False
 
     return render(request, 'documents/wizard_step7.html', {
         'document': doc,
@@ -1176,6 +1177,7 @@ def wizard_step7(request, document_slug):
         'witnesses': witnesses,
         'supporting_cases': supporting_cases,
         'has_existing_draft': has_existing_draft,
+        'is_draft_stale': is_draft_stale,
     })
 
 

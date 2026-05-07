@@ -664,33 +664,85 @@
             </div>
 
             <!-- Final actions -->
+            {% if is_draft_stale %}
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="small">
+                    <strong>Your draft is out of date.</strong> You've edited
+                    wizard data since the AI narrative was last written. Click
+                    <em>Regenerate Draft</em> below to refresh the numbered
+                    factual allegations using your current data — the rest of
+                    the complaint (caption, parties, claims, evidence, prayer)
+                    is already up to date.
+                </div>
+            </div>
+            {% elif has_existing_draft %}
             <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
                 <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
                 <div class="small">
-                    {% if has_existing_draft %}
-                    <strong>You already have a draft.</strong> Clicking
-                    <em>Open Draft</em> takes you straight to it. Use the
-                    <em>Re-draft from story</em> button on that page to
-                    refresh the AI narrative if you've made changes here.
-                    {% else %}
+                    <strong>You already have a draft.</strong>
+                    Click <em>Open Draft</em> to review and edit it, or
+                    <em>Regenerate Draft</em> to have the AI rewrite the
+                    factual allegations from scratch (your manual paragraph
+                    edits will be replaced).
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
+                <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div class="small">
                     <strong>What's next:</strong> When you click <em>Generate Complaint</em>,
                     we'll draft your factual allegations from your story and show you the
                     complete complaint to review and edit before downloading the PDF.
-                    {% endif %}
                 </div>
             </div>
+            {% endif %}
 
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <a href="{% url 'documents:wizard_step6' document.slug %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back
                 </a>
-                <a href="{% url 'documents:wizard_draft' document.slug %}" class="btn btn-primary btn-lg px-5 fw-semibold">
+
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     {% if has_existing_draft %}
-                        <i class="bi bi-pencil-square me-1"></i>Open Draft
+                        {% if is_draft_stale %}
+                            <a href="{% url 'documents:wizard_draft' document.slug %}"
+                               class="btn btn-outline-secondary">
+                                Open Stale Draft
+                            </a>
+                            <form method="post"
+                                  action="{% url 'documents:wizard_draft' document.slug %}"
+                                  class="m-0"
+                                  onsubmit="return confirm('Re-draft the factual allegations from your current wizard data? Your manual paragraph edits will be replaced.');">
+                                {% csrf_token %}
+                                <button type="submit" name="action" value="regenerate"
+                                        class="btn btn-warning btn-lg px-4 fw-semibold">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Regenerate Draft
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post"
+                                  action="{% url 'documents:wizard_draft' document.slug %}"
+                                  class="m-0"
+                                  onsubmit="return confirm('Re-draft from scratch? Your manual paragraph edits will be replaced.');">
+                                {% csrf_token %}
+                                <button type="submit" name="action" value="regenerate"
+                                        class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Regenerate
+                                </button>
+                            </form>
+                            <a href="{% url 'documents:wizard_draft' document.slug %}"
+                               class="btn btn-primary btn-lg px-4 fw-semibold">
+                                <i class="bi bi-pencil-square me-1"></i>Open Draft
+                            </a>
+                        {% endif %}
                     {% else %}
-                        <i class="bi bi-file-earmark-pdf me-1"></i>Generate Complaint
+                        <a href="{% url 'documents:wizard_draft' document.slug %}"
+                           class="btn btn-primary btn-lg px-5 fw-semibold">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Generate Complaint
+                        </a>
                     {% endif %}
-                </a>
+                </div>
             </div>
 
         </div>
