@@ -1159,6 +1159,8 @@ def wizard_step7(request, document_slug):
         from documents.services.caselaw_picker import select_supporting_cases
         supporting_cases = select_supporting_cases(doc)
 
+    has_existing_draft = bool((doc.factual_allegations_json or {}).get('paragraphs'))
+
     return render(request, 'documents/wizard_step7.html', {
         'document': doc,
         'session': session,
@@ -1173,6 +1175,7 @@ def wizard_step7(request, document_slug):
         'evidence': evidence,
         'witnesses': witnesses,
         'supporting_cases': supporting_cases,
+        'has_existing_draft': has_existing_draft,
     })
 
 

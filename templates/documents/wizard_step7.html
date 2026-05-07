@@ -667,9 +667,16 @@
             <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
                 <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1"></i>
                 <div class="small">
+                    {% if has_existing_draft %}
+                    <strong>You already have a draft.</strong> Clicking
+                    <em>Open Draft</em> takes you straight to it. Use the
+                    <em>Re-draft from story</em> button on that page to
+                    refresh the AI narrative if you've made changes here.
+                    {% else %}
                     <strong>What's next:</strong> When you click <em>Generate Complaint</em>,
                     we'll draft your factual allegations from your story and show you the
                     complete complaint to review and edit before downloading the PDF.
+                    {% endif %}
                 </div>
             </div>
 
@@ -678,7 +685,11 @@
                     <i class="bi bi-arrow-left me-1"></i>Back
                 </a>
                 <a href="{% url 'documents:wizard_draft' document.slug %}" class="btn btn-primary btn-lg px-5 fw-semibold">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>Generate Complaint
+                    {% if has_existing_draft %}
+                        <i class="bi bi-pencil-square me-1"></i>Open Draft
+                    {% else %}
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Generate Complaint
+                    {% endif %}
                 </a>
             </div>
 
