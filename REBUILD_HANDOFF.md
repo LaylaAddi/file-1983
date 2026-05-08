@@ -108,8 +108,9 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 /documents/                                 → document list (admin sees Delete button)
 /documents/new/                             → create document (profile gate)
 /documents/<slug>/delete/                   → POST-only, staff-only, deletes document
-/documents/<slug>/wizard/                   → story input page
-/documents/<slug>/wizard/summary/           → post-extraction summary (found/missing review)
+/documents/<slug>/wizard/                   → story input page (with Dictate voice button)
+/documents/<slug>/wizard/summary/           → post-extraction summary (per-item "Add details" + "something else" addendum picker)
+/documents/<slug>/wizard/addendum/          → POST: per-category story addendum (voice-friendly), non-destructive merge into wizard models
 /documents/<slug>/wizard/step1/             → Step 1: federal jurisdiction / court confirmation
 /documents/<slug>/wizard/step2/             → Step 2: incident details (date, location, activity, force)
 /documents/<slug>/wizard/step3/             → Step 3: defendants (add/edit/delete) + government entity
@@ -165,15 +166,25 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - [x] `documents` — admin-editable PDF watermark + footer (`PdfBranding` model). Diagonal red "DRAFT / NOT FOR FILING" stamp on every page of unpaid PDFs plus an italic footer-left line ("Draft preview — upgrade at www.file1983.com to download a clean copy."). Watermark text is a TextField so admins can put real newlines in. Toggling `payment_status='paid'` later flips the watermark off automatically
 - [x] `documents` — end-to-end test suite (`documents/tests.py:WizardEndToEndTest`) — register → profile → wizard steps 1-7 → case law → draft → PDF, with mocked GPT calls. Runs in ~3 seconds
 - [x] Step 7 "Generate Complaint" button now links to the draft page (placeholder removed)
-- [x] Migrations through `0011_pdfbranding_watermark_textfield`
 - [x] Dockerfile: `fonts-liberation` + `fonts-dejavu` for WeasyPrint
+- [x] **Render deploy prep** (commit `0d4212e`) — `docker-entrypoint.sh` runs migrate + collectstatic + gunicorn on `$PORT`; `SECURE_PROXY_SSL_HEADER`, `CSRF_TRUSTED_ORIGINS`, and TLS-aware secure-cookie/SSL-redirect settings all wired in `config/settings.py` for `DEBUG=0`
+- [x] **Voice dictation** (commit `f157c3f`) — `withVoice('prop')` Alpine helper in `base.html` mixes Web Speech recognition into any component. Wired into the main story textarea + the addendum modal. Hidden gracefully on unsupported browsers
+- [x] **Per-category story addendums** (commit `f157c3f`) — `documents/services/addendum_service.py` (~700 lines): user can add details after extraction without re-running the full GPT pass. Snapshot of one category's current model state + new addendum text → GPT-4o → non-destructive merge. 9 categories (incident, defendants, claims, evidence, witnesses, damages, plaintiff, relief, prior_complaints). Existing rows are never deleted; list models match by key (defendant by name, claim by amendment, evidence by URL or type+desc); audit trail in `WizardSession.story_addendums` JSONField. Summary page has per-item "Add details" buttons + a "something else" picker; modal scoped to category with placeholder + voice button. New view: `wizard_addendum`. 6 tests in `StoryAddendumTest`
+- [x] **Step 2 datetime UX** (commits `ef4ec30`, `e06a4cf`) — quick-chip buttons (Today/Yesterday/Last week, Now/Morning/Afternoon/Evening/Night) and live human-readable preview underneath. Click the date input → Flatpickr popup calendar (`maxDate=today`); click the time input → spinner picker with up/down arrows on hours, minute increments of 5, and AM/PM. Native picker still works underneath. Dark-mode CSS overrides for the popup match the app theme. Loaded from CDN
+- [x] **Stale draft detection** (commit `a416383`) — `Document.factual_allegations_drafted_at` timestamp set whenever the draft is regenerated or saved. `_is_draft_stale(doc, session)` returns True when `wizard_session.updated_at > factual_allegations_drafted_at`. Yellow banner on the draft page with inline "Re-draft now" button. Migration `0013`
+- [x] **Drafter prompt prefers structured data** (commit `800c1d4`) — `complaint_drafter.py` system prompt now explicit that structured wizard data (date/time/address/names/badges) reflects the user's most recent edits and wins on conflict; the story is the source of truth only for the sequence of events and what was said. Times rendered in 12-hour clock with am/pm
+- [x] **Step 7 surfaces the Regenerate button** (commit `ddd7eaa`) — three states on the action area: no draft → "Generate Complaint"; draft exists & fresh → "Open Draft" primary + small "Regenerate" secondary; draft exists & stale → yellow banner + primary "Regenerate Draft" + small "Open Stale Draft" link. Both Regenerate paths POST `action=regenerate` to `wizard_draft` and land on the fresh draft, with confirm-before-regenerate
+- [x] Migrations through `0013_document_factual_allegations_drafted_at` (accounts: `0001_initial`)
 
 ### Open
 - [ ] Per-claim case law selection UI (Option B — let users curate which cases apply to which claims rather than auto-pick by amendment). Only worth building once we see whether users actually want curation; the auto-pick covers most auditor cases
-- [ ] Stripe payment integration — gate `wizard_generate` view on `document.payment_status == 'paid'` once wired (the watermark already auto-disappears when payment_status='paid')
+- [ ] **Stripe payment integration** — gate `wizard_generate` view on `document.payment_status == 'paid'` once wired (the watermark already auto-disappears when payment_status='paid'). See "Pending Roadmap" below for the agreed shape
+- [ ] **AI abuse limits per document** — cap GPT calls per doc to prevent abuse (extractions + addendums + draft regenerations). See "Pending Roadmap"
+- [ ] **Document locking after PDF download** — `Document.locked_at`; locked docs become read-only. See "Pending Roadmap"
+- [ ] **Partner revenue dashboard** — show partner total revenue, expenses, net profit, 50% share, payout history. Use existing `PayoutRequest` model. See "Pending Roadmap"
 - [ ] Landing page CMS (`public_pages` is currently a stub)
-- [ ] **Deploy to Render** — see "Next Step: Deploy" below
-- [ ] Playwright/Selenium browser tests for JS interactions (Alpine cards, timestamp spinner, draft textareas)
+- [ ] **Deploy to Render** — deploy prep is done (commit `0d4212e`); remaining work is the actual Render service creation, DNS, env vars. See "Next Step: Deploy"
+- [ ] Playwright/Selenium browser tests for JS interactions (Alpine cards, timestamp spinner, draft textareas, voice button, addendum modal)
 
 ---
 
@@ -261,6 +272,8 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - `0009_evidence_key_timestamp` — adds `Evidence.key_timestamp` (CharField max_length=20)
 - `0010_pdfbranding` — creates `PdfBranding` model and seeds the `default` row
 - `0011_pdfbranding_watermark_textfield` — `watermark_text` CharField → TextField, default updated to two-line "DRAFT\nNOT FOR FILING"
+- `0012_wizardsession_story_addendums` — adds `WizardSession.story_addendums` JSONField (audit trail of per-category addendums)
+- `0013_document_factual_allegations_drafted_at` — adds the timestamp used by stale-draft detection
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`)
 ```json
@@ -302,6 +315,39 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 - Auto-picked into draft + PDF via `caselaw_picker.py` based on `Document.caselaw_strategy`
 - Load: `docker compose exec web python manage.py loaddata foundational_case_law`
 
+### Voice Dictation (`base.html` + Alpine helper)
+- `withVoice(propName)` is a global Alpine helper defined in `base.html`. Mix it into any component to add Web Speech recognition that writes finalized transcripts into a named string property.
+- Pattern: `x-data="Object.assign({ story: '' }, withVoice('story'))"` then bind a button to `@click="toggleVoice()"` and `:class` off `voiceActive`. The component will gracefully hide the button when `!voiceSupported`.
+- Currently wired into: the main story textarea (`wizard_story.html`) and the addendum modal (`wizard_summary.html`).
+- Browser support: Chrome/Edge desktop only at the time of writing — Safari/Firefox don't expose `webkitSpeechRecognition`. Hidden button is the correct UX, not a fallback.
+
+### Story Addendums (`documents/services/addendum_service.py`)
+- After extraction, the user can add details on top of what GPT got — without re-running the full extraction (which would clobber their manual edits).
+- 9 categories: `incident`, `defendants`, `claims`, `evidence`, `witnesses`, `damages`, `plaintiff`, `relief`, `prior_complaints`.
+- Per category: snapshot current model state → send `(snapshot + addendum_text)` to GPT-4o → merge GPT's response into the related models **non-destructively**.
+- One-to-one models (PlaintiffInfo, IncidentOverview, Damages, ReliefSought, PriorComplaints, GovernmentEntity): update fields where GPT returned a non-null value. Skips user-controlled fields like `court_confirmed`.
+- List models: match by stable key (defendants by name, claims by amendment, evidence by URL or type+description prefix, witnesses by name). Existing rows are NEVER deleted — only updated or appended-to.
+- Audit trail: each addendum is appended to `WizardSession.story_addendums` (JSONField) with timestamp, category, raw text, and GPT response.
+- After merge, the corresponding section of `WizardSession.ai_analysis` is refreshed so the next addendum sees the latest snapshot.
+- View: `wizard_addendum` (POST-only, `/documents/<slug>/wizard/addendum/`). Form fields: `category`, `text`. Returns to summary page with a flash message.
+- Summary page (`wizard_summary.html`): per-item "Add details" / "Add more" buttons (color-coded by status: red=missing, amber=partial, gray=found) plus an "Add details about something else" picker for categories not surfaced inline (relief, prior complaints, contact info, gov entity).
+
+### Stale Draft Detection (`documents/views.py:_is_draft_stale`)
+- Goal: when a user edits any wizard step (Step 2 time, Step 3 defendants, Step 4 claims, etc.) AFTER the AI has drafted the factual allegations, the cached narrative paragraphs are out of date.
+- `Document.factual_allegations_drafted_at` is set whenever `_save_paragraphs()` is called (initial draft, regenerate, or save edits).
+- `_is_draft_stale(doc, session)` returns True when `wizard_session.updated_at > factual_allegations_drafted_at`.
+- Step 7 surfaces a yellow banner + Regenerate Draft button BEFORE the user opens the (potentially outdated) draft. Draft page also shows the banner.
+- Other structural sections (caption, parties, claims, evidence, prayer) are NOT cached — they render live from current models, so they were never stale.
+- `complaint_drafter.py` system prompt is explicit: structured wizard data (date/time/address/names/badges) reflects the user's latest edits and wins on conflict; the story is only the source of truth for sequence + what was said.
+
+### Step 2 Datetime UX (`templates/documents/wizard_step2.html`)
+- **Quick-chip buttons**: Date — Today / Yesterday / Last week / A month ago. Time — Now / Morning (9) / Afternoon (2) / Evening (6) / Night (10).
+- **Live preview** under each field: "Saturday, May 4, 2024 at 1:00 PM" — tells the user what's selected without staring at `2024-05-04`.
+- **Flatpickr popups**: click the date input → calendar with `maxDate=today`; click the time input → spinner with up/down arrows on hours, minutes (5-min increments), and AM/PM. Loaded from CDN (~15KB gzipped).
+- Visible value uses friendly format; the original input still submits `Y-m-d` and `H:i` to the backend (unchanged from server's perspective).
+- Chips set both Alpine state AND the Flatpickr instance via `setDate(value, false)` so the popup stays in sync.
+- Dark-mode CSS overrides match the popup to the app theme.
+
 ### Pro se voice rule
 Per design discussion: keep factual allegations in **plain first person** ("On March 3, 2024, I was filming…"), not third-person legalese. Reserve formal legal phrasing for the count headings and the prayer for relief — those are unavoidably formal. **Do not** use Bluebook parentheticals, signal abbreviations, or Latin beyond the few unavoidable terms (e.g. "pro se" itself). Goal: a complaint that reads as competent but unmistakably written by the plaintiff. This is enforced via the `complaint_drafter.py` system prompt.
 
@@ -331,6 +377,8 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 ## Next Step: Deploy to Render
 
 The app is feature-complete for an MVP launch except payment. Goal: get it live at `https://file1983.com` with `auditfile1983.com` redirecting in.
+
+**Code-side prep is done** (commit `0d4212e`): `docker-entrypoint.sh` runs migrate + collectstatic + gunicorn on `$PORT`; `SECURE_PROXY_SSL_HEADER`, `CSRF_TRUSTED_ORIGINS`, secure cookies, and SSL redirect are all wired in `config/settings.py` for `DEBUG=0`. What's left is Render service creation, env-var population, DNS, and the post-deploy checklist below.
 
 ### Render setup outline
 
@@ -392,6 +440,51 @@ The app is feature-complete for an MVP launch except payment. Goal: get it live 
 - Verify `/documents/<slug>/wizard/draft/` runs the GPT call (check OpenAI dashboard for usage)
 - Verify a full wizard flow + PDF download against the live URL
 - Set up Render's free uptime monitoring on `/`
+
+---
+
+## Pending Roadmap (decisions in flight)
+
+These are agreed-upon next features with shape but not yet implemented. A fresh Claude can pick any of these up.
+
+### 1. Pricing model
+**Agreed:** one price per complaint. The old `price_3pack` / `price_monthly` / `price_annual` concepts are scrapped — the site was never live, so no migration concern, but `accounts/SiteSettings` still has those fields.
+
+- Discounted price (with referral code): **$99**
+- Regular price: **TBD** — current recommendation is $149 (33% off feels like a real deal without being gimmicky); user undecided
+- A pricing-update commit (`0cda0c3`) was built then reverted off `claude/fix-empty-text-blocks-LSWAF`. Branch is back at `ddd7eaa` matching production master. The reverted commit had: drop `price_3pack/monthly/annual`, add `referral_price` field default $99, raise `price_single` default to $149, update admin fieldsets, build a real pricing card. The user wanted to slow down and be more structured — don't re-apply automatically; wait for direction.
+
+### 2. Stripe Checkout integration
+**Agreed shape** (not yet built):
+- "Pay $X to download" button on the draft page → Stripe Checkout session
+- Webhook confirms payment → flips `Document.payment_status='paid'` → watermark drops automatically (this part already works — see `PdfBranding`)
+- Downloading the clean PDF flips it to `'finalized'` and locks the doc
+- Referral code field on checkout page that maps to either a Stripe Coupon or our `accounts.PromoCode` table
+- Env vars are already named in `.env`: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. Stripe SDK is **not** in `requirements.txt` yet.
+
+### 3. AI abuse limits per document
+**Agreed:** cap GPT calls per document. User selected no concrete numbers; reasonable defaults to propose:
+- 1 initial story extraction + 5 addendums + 3 draft regenerations (recommended)
+- Looser: 1 / 10 / 5 — Tighter: 1 / 3 / 2
+- Counter on `WizardSession`. When exceeded, show "limit reached — admin can bump in admin if needed". Admin override via the existing admin.
+- `User.has_unlimited_access()` already exists (returns True for staff/superuser/active subscription) — useful exemption hook.
+
+### 4. Document locking after PDF
+**Agreed shape:**
+- New `Document.locked_at` timestamp field
+- Locked = read-only — no wizard edits, no addendums, no re-draft, no regenerate
+- New complaint = `/documents/new/` → fresh document
+- Lock trigger: undecided between (a) on first clean PDF download (`payment_status='finalized'`) — strictest, or (b) on payment success (`payment_status='paid'`) — lets user re-download but stops further edits
+
+### 5. Partner revenue dashboard
+**Agreed shape:**
+- A partner is marked via a new `User.is_revenue_partner` flag (or a Group). 50/50 split of (revenue − expenses).
+- New models: `RevenueEntry` (date, amount, source, optional FK to Document) and `ExpenseEntry` (date, amount, category, description). Manual admin entry until Stripe webhooks auto-populate `RevenueEntry`.
+- `/partner/` dashboard: YTD revenue, expenses, net profit, his 50% share, recent transactions, payout history (use existing `accounts.PayoutRequest`).
+- Open question: which costs count as "expense" — Render hosting, OpenAI API spend, domain renewal, Stripe processing fees, owner pay? Decide with the user before building.
+
+### Approach
+User wants to take these one feature at a time, structured. Don't bundle. Stripe + abuse limits + doc-locking would naturally ship as a pair (they share the payment flow), but only with explicit go-ahead.
 
 ---
 
