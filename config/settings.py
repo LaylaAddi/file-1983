@@ -131,10 +131,10 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@file1983.com'
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')
-STRIPE_PRICE_SINGLE = config('STRIPE_PRICE_SINGLE', default='')
-STRIPE_PRICE_3PACK = config('STRIPE_PRICE_3PACK', default='')
-STRIPE_PRICE_MONTHLY = config('STRIPE_PRICE_MONTHLY', default='')
-STRIPE_PRICE_ANNUAL = config('STRIPE_PRICE_ANNUAL', default='')
+
+# Pricing — single document per purchase. Cents to avoid float math.
+PRICE_FULL_CENTS = 14900       # $149.00 — list price
+PRICE_DISCOUNTED_CENTS = 9900  # $99.00 — with valid promo code
 
 # OpenAI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')

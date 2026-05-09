@@ -1457,3 +1457,74 @@ def lookup_district_court(request):
         })
     except Exception as exc:
         return JsonResponse({'success': False, 'error': str(exc)})
+
+
+# ---------------------------------------------------------------------------
+# Payment — Stripe Checkout for single-document purchases
+# ---------------------------------------------------------------------------
+
+@login_required
+def payment_start(request, document_slug):
+    """Show price + promo code form. POST creates a Stripe Checkout Session."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+
+    if doc.payment_status in ('paid', 'finalized'):
+        messages.info(request, 'This document is already paid for.')
+        return redirect('documents:wizard_generate', document_slug=doc.slug)
+
+    if request.method == 'POST':
+        from documents.services.stripe_service import create_checkout_session
+        code = (request.POST.get('promo_code') or '').strip()
+        try:
+            result = create_checkout_session(
+                document=doc, user=request.user, code=code, request=request,
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect('documents:payment_start', document_slug=doc.slug)
+        except Exception as exc:
+            messages.error(request, f'Could not start checkout: {exc}')
+            return redirect('documents:payment_start', document_slug=doc.slug)
+        return redirect(result['url'])
+
+    return render(request, 'documents/payment_start.html', {
+        'document': doc,
+        'price_full_cents': settings.PRICE_FULL_CENTS,
+        'price_discounted_cents': settings.PRICE_DISCOUNTED_CENTS,
+    })
+
+
+@login_required
+@require_GET
+def payment_validate_promo(request, document_slug):
+    """AJAX: live-validate a promo code so the price updates without reload."""
+    get_object_or_404(Document, slug=document_slug, user=request.user)
+    from documents.services.stripe_service import validate_promo_for_user
+    code = (request.GET.get('code') or '').strip()
+    if not code:
+        return JsonResponse({
+            'valid': False,
+            'cents': settings.PRICE_FULL_CENTS,
+            'message': '',
+        })
+    v = validate_promo_for_user(code, request.user)
+    return JsonResponse({
+        'valid': v['valid'],
+        'cents': v['cents'],
+        'original_cents': v['original_cents'],
+        'message': v['message'],
+    })
+
+
+@login_required
+def payment_success(request, document_slug):
+    """Stripe success_url lands here. Webhook does the real status flip."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    return render(request, 'documents/payment_success.html', {'document': doc})
+
+
+@login_required
+def payment_cancel(request, document_slug):
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    messages.info(request, 'Payment canceled — your draft is unchanged.')
+    return redirect('documents:wizard_draft', document_slug=doc.slug)

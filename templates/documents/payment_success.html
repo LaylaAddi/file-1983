@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment received — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center" style="max-width: 560px;">
+  <div class="display-1 text-success mb-2"><i class="bi bi-check-circle-fill"></i></div>
+  <h1 class="mb-2" style="font-family:'Playfair Display',serif;">Payment received</h1>
+  <p class="text-muted mb-4">
+    Thanks — Stripe is confirming your payment now. Your watermark-free PDF will be available
+    as soon as that confirmation lands (usually within seconds).
+  </p>
+
+  <div class="d-grid gap-2">
+    <a href="{% url 'documents:wizard_generate' document.slug %}" class="btn btn-primary btn-lg">
+      <i class="bi bi-file-earmark-pdf me-1"></i> Download clean PDF
+    </a>
+    <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary">
+      Back to my documents
+    </a>
+  </div>
+
+  <p class="small text-muted mt-4 mb-0">
+    If the watermark still appears on the first download, refresh the page —
+    Stripe's confirmation can take a moment.
+  </p>
+</div>
+{% endblock %}

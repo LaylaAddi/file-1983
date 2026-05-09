@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Pay & Download — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 640px;"
+     x-data="paymentForm({
+        fullCents: {{ price_full_cents }},
+        discountedCents: {{ price_discounted_cents }},
+        validateUrl: '{% url 'documents:payment_validate_promo' document.slug %}'
+     })">
+
+  <a href="{% url 'documents:wizard_draft' document.slug %}" class="text-decoration-none small text-muted">
+    <i class="bi bi-arrow-left"></i> Back to draft
+  </a>
+
+  <h1 class="mt-2 mb-1" style="font-family:'Playfair Display',serif;">Download your complaint</h1>
+  <p class="text-muted">Pay once for a clean, watermark-free PDF of your complaint.</p>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-baseline">
+        <span class="text-muted">Section 1983 complaint</span>
+        <span>
+          <span class="fs-3 fw-semibold" :class="{ 'text-decoration-line-through text-muted fs-5 fw-normal': promoApplied }"
+                x-text="formatCents(fullCents)"></span>
+          <span class="fs-3 fw-semibold text-success ms-2" x-show="promoApplied" x-cloak
+                x-text="formatCents(currentCents)"></span>
+        </span>
+      </div>
+      <hr>
+      <ul class="small text-muted mb-0">
+        <li>Federal-court formatted PDF (Letter, Times 12pt, double-spaced)</li>
+        <li>No <em>DRAFT — NOT FOR FILING</em> watermark</li>
+        <li>Re-download anytime from your documents list</li>
+      </ul>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'documents:payment_start' document.slug %}">
+    {% csrf_token %}
+
+    <label for="promo_code" class="form-label small fw-semibold">Promo code (optional)</label>
+    <div class="input-group mb-1">
+      <input type="text" id="promo_code" name="promo_code" class="form-control"
+             autocomplete="off" autocapitalize="characters"
+             x-model="code"
+             @input.debounce.400ms="checkCode()"
+             placeholder="Enter code">
+      <span class="input-group-text" x-show="checking" x-cloak>
+        <span class="spinner-border spinner-border-sm" role="status"></span>
+      </span>
+    </div>
+    <div class="small mb-3" :class="promoApplied ? 'text-success' : 'text-danger'"
+         x-show="message" x-cloak x-text="message"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg w-100">
+      <i class="bi bi-lock-fill me-1"></i>
+      Pay <span x-text="formatCents(currentCents)"></span> &amp; continue to checkout
+    </button>
+    <p class="text-center small text-muted mt-2 mb-0">
+      Payments processed securely by Stripe. Your card details never touch our servers.
+    </p>
+  </form>
+</div>
+
+<script>
+function paymentForm(config) {
+  return {
+    fullCents: config.fullCents,
+    discountedCents: config.discountedCents,
+    validateUrl: config.validateUrl,
+    code: '',
+    currentCents: config.fullCents,
+    promoApplied: false,
+    message: '',
+    checking: false,
+
+    formatCents(c) {
+      return '$' + (c / 100).toFixed(2);
+    },
+
+    async checkCode() {
+      const code = (this.code || '').trim();
+      if (!code) {
+        this.currentCents = this.fullCents;
+        this.promoApplied = false;
+        this.message = '';
+        return;
+      }
+      this.checking = true;
+      try {
+        const url = this.validateUrl + '?code=' + encodeURIComponent(code);
+        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await resp.json();
+        this.promoApplied = !!data.valid;
+        this.currentCents = data.valid ? data.cents : this.fullCents;
+        this.message = data.message || '';
+      } catch (e) {
+        this.message = 'Could not check that code — try again.';
+        this.promoApplied = false;
+        this.currentCents = this.fullCents;
+      } finally {
+        this.checking = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

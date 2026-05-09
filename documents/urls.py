@@ -21,4 +21,10 @@ urlpatterns = [
     path('<str:document_slug>/wizard/draft/', views.wizard_draft, name='wizard_draft'),
     path('<str:document_slug>/wizard/generate/', views.wizard_generate, name='wizard_generate'),
     path('lookup-district-court/', views.lookup_district_court, name='lookup_district_court'),
+
+    # Payment
+    path('<str:document_slug>/pay/', views.payment_start, name='payment_start'),
+    path('<str:document_slug>/pay/validate-promo/', views.payment_validate_promo, name='payment_validate_promo'),
+    path('<str:document_slug>/pay/success/', views.payment_success, name='payment_success'),
+    path('<str:document_slug>/pay/cancel/', views.payment_cancel, name='payment_cancel'),
 ]
