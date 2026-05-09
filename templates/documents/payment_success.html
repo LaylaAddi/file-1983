@@ -12,7 +12,7 @@
   </p>
 
   <div class="d-grid gap-2">
-    <a href="{% url 'documents:wizard_generate' document.slug %}" class="btn btn-primary btn-lg">
+    <a href="{% url 'documents:wizard_generate' document.slug %}?download=1" class="btn btn-primary btn-lg">
       <i class="bi bi-file-earmark-pdf me-1"></i> Download clean PDF
     </a>
     <a href="{% url 'documents:list' %}" class="btn btn-outline-secondary">

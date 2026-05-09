@@ -10,14 +10,20 @@ row links code -> user -> document, so revenue per referrer is queryable.
 """
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from typing import Optional
 
 import stripe
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
 from django.urls import reverse
+from django.utils import timezone
 
 from documents.models import Document, PromoCode, PromoCodeUsage
+
+logger = logging.getLogger(__name__)
 
 
 def _stripe_client():
@@ -143,3 +149,71 @@ def create_checkout_session(*, document: Document, user, code: str, request) -> 
         'amount_cents': amount_cents,
         'promo_id': promo_id,
     }
+
+
+# ---------------------------------------------------------------------------
+# Webhook
+# ---------------------------------------------------------------------------
+
+def construct_event(payload: bytes, sig_header: str):
+    """
+    Verify a Stripe webhook payload's signature and return the parsed event.
+    Raises stripe.error.SignatureVerificationError on bad signature.
+    """
+    secret = settings.STRIPE_WEBHOOK_SECRET
+    if not secret:
+        raise RuntimeError('STRIPE_WEBHOOK_SECRET is not configured.')
+    return stripe.Webhook.construct_event(payload, sig_header, secret)
+
+
+@transaction.atomic
+def handle_checkout_completed(session) -> dict:
+    """
+    Process a `checkout.session.completed` event. Idempotent — if the same
+    session_id has already been recorded against a Document, do nothing.
+
+    Returns {'status': 'paid'|'already_paid'|'unknown_doc'|'skipped', 'document': Document|None}.
+    """
+    session_id = session.get('id') or ''
+    metadata = session.get('metadata') or {}
+    slug = metadata.get('document_slug') or ''
+    promo_code_id = metadata.get('promo_code_id') or ''
+
+    if not slug:
+        logger.warning('Stripe webhook: session %s has no document_slug metadata', session_id)
+        return {'status': 'skipped', 'document': None}
+
+    # Idempotency — if any doc already has this session_id, we've processed it
+    if session_id and Document.objects.filter(stripe_session_id=session_id).exists():
+        return {'status': 'already_paid', 'document': None}
+
+    doc = Document.objects.select_for_update().filter(slug=slug).first()
+    if not doc:
+        logger.warning('Stripe webhook: document slug %s not found (session %s)', slug, session_id)
+        return {'status': 'unknown_doc', 'document': None}
+
+    # Don't downgrade a finalized doc back to paid
+    if doc.payment_status not in ('draft', 'expired'):
+        # Still record the session id so duplicate webhooks short-circuit above
+        if not doc.stripe_session_id:
+            doc.stripe_session_id = session_id
+            doc.save(update_fields=['stripe_session_id'])
+        return {'status': 'already_paid', 'document': doc}
+
+    doc.payment_status = 'paid'
+    doc.stripe_session_id = session_id
+    doc.paid_at = timezone.now()
+    doc.save(update_fields=['payment_status', 'stripe_session_id', 'paid_at', 'updated_at'])
+
+    if promo_code_id:
+        try:
+            promo = PromoCode.objects.select_for_update().get(pk=int(promo_code_id))
+        except (PromoCode.DoesNotExist, ValueError):
+            promo = None
+        if promo:
+            PromoCodeUsage.objects.get_or_create(
+                promo_code=promo, user=doc.user, defaults={'document': doc},
+            )
+            PromoCode.objects.filter(pk=promo.pk).update(times_used=F('times_used') + 1)
+
+    return {'status': 'paid', 'document': doc}

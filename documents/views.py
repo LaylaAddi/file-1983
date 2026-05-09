@@ -1426,7 +1426,9 @@ def wizard_generate(request, document_slug):
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     safe_title = (doc.title or 'complaint').strip().replace(' ', '_')
     filename = f'{safe_title}_{doc.slug}.pdf'
-    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    # ?download=1 forces a save dialog; default opens inline for preview
+    disposition = 'attachment' if request.GET.get('download') else 'inline'
+    response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
     return response
 
 
@@ -1528,3 +1530,39 @@ def payment_cancel(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     messages.info(request, 'Payment canceled — your draft is unchanged.')
     return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+
+@require_POST
+def stripe_webhook(request):
+    """
+    Stripe webhook endpoint. Verifies signature and handles
+    checkout.session.completed events. csrf_exempt is applied at the URL.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    from documents.services.stripe_service import construct_event, handle_checkout_completed
+    import stripe as stripe_lib
+
+    payload = request.body
+    sig = request.META.get('HTTP_STRIPE_SIGNATURE', '')
+
+    try:
+        event = construct_event(payload, sig)
+    except (ValueError, stripe_lib.error.SignatureVerificationError) as exc:
+        logger.warning('Stripe webhook signature failure: %s', exc)
+        return JsonResponse({'error': 'invalid signature'}, status=400)
+    except RuntimeError as exc:
+        logger.error('Stripe webhook configuration error: %s', exc)
+        return JsonResponse({'error': str(exc)}, status=500)
+
+    event_type = event.get('type', '')
+    if event_type == 'checkout.session.completed':
+        result = handle_checkout_completed(event['data']['object'])
+        logger.info('Stripe webhook checkout.session.completed -> %s', result['status'])
+    elif event_type == 'checkout.session.expired':
+        logger.info('Stripe webhook checkout.session.expired (no-op)')
+    else:
+        logger.info('Stripe webhook received unhandled event type: %s', event_type)
+
+    return JsonResponse({'received': True})
