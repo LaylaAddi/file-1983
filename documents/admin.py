@@ -9,7 +9,7 @@ from .models import (
     TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
     Evidence, Witness, Damages, PriorComplaints, ReliefSought,
     AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest, ExampleStory,
-    CaseLaw, PdfBranding,
+    CaseLaw, PdfBranding, PartnerAdjustment, PartnershipRequest,
 )
 
 
@@ -321,3 +321,56 @@ class PdfBrandingAdmin(admin.ModelAdmin):
             'fields': ['watermark_text', 'footer_text', 'website_url'],
         }),
     ]
+
+
+@admin.register(PartnerAdjustment)
+class PartnerAdjustmentAdmin(admin.ModelAdmin):
+    list_display = ['user', 'amount_dollars', 'reason', 'created_by', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['user__email', 'reason']
+    readonly_fields = ['created_by', 'created_at']
+    autocomplete_fields = ['user']
+
+    def amount_dollars(self, obj):
+        sign = '+' if obj.amount_cents >= 0 else '-'
+        return f'{sign}${abs(obj.amount_cents) / 100:.2f}'
+    amount_dollars.short_description = 'Amount'
+    amount_dollars.admin_order_field = 'amount_cents'
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'user':
+            from django.db.models import Q
+            User = db_field.related_model
+            kwargs['queryset'] = User.objects.filter(
+                Q(is_revenue_partner=True) | Q(is_staff=True)
+            ).order_by('email')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk and obj.created_by_id is None:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(PartnershipRequest)
+class PartnershipRequestAdmin(admin.ModelAdmin):
+    list_display = ['user', 'requested_code', 'status', 'created_at', 'resolved_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['user__email', 'requested_code']
+    readonly_fields = ['user', 'requested_code', 'message', 'created_at', 'resolved_at']
+    fieldsets = (
+        ('Request', {
+            'fields': ('user', 'requested_code', 'message', 'created_at'),
+        }),
+        ('Decision', {
+            'fields': ('status', 'admin_notes', 'resolved_at'),
+            'description': 'Approving here does NOT auto-flip the user. To activate them: '
+                           'open the user, set Is revenue partner, then create a PromoCode '
+                           'assigned to them with the code they asked for (or your choice).',
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if obj.status in ('approved', 'denied') and obj.resolved_at is None:
+            obj.resolved_at = timezone.now()
+        super().save_model(request, obj, form, change)

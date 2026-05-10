@@ -150,6 +150,40 @@
                 </div>
             </div>
 
+            {# ---------- Adjustments ---------- #}
+            {% if stats.adjustments %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <strong>Adjustments</strong>
+                    <span class="text-muted small">(bonuses, corrections, refunds)</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Reason</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for adj in stats.adjustments %}
+                                <tr>
+                                    <td>{{ adj.created_at|date:"Y-m-d" }}</td>
+                                    <td>{{ adj.reason }}</td>
+                                    <td class="text-end {% if adj.amount_cents < 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {{ adj.amount_display }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             {# ---------- Payout history ---------- #}
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center">

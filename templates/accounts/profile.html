@@ -93,15 +93,92 @@
                     </form>
 
                     <hr class="my-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="small text-muted mb-1">Your referral code</div>
-                            <code class="fs-6">{{ request.user.referral_code }}</code>
-                        </div>
+                    <div class="d-flex justify-content-end">
                         <a href="{% url 'accounts:password_reset' %}" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-key me-1"></i>Change Password
                         </a>
                     </div>
+                </div>
+            </div>
+
+            {# ---------- Referral / Partnership ---------- #}
+            <div class="card card-patriot shadow-sm mt-4">
+                <div class="card-header py-3">
+                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Referral Program</h5>
+                </div>
+                <div class="card-body">
+                    {% if request.user.is_revenue_partner %}
+                        <p class="small text-muted mb-3">
+                            You earn <strong>{{ partner_cut_percent|default:20 }}%</strong> of every sale that uses one of your codes.
+                            Share these links — visitors who arrive via your link will have your code pre-filled at checkout.
+                        </p>
+
+                        {% if partner_codes %}
+                            {% for code in partner_codes %}
+                            <div class="border rounded p-3 mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <div class="small text-muted">Your code</div>
+                                        <code class="fs-5">{{ code.code }}</code>
+                                    </div>
+                                    <span class="badge bg-success-subtle text-success-emphasis">Active</span>
+                                </div>
+                                <div class="small text-muted mb-1">Shareable link</div>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control"
+                                           id="ref-link-{{ code.pk }}"
+                                           value="https://file1983.com/?ref={{ code.code }}" readonly>
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            onclick="navigator.clipboard.writeText(document.getElementById('ref-link-{{ code.pk }}').value); this.innerHTML='<i class=\'bi bi-check2\'></i> Copied'; setTimeout(()=>this.innerHTML='<i class=\'bi bi-clipboard\'></i> Copy', 1500);">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-warning small mb-0">
+                                You're a partner, but no active promo code is assigned to you yet. Contact support.
+                            </div>
+                        {% endif %}
+
+                        <div class="mt-3">
+                            <a href="{% url 'partner_dashboard' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-cash-coin me-1"></i>Open Partner Dashboard
+                            </a>
+                        </div>
+                    {% elif pending_partnership_request %}
+                        <div class="alert alert-info mb-0">
+                            <strong>Partnership request pending.</strong>
+                            You asked for code
+                            <code>{{ pending_partnership_request.requested_code|default:"(no preference)" }}</code>
+                            on {{ pending_partnership_request.created_at|date:"Y-m-d" }}.
+                            We'll email you when it's reviewed.
+                        </div>
+                    {% else %}
+                        <p class="small text-muted mb-3">
+                            Earn a cut of every sale that uses your personal promo code.
+                            Tell us the code you want for your branding (e.g. <code>YOURNAME10</code>) and we'll review your request.
+                        </p>
+                        <form method="post" action="{% url 'accounts:request_partnership' %}">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <label class="form-label small" for="requested_code">Desired code</label>
+                                <input type="text" class="form-control" id="requested_code" name="requested_code"
+                                       maxlength="30" placeholder="YOURNAME10" required
+                                       pattern="[A-Za-z0-9_-]+"
+                                       title="Letters, numbers, underscore, dash — no spaces.">
+                                <div class="form-text small">Letters, numbers, underscore or dash. No spaces.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small" for="message">Message <span class="text-muted">(optional)</span></label>
+                                <textarea class="form-control" id="message" name="message" rows="2"
+                                          placeholder="How will you promote file1983?"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-patriot-primary btn-sm">
+                                <i class="bi bi-send me-1"></i>Request Partnership
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -919,6 +919,70 @@ class PayoutRequest(models.Model):
         return f'Payout {self.amount} for {self.user.email} ({self.status})'
 
 
+class PartnerAdjustment(models.Model):
+    """
+    Admin-created credit/debit on a partner's balance. Positive amounts add to
+    the unpaid balance (bonus, correction); negative amounts subtract (refund
+    clawback, error correction). Sums into partner_stats.cut_cents.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='partner_adjustments'
+    )
+    amount_cents = models.IntegerField(
+        help_text='Positive to add, negative to subtract. Stored in cents.'
+    )
+    reason = models.CharField(
+        max_length=255,
+        help_text='Short visible reason (the partner will see this label).',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_partner_adjustments',
+        help_text='Admin who created this adjustment.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        sign = '+' if self.amount_cents >= 0 else ''
+        return f'{sign}${self.amount_cents / 100:.2f} for {self.user.email} ({self.reason})'
+
+
+class PartnershipRequest(models.Model):
+    """
+    A user-submitted request to become a revenue partner. Includes the code
+    they want assigned (subject to admin approval / availability).
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='partnership_requests'
+    )
+    requested_code = models.CharField(
+        max_length=30, blank=True,
+        help_text='Code the user wants for their referral branding.',
+    )
+    message = models.TextField(blank=True, help_text='Optional message from the user.')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    admin_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.email} → "{self.requested_code or "(no code)"}" ({self.status})'
+
+
 # ---------------------------------------------------------------------------
 # Example Stories — for testing/demo (staff-only dropdown in wizard)
 # ---------------------------------------------------------------------------

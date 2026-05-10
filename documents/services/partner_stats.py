@@ -9,7 +9,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db.models import Sum
 
-from documents.models import PromoCode, PromoCodeUsage, PayoutRequest
+from documents.models import PromoCode, PromoCodeUsage, PayoutRequest, PartnerAdjustment
 
 
 def _cents_to_dollars(cents):
@@ -35,7 +35,21 @@ def get_partner_stats(user, recent_limit=50):
 
     gross_cents = sales_qs.aggregate(total=Sum('amount_cents'))['total'] or 0
     sales_count = sales_qs.count()
-    cut_cents = int((Decimal(gross_cents) * cut_pct / Decimal(100)).to_integral_value())
+    sales_cut_cents = int((Decimal(gross_cents) * cut_pct / Decimal(100)).to_integral_value())
+
+    adjustments_qs = PartnerAdjustment.objects.filter(user=user).order_by('-created_at')
+    adjustments_cents = adjustments_qs.aggregate(total=Sum('amount_cents'))['total'] or 0
+    cut_cents = sales_cut_cents + adjustments_cents
+
+    adjustments = []
+    for adj in adjustments_qs:
+        sign = '+' if adj.amount_cents >= 0 else '-'
+        adjustments.append({
+            'created_at': adj.created_at,
+            'reason': adj.reason,
+            'amount_cents': adj.amount_cents,
+            'amount_display': f'{sign}${abs(adj.amount_cents) / 100:.2f}',
+        })
 
     recent_sales = []
     for sale in sales_qs[:recent_limit]:
@@ -78,4 +92,9 @@ def get_partner_stats(user, recent_limit=50):
         'recent_sales': recent_sales,
         'payouts': payouts_qs,
         'has_open_request': has_open_request,
+        'sales_cut_cents': sales_cut_cents,
+        'sales_cut_dollars': _cents_to_dollars(sales_cut_cents),
+        'adjustments_cents': adjustments_cents,
+        'adjustments_dollars': _cents_to_dollars(adjustments_cents),
+        'adjustments': adjustments,
     }

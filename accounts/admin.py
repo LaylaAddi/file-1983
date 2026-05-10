@@ -3,6 +3,30 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Subscription, DocumentPack, SiteSettings, LegalDocument
 
 
+class PromoCodeUsageInline(admin.TabularInline):
+    """Read-only view of promo codes this user redeemed (as a buyer)."""
+    from documents.models import PromoCodeUsage as _PromoCodeUsage
+    model = _PromoCodeUsage
+    fk_name = 'user'
+    extra = 0
+    can_delete = False
+    fields = ('promo_code', 'referrer_email', 'document', 'amount_dollars', 'used_at')
+    readonly_fields = ('promo_code', 'referrer_email', 'document', 'amount_dollars', 'used_at')
+    verbose_name = 'Promo code redeemed'
+    verbose_name_plural = 'Promo codes redeemed'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def referrer_email(self, obj):
+        return obj.promo_code.created_by.email if obj.promo_code and obj.promo_code.created_by else '—'
+    referrer_email.short_description = 'Referrer'
+
+    def amount_dollars(self, obj):
+        return f'${(obj.amount_cents or 0) / 100:.2f}'
+    amount_dollars.short_description = 'Paid'
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'is_staff', 'is_active', 'date_joined')
@@ -10,6 +34,7 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
     readonly_fields = ('date_joined', 'referral_code')
+    inlines = [PromoCodeUsageInline]
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
