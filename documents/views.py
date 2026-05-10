@@ -1537,39 +1537,41 @@ def stripe_webhook(request):
     """
     Stripe webhook endpoint. Verifies signature and handles
     checkout.session.completed events. csrf_exempt is applied at the URL.
+
+    The entire body is wrapped so any unexpected error surfaces as JSON
+    instead of Django's HTML 500 page (which is opaque in the Stripe
+    deliveries UI). Status stays 500 for handler crashes so Stripe retries.
     """
     import logging
     logger = logging.getLogger(__name__)
 
-    from documents.services.stripe_service import construct_event, handle_checkout_completed
-    import stripe as stripe_lib
-
-    payload = request.body
-    sig = request.META.get('HTTP_STRIPE_SIGNATURE', '')
-
     try:
-        event = construct_event(payload, sig)
-    except (ValueError, stripe_lib.error.SignatureVerificationError) as exc:
-        logger.warning('Stripe webhook signature failure: %s', exc)
-        return JsonResponse({'error': 'invalid signature'}, status=400)
-    except RuntimeError as exc:
-        logger.error('Stripe webhook configuration error: %s', exc)
-        return JsonResponse({'error': str(exc)}, status=500)
+        from documents.services.stripe_service import construct_event, handle_checkout_completed
 
-    event_type = event.get('type', '')
-    if event_type == 'checkout.session.completed':
+        payload = request.body
+        sig = request.META.get('HTTP_STRIPE_SIGNATURE', '')
+
         try:
-            result = handle_checkout_completed(event['data']['object'])
+            event = construct_event(payload, sig)
         except Exception as exc:
-            # Return JSON instead of letting Django's HTML 500 page hide the
-            # real error from the Stripe deliveries view. 500 keeps Stripe's
-            # automatic retry behavior intact.
-            logger.exception('Stripe webhook handler crashed: %s', exc)
-            return JsonResponse({'error': f'{type(exc).__name__}: {exc}'}, status=500)
-        logger.info('Stripe webhook checkout.session.completed -> %s', result['status'])
-    elif event_type == 'checkout.session.expired':
-        logger.info('Stripe webhook checkout.session.expired (no-op)')
-    else:
-        logger.info('Stripe webhook received unhandled event type: %s', event_type)
+            cls = type(exc).__name__
+            logger.warning('Stripe webhook construct_event failed (%s): %s', cls, exc)
+            # Signature/value problems are 400; everything else 500.
+            status = 400 if 'Signature' in cls or cls == 'ValueError' else 500
+            return JsonResponse({'error': f'{cls}: {exc}'}, status=status)
 
-    return JsonResponse({'received': True})
+        event_type = event.get('type', '')
+        if event_type == 'checkout.session.completed':
+            result = handle_checkout_completed(event['data']['object'])
+            logger.info('Stripe webhook checkout.session.completed -> %s', result['status'])
+        elif event_type == 'checkout.session.expired':
+            logger.info('Stripe webhook checkout.session.expired (no-op)')
+        else:
+            logger.info('Stripe webhook received unhandled event type: %s', event_type)
+
+        return JsonResponse({'received': True})
+
+    except Exception as exc:
+        # Backstop — catches import errors, attribute errors, anything else.
+        logger.exception('Stripe webhook crashed: %s', exc)
+        return JsonResponse({'error': f'{type(exc).__name__}: {exc}'}, status=500)
