@@ -167,3 +167,16 @@ def request_partnership(request):
 
     messages.success(request, 'Partnership request submitted. We\'ll review it and get back to you by email.')
     return redirect('accounts:profile')
+
+
+class LogoutOnPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    """
+    Variant of Django's PasswordResetConfirmView that logs out the current
+    user before showing the reset form. Avoids the confusing situation where
+    a logged-in user clicks a reset link from email and ends up resetting
+    a different account while still appearing as their own session.
+    """
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            logout(request)
+        return super().dispatch(request, *args, **kwargs)
