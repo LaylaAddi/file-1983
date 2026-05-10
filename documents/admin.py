@@ -235,9 +235,31 @@ class PromoCodeUsageAdmin(admin.ModelAdmin):
 
 @admin.register(PayoutRequest)
 class PayoutRequestAdmin(admin.ModelAdmin):
-    list_display = ['user', 'amount', 'status', 'requested_at']
-    list_filter = ['status']
-    search_fields = ['user__email']
+    list_display = ['user', 'amount', 'status', 'payment_processor', 'requested_at', 'paid_at']
+    list_filter = ['status', 'payment_processor']
+    search_fields = ['user__email', 'payment_reference']
+    readonly_fields = ['requested_at', 'resolved_at', 'paid_at']
+    date_hierarchy = 'requested_at'
+    fieldsets = (
+        ('Request', {
+            'fields': ('user', 'amount', 'status', 'notes', 'requested_at'),
+        }),
+        ('Partner payment destination', {
+            'description': 'Where the partner asked to be paid.',
+            'fields': ('payment_processor', 'payment_method_details'),
+        }),
+        ('Admin payment record', {
+            'description': 'Fill in once payment is sent. Saving with status=Paid will stamp paid_at automatically.',
+            'fields': ('payment_reference', 'paid_at', 'admin_notes', 'resolved_at'),
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if obj.status == 'paid' and obj.paid_at is None:
+            obj.paid_at = timezone.now()
+        if obj.status in ('paid', 'denied') and obj.resolved_at is None:
+            obj.resolved_at = timezone.now()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(ExampleStory)

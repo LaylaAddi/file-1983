@@ -50,6 +50,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     referred_by = models.ForeignKey(
         'self', null=True, blank=True, on_delete=models.SET_NULL, related_name='referrals'
     )
+    is_revenue_partner = models.BooleanField(
+        default=False,
+        help_text='Grants access to the /partner/ dashboard to view sales and request payouts.',
+    )
 
     objects = UserManager()
 

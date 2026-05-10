@@ -881,14 +881,39 @@ class PayoutRequest(models.Model):
         ('denied', 'Denied'),
     ]
 
+    PROCESSOR_CHOICES = [
+        ('paypal', 'PayPal'),
+        ('venmo', 'Venmo'),
+        ('zelle', 'Zelle'),
+        ('check', 'Check'),
+        ('other', 'Other'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='payout_requests'
     )
     amount = models.DecimalField(max_digits=8, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    notes = models.TextField(blank=True)
+    payment_processor = models.CharField(
+        max_length=20, choices=PROCESSOR_CHOICES, blank=True,
+        help_text='How the partner wants to be paid.',
+    )
+    payment_method_details = models.TextField(
+        blank=True,
+        help_text='Partner-supplied destination — PayPal email, Venmo handle, Zelle phone/email, mailing address for check, etc.',
+    )
+    payment_reference = models.CharField(
+        max_length=120, blank=True,
+        help_text='Admin-recorded transaction ID, check number, or confirmation reference once paid.',
+    )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, help_text='Partner-facing note left at request time.')
+    admin_notes = models.TextField(blank=True, help_text='Internal admin notes; not shown to the partner.')
     requested_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-requested_at']
 
     def __str__(self):
         return f'Payout {self.amount} for {self.user.email} ({self.status})'
