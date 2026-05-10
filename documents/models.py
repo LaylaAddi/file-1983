@@ -144,6 +144,16 @@ class Document(models.Model):
         help_text='When the factual allegations were last (re)drafted or saved. '
                   'Compared against wizard_session.updated_at to detect stale drafts.'
     )
+    previous_factual_allegations_json = models.JSONField(
+        default=dict, blank=True,
+        help_text='Snapshot of factual_allegations_json captured immediately '
+                  'before the most recent regenerate, so users can undo. '
+                  'Empty dict means no undo available.'
+    )
+    previous_factual_allegations_drafted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the snapshot in previous_factual_allegations_json was originally drafted.'
+    )
     stripe_session_id = models.CharField(
         max_length=200, blank=True, default='', db_index=True,
         help_text='Stripe Checkout Session ID — set when payment lands. Used for webhook idempotency.'
@@ -207,6 +217,11 @@ class Document(models.Model):
             'exhausted': used >= limit,
             'is_paid': self.payment_status in ('paid', 'finalized'),
         }
+
+    def has_undo(self):
+        """True when there's a previous draft snapshot the user could restore."""
+        prev = (self.previous_factual_allegations_json or {}).get('paragraphs') or []
+        return bool(prev)
 
     def get_absolute_url(self):
         from django.urls import reverse

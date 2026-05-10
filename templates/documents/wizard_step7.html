@@ -665,15 +665,17 @@
 
             <!-- Final actions -->
             {% if is_draft_stale %}
-            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4">
-                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
-                <div class="small">
-                    <strong>Your draft is out of date.</strong> You've edited
-                    wizard data since the AI narrative was last written. Click
-                    <em>Regenerate Draft</em> below to refresh the numbered
-                    factual allegations using your current data — the rest of
-                    the complaint (caption, parties, claims, evidence, prayer)
-                    is already up to date.
+            <div class="alert alert-warning d-flex gap-3 align-items-start mb-4 border border-warning-subtle">
+                <i class="bi bi-exclamation-triangle-fill fs-3 flex-shrink-0"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Draft is out of date — regenerate before viewing.</h5>
+                    <p class="mb-0 small">
+                        You've edited wizard data since the AI narrative was last written.
+                        The numbered factual allegations would mention old details.
+                        Click <strong>Regenerate Draft</strong> below to refresh them — the
+                        rest of the complaint (caption, parties, claims, evidence, prayer)
+                        updates automatically.
+                    </p>
                 </div>
             </div>
             {% elif has_existing_draft %}
@@ -706,14 +708,10 @@
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     {% if has_existing_draft %}
                         {% if is_draft_stale %}
-                            <a href="{% url 'documents:wizard_draft' document.slug %}"
-                               class="btn btn-outline-secondary">
-                                Open Stale Draft
-                            </a>
                             <form method="post"
                                   action="{% url 'documents:wizard_draft' document.slug %}"
                                   class="m-0"
-                                  onsubmit="return confirm('Re-draft the factual allegations from your current wizard data? Your manual paragraph edits will be replaced.');">
+                                  onsubmit="return confirm('Re-draft the factual allegations from your current wizard data? Your manual paragraph edits will be replaced. (You\'ll be able to undo this once.)');">
                                 {% csrf_token %}
                                 <button type="submit" name="action" value="regenerate"
                                         class="btn btn-warning btn-lg px-4 fw-semibold">

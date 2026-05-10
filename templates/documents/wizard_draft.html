@@ -155,6 +155,22 @@
             </div>
             {% endif %}
 
+            {% if document.has_undo and not document.locked_at %}
+            <div class="alert alert-info d-flex justify-content-between align-items-center gap-2 mb-3 small">
+                <div>
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                    A previous draft is saved from before your last regenerate.
+                </div>
+                <form method="post" action="{% url 'documents:wizard_draft_undo' document.slug %}" class="m-0"
+                      onsubmit="return confirm('Restore the previous draft? Your current paragraphs will be replaced.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-info">
+                        Restore previous draft
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
             {% if messages %}
                 {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">

@@ -1405,6 +1405,21 @@ def _save_paragraphs(doc, paragraphs):
     ])
 
 
+def _snapshot_current_draft(doc):
+    """Copy the current factual_allegations into the previous_* slot so the
+    user can undo the next regenerate. No-op if there's nothing to snapshot."""
+    current = (doc.factual_allegations_json or {}).get('paragraphs') or []
+    if not current:
+        return
+    doc.previous_factual_allegations_json = {'paragraphs': list(current)}
+    doc.previous_factual_allegations_drafted_at = doc.factual_allegations_drafted_at
+    doc.save(update_fields=[
+        'previous_factual_allegations_json',
+        'previous_factual_allegations_drafted_at',
+        'updated_at',
+    ])
+
+
 def _is_draft_stale(doc, session):
     """True when wizard data was edited after the current draft was saved.
     Used to nudge the user to re-draft so the AI narrative reflects their edits."""
@@ -1449,8 +1464,10 @@ def wizard_draft(request, document_slug):
             if error:
                 messages.error(request, f'Could not draft your allegations: {error}')
             else:
+                # Snapshot current draft so the user can undo this regenerate.
+                _snapshot_current_draft(doc)
                 _save_paragraphs(doc, new_paragraphs)
-                messages.success(request, 'Draft regenerated from your story.')
+                messages.success(request, 'Draft regenerated. You can restore the previous version below if needed.')
             return redirect('documents:wizard_draft', document_slug=doc.slug)
 
         # action == 'save' or default: persist edits
@@ -1472,6 +1489,16 @@ def wizard_draft(request, document_slug):
 
         messages.success(request, 'Draft saved.')
         return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    # GET — block opening a stale draft. User must regenerate (or undo) from Step 7.
+    # Locked docs are exempt — their draft is by definition the final version.
+    if paragraphs and not doc.is_locked() and _is_draft_stale(doc, session):
+        messages.warning(
+            request,
+            'Your wizard data has changed since this draft was written. '
+            'Regenerate from Step 7 (or restore the previous version) before viewing.'
+        )
+        return redirect('documents:wizard_step7', document_slug=doc.slug)
 
     # GET — auto-generate on first load if we don't have a draft yet
     if not paragraphs and not doc.is_locked():
@@ -1496,6 +1523,34 @@ def wizard_draft(request, document_slug):
     ctx['paragraphs'] = paragraphs
     ctx['is_draft_stale'] = _is_draft_stale(doc, session)
     return render(request, 'documents/wizard_draft.html', ctx)
+
+
+@login_required
+@require_POST
+def wizard_draft_undo(request, document_slug):
+    """Restore the snapshot saved before the most recent regenerate."""
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+
+    if doc.is_locked():
+        messages.error(request, 'This document is finalized and locked.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    prev = (doc.previous_factual_allegations_json or {}).get('paragraphs') or []
+    if not prev:
+        messages.warning(request, 'There is no previous draft to restore.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    # Restore previous, then clear the snapshot (single-step undo).
+    _save_paragraphs(doc, prev)
+    doc.previous_factual_allegations_json = {}
+    doc.previous_factual_allegations_drafted_at = None
+    doc.save(update_fields=[
+        'previous_factual_allegations_json',
+        'previous_factual_allegations_drafted_at',
+        'updated_at',
+    ])
+    messages.success(request, 'Restored the previous draft.')
+    return redirect('documents:wizard_draft', document_slug=doc.slug)
 
 
 @login_required
