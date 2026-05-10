@@ -1552,7 +1552,7 @@ def stripe_webhook(request):
         sig = request.META.get('HTTP_STRIPE_SIGNATURE', '')
 
         try:
-            event = construct_event(payload, sig)
+            construct_event(payload, sig)  # verifies signature; raises if invalid
         except Exception as exc:
             cls = type(exc).__name__
             logger.warning('Stripe webhook construct_event failed (%s): %s', cls, exc)
@@ -1560,6 +1560,10 @@ def stripe_webhook(request):
             status = 400 if 'Signature' in cls or cls == 'ValueError' else 500
             return JsonResponse({'error': f'{cls}: {exc}'}, status=status)
 
+        # stripe-python v10 StripeObject no longer inherits from dict, so
+        # .get() raises AttributeError. Re-parse the raw payload as a plain
+        # dict and use that everywhere downstream.
+        event = json.loads(payload)
         event_type = event.get('type', '')
         if event_type == 'checkout.session.completed':
             result = handle_checkout_completed(event['data']['object'])
