@@ -18,6 +18,7 @@ def register(request):
     if request.user.is_authenticated:
         return redirect('documents:list')
 
+    prefilled_ref = ''
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
@@ -26,9 +27,17 @@ def register(request):
             messages.success(request, f'Welcome, {user.get_full_name() or user.email}!')
             return redirect('documents:list')
     else:
-        form = RegisterForm()
+        prefilled_ref = (
+            request.GET.get('ref')
+            or request.session.get('referral_code', '')
+            or ''
+        ).strip()
+        form = RegisterForm(initial={'referral_code': prefilled_ref})
 
-    return render(request, 'accounts/register.html', {'form': form})
+    return render(request, 'accounts/register.html', {
+        'form': form,
+        'prefilled_ref': prefilled_ref,
+    })
 
 
 def user_login(request):

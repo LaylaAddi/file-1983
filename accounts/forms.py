@@ -48,16 +48,30 @@ class RegisterForm(forms.ModelForm):
         user.set_password(self.cleaned_data['password1'])
         if commit:
             user.save()
-            # Link referral
             ref_code = self.cleaned_data.get('referral_code', '').strip()
             if ref_code:
-                try:
-                    referrer = User.objects.get(referral_code=ref_code)
+                referrer = self._resolve_referrer(ref_code)
+                if referrer and referrer.id != user.id:
                     user.referred_by = referrer
                     user.save(update_fields=['referred_by'])
-                except User.DoesNotExist:
-                    pass
         return user
+
+    def _resolve_referrer(self, ref_code):
+        """
+        Two-tier lookup so the same input field handles both the legacy
+        per-user random referral_code AND the partner system's PromoCode.
+        """
+        from documents.models import PromoCode
+
+        try:
+            return User.objects.get(referral_code=ref_code)
+        except User.DoesNotExist:
+            pass
+
+        promo = PromoCode.objects.filter(code__iexact=ref_code, is_active=True).first()
+        if promo and promo.created_by_id:
+            return promo.created_by
+        return None
 
 
 class LoginForm(AuthenticationForm):
