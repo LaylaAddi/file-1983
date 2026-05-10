@@ -77,10 +77,10 @@ class ReliefSoughtInline(admin.StackedInline):
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ['slug', 'user', 'title', 'payment_status', 'jury_trial_demand', 'created_at']
+    list_display = ['slug', 'user', 'title', 'payment_status', 'finalize_acknowledged_at', 'locked_at', 'created_at']
     list_filter = ['payment_status']
     search_fields = ['slug', 'user__email', 'title']
-    readonly_fields = ['slug', 'created_at', 'updated_at']
+    readonly_fields = ['slug', 'finalize_acknowledged_at', 'locked_at', 'paid_at', 'created_at', 'updated_at']
     inlines = [
         WizardSessionInline,
         PlaintiffInfoInline,

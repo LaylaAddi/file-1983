@@ -178,6 +178,14 @@ class Document(models.Model):
             'Re-download is still allowed.'
         )
     )
+    finalize_acknowledged_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            'Audit stamp: when the user explicitly checked the '
+            '"complete + understand editing will lock" box on the '
+            'finalize confirmation page. Set together with locked_at.'
+        )
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

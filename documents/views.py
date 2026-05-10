@@ -82,13 +82,11 @@ def document_create(request):
 @login_required
 def wizard_story(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     if request.method == 'POST':
-        if doc.is_locked():
-            messages.error(request, 'This document is finalized and locked.')
-            return redirect('documents:list')
-
         story_text = request.POST.get('story_text', '').strip()
         action = request.POST.get('action', 'analyze')
         if story_text:
@@ -196,6 +194,8 @@ def _gpt_test(session):
 @login_required
 def wizard_extraction_summary(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     if not session.ai_extraction_succeeded:
@@ -242,11 +242,9 @@ def wizard_addendum(request, document_slug):
     )
 
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
-
-    if doc.is_locked():
-        messages.error(request, 'This document is finalized and locked.')
-        return redirect('documents:list')
 
     if not session.ai_extraction_succeeded:
         messages.error(request, 'Please analyze your story first.')
@@ -435,6 +433,8 @@ STATE_CHOICES = [
 def wizard_step1(request, document_slug):
     """Step 1 — Federal jurisdiction only. Confirm or override the court."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
     incident, _ = IncidentOverview.objects.get_or_create(document=doc)
     _heal_state_code(incident)
@@ -451,8 +451,6 @@ def wizard_step1(request, document_slug):
             pass
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         federal_district_court = request.POST.get('federal_district_court', '').strip()
         court_confirmed = request.POST.get('court_confirmed') == 'on'
 
@@ -601,13 +599,13 @@ def _heal_state_code(incident):
 def wizard_step2(request, document_slug):
     """Step 2 — Review/edit incident details extracted by GPT."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
     incident, _ = IncidentOverview.objects.get_or_create(document=doc)
     _heal_state_code(incident)
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         # Parse date
         date_str = request.POST.get('incident_date', '').strip()
         incident.incident_date = date_str or None
@@ -838,12 +836,12 @@ AMENDMENT_INFO = {
 def wizard_step3(request, document_slug):
     """Step 3 — Add/edit/delete defendants + government entity (Monell)."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
     gov_entity, _ = GovernmentEntity.objects.get_or_create(document=doc)
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         # --- Parse defendants from indexed POST fields ---
         defendant_count = int(request.POST.get('defendant_count', 0))
         existing_defendants = {d.pk: d for d in doc.defendants.all()}
@@ -923,11 +921,11 @@ def wizard_step3(request, document_slug):
 def wizard_step4(request, document_slug):
     """Step 4 — Add/edit/delete constitutional claims."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         claim_count = int(request.POST.get('claim_count', 0))
         existing_claims = {c.pk: c for c in doc.constitutional_claims.all()}
         seen_pks = set()
@@ -1013,11 +1011,11 @@ def wizard_step4(request, document_slug):
 def wizard_step5(request, document_slug):
     """Step 5 — Add/edit/delete evidence items and witnesses."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         # --- Parse evidence from indexed POST fields ---
         evidence_count = int(request.POST.get('evidence_count', 0))
         existing_evidence = {e.pk: e for e in doc.evidence.all()}
@@ -1143,14 +1141,14 @@ def wizard_step5(request, document_slug):
 def wizard_step6(request, document_slug):
     """Step 6 — Damages suffered, relief sought, and prior complaints (all OneToOne)."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
     damages, _ = Damages.objects.get_or_create(document=doc)
     relief, _ = ReliefSought.objects.get_or_create(document=doc)
     prior, _ = PriorComplaints.objects.get_or_create(document=doc)
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         # --- Damages ---
         damages.physical_injury_description = request.POST.get(
             'physical_injury_description', ''
@@ -1205,6 +1203,8 @@ def wizard_step6(request, document_slug):
 def wizard_step7(request, document_slug):
     """Step 7 — Read-only review of every section with Edit links to each step."""
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     plaintiff = getattr(doc, 'plaintiff_info', None)
@@ -1261,11 +1261,11 @@ def wizard_caselaw_strategy(request, document_slug):
     citations can make a complaint look ghostwritten.
     """
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
     session = doc.wizard_session
 
     if request.method == 'POST':
-        if rv := _check_locked_redirect(request, doc):
-            return rv
         choice = request.POST.get('caselaw_strategy', '').strip()
         valid_choices = {key for key, _ in Document.CASELAW_STRATEGY_CHOICES}
         if choice not in valid_choices:
@@ -1560,9 +1560,8 @@ def wizard_generate(request, document_slug):
 
     Query params:
       download=1   force attachment Content-Disposition (save dialog)
-      finalize=1   on a paid (unlocked) doc, lock + flip to 'finalized'
-                   before serving the PDF. No-op if already locked.
-                   Ignored on unpaid docs.
+
+    Locking happens on the dedicated /finalize/ confirmation page, not here.
     """
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
@@ -1570,12 +1569,6 @@ def wizard_generate(request, document_slug):
     if not paragraphs:
         messages.warning(request, 'Draft your factual allegations first.')
         return redirect('documents:wizard_draft', document_slug=doc.slug)
-
-    if request.GET.get('finalize') and doc.payment_status == 'paid' and not doc.is_locked():
-        from django.utils import timezone
-        doc.payment_status = 'finalized'
-        doc.locked_at = timezone.now()
-        doc.save(update_fields=['payment_status', 'locked_at', 'updated_at'])
 
     ctx = _build_complaint_context(doc)
     html_string = render_to_string('documents/pdf/complaint.html', ctx, request=request)
@@ -1591,6 +1584,60 @@ def wizard_generate(request, document_slug):
     disposition = 'attachment' if request.GET.get('download') else 'inline'
     response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
     return response
+
+
+@login_required
+def document_finalize(request, document_slug):
+    """
+    Interstitial confirmation page between preview and final download.
+
+    GET  -> render the checkbox confirmation page.
+    POST -> require the 'acknowledge' checkbox; stamp
+            finalize_acknowledged_at + locked_at, flip status to
+            'finalized', then redirect to wizard_generate?download=1.
+
+    Only paid (unlocked) documents can be finalized here. Locked docs
+    bounce back to the draft page where the re-download button lives.
+    Unpaid docs are sent to /pay/ first.
+    """
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+
+    if doc.is_locked():
+        messages.info(request, 'This document is already finalized.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    if doc.payment_status != 'paid':
+        messages.warning(request, 'Pay for this document before finalizing.')
+        return redirect('documents:payment_start', document_slug=doc.slug)
+
+    paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
+    if not paragraphs:
+        messages.warning(request, 'Draft your factual allegations first.')
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    if request.method == 'POST':
+        if not request.POST.get('acknowledge'):
+            messages.error(
+                request,
+                'You must check the confirmation box to finalize this document.'
+            )
+            return render(request, 'documents/finalize_confirm.html', {'document': doc})
+
+        from django.utils import timezone
+        now = timezone.now()
+        doc.finalize_acknowledged_at = now
+        doc.locked_at = now
+        doc.payment_status = 'finalized'
+        doc.save(update_fields=[
+            'finalize_acknowledged_at', 'locked_at', 'payment_status', 'updated_at',
+        ])
+        from django.urls import reverse
+        messages.success(request, 'Document finalized. Your download is starting.')
+        return redirect(
+            f"{reverse('documents:wizard_generate', args=[doc.slug])}?download=1"
+        )
+
+    return render(request, 'documents/finalize_confirm.html', {'document': doc})
 
 
 @require_GET
