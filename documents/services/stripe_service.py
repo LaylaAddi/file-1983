@@ -178,6 +178,8 @@ def handle_checkout_completed(session) -> dict:
     metadata = session.get('metadata') or {}
     slug = metadata.get('document_slug') or ''
     promo_code_id = metadata.get('promo_code_id') or ''
+    # session.amount_total is in cents, may be None for free items.
+    amount_cents = int(session.get('amount_total') or 0)
 
     if not slug:
         logger.warning('Stripe webhook: session %s has no document_slug metadata', session_id)
@@ -212,7 +214,8 @@ def handle_checkout_completed(session) -> dict:
             promo = None
         if promo:
             PromoCodeUsage.objects.get_or_create(
-                promo_code=promo, user=doc.user, defaults={'document': doc},
+                promo_code=promo, user=doc.user,
+                defaults={'document': doc, 'amount_cents': amount_cents},
             )
             PromoCode.objects.filter(pk=promo.pk).update(times_used=F('times_used') + 1)
 

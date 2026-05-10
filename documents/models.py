@@ -806,6 +806,10 @@ class PromoCodeUsage(models.Model):
     document = models.ForeignKey(
         Document, null=True, blank=True, on_delete=models.SET_NULL, related_name='promo_usages'
     )
+    amount_cents = models.PositiveIntegerField(
+        default=0,
+        help_text='Final price the buyer paid (in cents) — captured for partner-cut accounting.'
+    )
     used_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

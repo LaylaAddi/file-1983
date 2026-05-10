@@ -136,6 +136,10 @@ STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')
 PRICE_FULL_CENTS = 14900       # $149.00 — list price
 PRICE_DISCOUNTED_CENTS = 9900  # $99.00 — with valid promo code
 
+# Referrer/partner cut as a percentage of each sale where their PromoCode was used.
+# 20 -> referrer earns $19.80 on a $99 sale.
+PARTNER_CUT_PERCENT = 20
+
 # OpenAI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 
