@@ -126,7 +126,16 @@ LOGIN_REDIRECT_URL = '/documents/'
 LOGOUT_REDIRECT_URL = '/'
 
 # Email
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+# Default backend depends on DEBUG: prod uses SMTP (safe — fails loudly if
+# misconfigured rather than leaking bodies into logs), dev uses console output.
+# Override either with EMAIL_BACKEND env var.
+EMAIL_BACKEND = config(
+    'EMAIL_BACKEND',
+    default=(
+        'django.core.mail.backends.console.EmailBackend' if DEBUG
+        else 'django.core.mail.backends.smtp.EmailBackend'
+    ),
+)
 EMAIL_HOST = config('EMAIL_HOST', default='')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = True
