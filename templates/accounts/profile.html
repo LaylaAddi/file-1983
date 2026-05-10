@@ -20,7 +20,7 @@
     <div class="row g-4">
 
         <!-- Profile form -->
-        <div class="col-lg-5">
+        <div class="col-lg-7">
             <div class="card card-patriot shadow-sm">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>Profile</h5>
@@ -100,9 +100,11 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            {# ---------- Referral / Partnership ---------- #}
-            <div class="card card-patriot shadow-sm mt-4">
+        <!-- Referral / Partnership -->
+        <div class="col-lg-5">
+            <div class="card card-patriot shadow-sm">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-people me-2"></i>Referral Program</h5>
                 </div>
@@ -181,43 +183,9 @@
                     {% endif %}
                 </div>
             </div>
-        </div>
-
-        <!-- Access & billing -->
-        <div class="col-lg-7">
-
-            <div class="card card-patriot shadow-sm mb-4">
-                <div class="card-header py-3">
-                    <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Access</h5>
-                </div>
-                <div class="card-body p-4">
-                    {% if request.user.has_unlimited_access %}
-                        <div class="d-flex align-items-center gap-2 text-success">
-                            <i class="bi bi-check-circle-fill fs-5"></i>
-                            <span class="fw-semibold">Unlimited Access</span>
-                        </div>
-                        {% if request.user.is_staff %}
-                            <div class="text-muted small mt-1">Staff / Admin account</div>
-                        {% else %}
-                            <div class="text-muted small mt-1">Active subscription</div>
-                        {% endif %}
-                    {% else %}
-                        <div class="d-flex align-items-center gap-2 text-muted mb-3">
-                            <i class="bi bi-file-earmark-text fs-5"></i>
-                            <span>
-                                <strong>{{ request.user.get_ai_uses_remaining }}</strong>
-                                AI generation{{ request.user.get_ai_uses_remaining|pluralize }} remaining
-                            </span>
-                        </div>
-                        <a href="#" class="btn btn-patriot-primary btn-sm disabled">
-                            <i class="bi bi-star me-1"></i>Upgrade (coming soon)
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
 
             {% if subscriptions %}
-            <div class="card card-patriot shadow-sm mb-4">
+            <div class="card card-patriot shadow-sm mt-4">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>Subscriptions</h5>
                 </div>
@@ -242,7 +210,7 @@
             {% endif %}
 
             {% if packs %}
-            <div class="card card-patriot shadow-sm">
+            <div class="card card-patriot shadow-sm mt-4">
                 <div class="card-header py-3">
                     <h5 class="mb-0"><i class="bi bi-bag me-2"></i>Document Packs</h5>
                 </div>
