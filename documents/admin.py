@@ -364,9 +364,11 @@ class PartnershipRequestAdmin(admin.ModelAdmin):
         }),
         ('Decision', {
             'fields': ('status', 'admin_notes', 'resolved_at'),
-            'description': 'Approving here does NOT auto-flip the user. To activate them: '
-                           'open the user, set Is revenue partner, then create a PromoCode '
-                           'assigned to them with the code they asked for (or your choice).',
+            'description': 'Setting status to Approved will automatically: '
+                           '(1) flip the user\'s "Is revenue partner" flag, and '
+                           '(2) create an active PromoCode assigned to them using the requested code '
+                           '(or a unique fallback if that code is taken). '
+                           'Discount: $50 fixed off (matches the $99 discounted price).',
         }),
     )
 
@@ -374,3 +376,53 @@ class PartnershipRequestAdmin(admin.ModelAdmin):
         if obj.status in ('approved', 'denied') and obj.resolved_at is None:
             obj.resolved_at = timezone.now()
         super().save_model(request, obj, form, change)
+
+        if obj.status == 'approved':
+            self._grant_partnership(request, obj)
+
+    def _grant_partnership(self, request, obj):
+        from django.contrib import messages as admin_messages
+
+        user = obj.user
+        flipped = False
+        if not user.is_revenue_partner:
+            user.is_revenue_partner = True
+            user.save(update_fields=['is_revenue_partner'])
+            flipped = True
+
+        code_value = self._unique_promo_code(obj.requested_code, user)
+        existing = PromoCode.objects.filter(created_by=user, is_active=True).first()
+        if existing:
+            admin_messages.info(
+                request,
+                f'{user.email} already has active code "{existing.code}". No new code created.',
+            )
+        elif code_value:
+            PromoCode.objects.create(
+                code=code_value,
+                discount_type='fixed',
+                discount_value=50,
+                is_active=True,
+                created_by=user,
+            )
+            admin_messages.success(
+                request,
+                f'Created PromoCode "{code_value}" for {user.email} ($50 off, fixed).',
+            )
+
+        if flipped:
+            admin_messages.success(request, f'Granted partner status to {user.email}.')
+
+    def _unique_promo_code(self, requested, user):
+        base = (requested or '').strip().upper()
+        if not base:
+            base = (user.email.split('@')[0] or 'PARTNER').upper()[:20]
+        base = ''.join(c for c in base if c.isalnum() or c in ('_', '-'))[:25] or 'PARTNER'
+
+        if not PromoCode.objects.filter(code__iexact=base).exists():
+            return base
+        for n in range(2, 100):
+            candidate = f'{base}{n}'[:30]
+            if not PromoCode.objects.filter(code__iexact=candidate).exists():
+                return candidate
+        return None
