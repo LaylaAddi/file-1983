@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}Partner Dashboard — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+
+            <div class="d-flex justify-content-between align-items-end mb-4">
+                <div>
+                    <h2 class="mb-1" style="font-family:'Playfair Display',serif;">Partner Dashboard</h2>
+                    <p class="text-muted mb-0">
+                        Your referral activity and earnings.
+                        Cut: <strong>{{ stats.cut_percent }}%</strong> of every sale through your code.
+                    </p>
+                </div>
+                {% if user.is_staff %}
+                <span class="badge bg-secondary">Staff view</span>
+                {% endif %}
+            </div>
+
+            {# ---------- Summary cards ---------- #}
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-muted small text-uppercase">Sales</div>
+                            <div class="h3 mb-0">{{ stats.sales_count }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-muted small text-uppercase">Gross revenue</div>
+                            <div class="h3 mb-0">${{ stats.gross_dollars }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-muted small text-uppercase">Cut earned</div>
+                            <div class="h3 mb-0 text-success">${{ stats.cut_dollars }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="text-muted small text-uppercase">Unpaid balance</div>
+                            <div class="h3 mb-0">${{ stats.unpaid_balance_dollars }}</div>
+                            <div class="small text-muted">
+                                Paid: ${{ stats.paid_out_dollars }}
+                                {% if stats.pending_cents %} · Pending: ${{ stats.pending_dollars }}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ---------- Promo codes ---------- #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <strong>Your promo codes</strong>
+                </div>
+                <div class="card-body p-0">
+                    {% if stats.codes %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Discount</th>
+                                    <th class="text-end">Uses</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for code in stats.codes %}
+                                <tr>
+                                    <td><code>{{ code.code }}</code></td>
+                                    <td>
+                                        {% if code.discount_type == 'percent' %}{{ code.discount_value }}% off
+                                        {% elif code.discount_type == 'fixed' %}${{ code.discount_value }} off
+                                        {% else %}Free access{% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {{ code.times_used }}{% if code.max_uses %} / {{ code.max_uses }}{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if code.is_active %}
+                                        <span class="badge bg-success-subtle text-success-emphasis">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted">No promo codes assigned to you yet. Contact support to set one up.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ---------- Recent sales ---------- #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <strong>Recent sales</strong>
+                    <span class="text-muted small">(latest {{ stats.recent_sales|length }})</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if stats.recent_sales %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Buyer</th>
+                                    <th>Code</th>
+                                    <th class="text-end">Sale</th>
+                                    <th class="text-end">Your cut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in stats.recent_sales %}
+                                <tr>
+                                    <td>{{ sale.used_at|date:"Y-m-d" }}</td>
+                                    <td>
+                                        <div>{{ sale.buyer_name|default:sale.buyer_email }}</div>
+                                        {% if sale.buyer_name %}
+                                        <div class="small text-muted">{{ sale.buyer_email }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td><code>{{ sale.code }}</code></td>
+                                    <td class="text-end">${{ sale.amount_dollars }}</td>
+                                    <td class="text-end text-success">${{ sale.cut_dollars }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted">No sales yet. Share your promo code to get started.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ---------- Payout history ---------- #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <strong>Payout history</strong>
+                    <button type="button" class="btn btn-primary btn-sm" disabled
+                            title="Coming in Phase 3">
+                        <i class="bi bi-cash-coin me-1"></i>Request payout
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    {% if stats.payouts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Requested</th>
+                                    <th class="text-end">Amount</th>
+                                    <th>Status</th>
+                                    <th>Processor</th>
+                                    <th>Paid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in stats.payouts %}
+                                <tr>
+                                    <td>{{ p.requested_at|date:"Y-m-d" }}</td>
+                                    <td class="text-end">${{ p.amount }}</td>
+                                    <td>
+                                        {% if p.status == 'paid' %}
+                                        <span class="badge bg-success-subtle text-success-emphasis">Paid</span>
+                                        {% elif p.status == 'approved' %}
+                                        <span class="badge bg-info-subtle text-info-emphasis">Approved</span>
+                                        {% elif p.status == 'pending' %}
+                                        <span class="badge bg-warning-subtle text-warning-emphasis">Pending</span>
+                                        {% else %}
+                                        <span class="badge bg-danger-subtle text-danger-emphasis">Denied</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ p.get_payment_processor_display|default:"—" }}</td>
+                                    <td>{{ p.paid_at|date:"Y-m-d"|default:"—" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-muted">No payout requests yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

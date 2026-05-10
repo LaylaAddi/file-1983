@@ -123,6 +123,11 @@
                                 <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
                                     <i class="bi bi-person me-2"></i>Profile
                                 </a></li>
+                                {% if user.is_revenue_partner or user.is_staff %}
+                                <li><a class="dropdown-item" href="{% url 'partner_dashboard' %}">
+                                    <i class="bi bi-cash-coin me-2"></i>Partner Dashboard
+                                </a></li>
+                                {% endif %}
                                 {% if user.is_staff %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="/{{ ADMIN_URL }}" target="_blank">

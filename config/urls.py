@@ -13,6 +13,7 @@ urlpatterns = [
     path('', include('public_pages.urls')),
     path('accounts/', include('accounts.urls')),
     path('documents/', include('documents.urls')),
+    path('partner/', document_views.partner_dashboard, name='partner_dashboard'),
 
     # Stripe webhook — must be CSRF-exempt; signature verification replaces it
     path('stripe/webhook/', csrf_exempt(document_views.stripe_webhook), name='stripe_webhook'),

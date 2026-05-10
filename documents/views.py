@@ -1740,3 +1740,23 @@ def stripe_webhook(request):
         # Backstop — catches import errors, attribute errors, anything else.
         logger.exception('Stripe webhook crashed: %s', exc)
         return JsonResponse({'error': f'{type(exc).__name__}: {exc}'}, status=500)
+
+
+
+# ---------------------------------------------------------------------------
+# Partner dashboard — referrers' self-serve view of their sales/cut/payouts
+# ---------------------------------------------------------------------------
+
+def _is_partner(user):
+    return user.is_authenticated and (user.is_revenue_partner or user.is_staff)
+
+
+@login_required
+@user_passes_test(_is_partner)
+def partner_dashboard(request):
+    from .services.partner_stats import get_partner_stats
+
+    stats = get_partner_stats(request.user)
+    return render(request, 'partner/dashboard.html', {
+        'stats': stats,
+    })
