@@ -2819,3 +2819,80 @@ a:hover {
     border-color: var(--patriot-red-light);
     color: #fff;
 }
+
+/* =========================================
+   Dark-mode outline button contrast boost
+   The default outline-* buttons use --patriot-blue (#002868) which
+   disappears against the dark backgrounds. Bump border weight, swap
+   to a brighter accent, and add a subtle filled hover so "Add" /
+   "Back" / "Cancel" actions are clearly clickable.
+   ========================================= */
+[data-theme="dark"] .btn-outline-primary {
+    color: #7eb6ff;
+    border-color: #7eb6ff;
+    border-width: 2px;
+    background-color: rgba(126, 182, 255, 0.06);
+}
+
+[data-theme="dark"] .btn-outline-primary:hover,
+[data-theme="dark"] .btn-outline-primary:focus {
+    background-color: #7eb6ff;
+    border-color: #7eb6ff;
+    color: #0b1e3a;
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    color: #d6dde6;
+    border-color: #6b7a8f;
+    border-width: 2px;
+    background-color: rgba(214, 221, 230, 0.04);
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover,
+[data-theme="dark"] .btn-outline-secondary:focus {
+    background-color: #d6dde6;
+    border-color: #d6dde6;
+    color: #1a1a2e;
+}
+
+[data-theme="dark"] .btn-outline-warning {
+    color: #ffd97a;
+    border-color: #ffd97a;
+    border-width: 2px;
+    background-color: rgba(255, 217, 122, 0.08);
+}
+
+[data-theme="dark"] .btn-outline-warning:hover,
+[data-theme="dark"] .btn-outline-warning:focus {
+    background-color: #ffd97a;
+    border-color: #ffd97a;
+    color: #2a1f00;
+}
+
+[data-theme="dark"] .btn-outline-danger {
+    color: #ff8a9b;
+    border-color: #ff8a9b;
+    border-width: 2px;
+    background-color: rgba(255, 138, 155, 0.08);
+}
+
+[data-theme="dark"] .btn-outline-danger:hover,
+[data-theme="dark"] .btn-outline-danger:focus {
+    background-color: #ff8a9b;
+    border-color: #ff8a9b;
+    color: #2a000a;
+}
+
+[data-theme="dark"] .btn-outline-info {
+    color: #9ad9e5;
+    border-color: #9ad9e5;
+    border-width: 2px;
+    background-color: rgba(154, 217, 229, 0.08);
+}
+
+[data-theme="dark"] .btn-outline-info:hover,
+[data-theme="dark"] .btn-outline-info:focus {
+    background-color: #9ad9e5;
+    border-color: #9ad9e5;
+    color: #002a36;
+}
