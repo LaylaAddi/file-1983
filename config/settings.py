@@ -140,6 +140,13 @@ PRICE_DISCOUNTED_CENTS = 9900  # $99.00 — with valid promo code
 # 20 -> referrer earns $19.80 on a $99 sale.
 PARTNER_CUT_PERCENT = 20
 
+# AI quota per document. Counts story extraction + draft regeneration + addendums.
+AI_QUOTA_FREE = 3       # Pre-payment AI calls allowed
+AI_QUOTA_PAID = 150     # Post-payment AI calls (counter resets on payment)
+
+# Free draft documents per user. Paid + finalized docs don't count toward this.
+FREE_DOCS_PER_USER = 2
+
 # OpenAI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 

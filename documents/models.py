@@ -152,6 +152,22 @@ class Document(models.Model):
         null=True, blank=True,
         help_text='When payment was confirmed by the Stripe webhook.'
     )
+    ai_calls_used = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            'AI quota used on this document (story extraction + draft '
+            'regeneration + addendums). Resets to 0 on payment so paid '
+            'users get a fresh AI_QUOTA_PAID budget.'
+        )
+    )
+    locked_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            'Set when the user clicks Finalize & Download. Locked '
+            'documents are read-only — no wizard edits, no AI calls. '
+            'Re-download is still allowed.'
+        )
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -168,6 +184,29 @@ class Document(models.Model):
                 slug = generate_document_slug()
             self.slug = slug
         super().save(*args, **kwargs)
+
+    def is_locked(self):
+        return self.locked_at is not None
+
+    def ai_quota_limit(self):
+        from django.conf import settings
+        if self.payment_status in ('paid', 'finalized'):
+            return settings.AI_QUOTA_PAID
+        return settings.AI_QUOTA_FREE
+
+    def ai_calls_remaining(self):
+        return max(0, self.ai_quota_limit() - self.ai_calls_used)
+
+    def ai_quota_state(self):
+        used = self.ai_calls_used or 0
+        limit = self.ai_quota_limit()
+        return {
+            'used': used,
+            'limit': limit,
+            'remaining': max(0, limit - used),
+            'exhausted': used >= limit,
+            'is_paid': self.payment_status in ('paid', 'finalized'),
+        }
 
     def get_absolute_url(self):
         from django.urls import reverse

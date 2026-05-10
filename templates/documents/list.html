@@ -36,7 +36,7 @@
                                     {% if doc.payment_status == 'paid' %}
                                         <span class="badge bg-success">Paid</span>
                                     {% elif doc.payment_status == 'finalized' %}
-                                        <span class="badge bg-primary">Finalized</span>
+                                        <span class="badge bg-primary"><i class="bi bi-lock-fill"></i> Finalized</span>
                                     {% elif doc.payment_status == 'expired' %}
                                         <span class="badge bg-secondary">Expired</span>
                                     {% else %}

@@ -402,12 +402,41 @@
                     {% endif %}
                 </div>
 
+                {% if document.locked_at %}
+                <div class="alert alert-secondary border d-flex align-items-center gap-2">
+                    <i class="bi bi-lock-fill fs-4"></i>
+                    <div>
+                        <strong>Finalized and locked.</strong>
+                        This complaint is read-only. Re-download anytime below.
+                        Need changes? Create a new complaint from your documents list.
+                    </div>
+                </div>
+                {% else %}
+                {% with quota=document.ai_quota_state %}
+                <div class="alert {% if quota.exhausted %}alert-danger{% elif quota.remaining == 1 %}alert-warning{% else %}alert-info{% endif %} d-flex align-items-center gap-2 py-2 small">
+                    <i class="bi bi-cpu"></i>
+                    <span>
+                        AI calls used on this document: <strong>{{ quota.used }} of {{ quota.limit }}</strong>{% if quota.is_paid %} (paid plan){% else %} (free){% endif %}.
+                        {% if quota.exhausted %}
+                            Limit reached.
+                            {% if not quota.is_paid %}
+                                <a href="{% url 'documents:payment_start' document.slug %}" class="alert-link">Pay to unlock 150 more AI edits</a>.
+                            {% else %}
+                                Finalize &amp; download to use it, or contact support.
+                            {% endif %}
+                        {% endif %}
+                    </span>
+                </div>
+                {% endwith %}
+                {% endif %}
+
                 {# ----- ACTION BAR ----- #}
                 <div class="action-bar d-flex justify-content-between align-items-center gap-2 flex-wrap p-3 bg-body-tertiary rounded shadow-sm border">
                     <div class="d-flex gap-2 flex-wrap">
                         <a href="{% url 'documents:wizard_step7' document.slug %}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left me-1"></i>Back
                         </a>
+                        {% if not document.locked_at %}
                         <button type="submit" name="action" value="save" class="btn btn-outline-primary">
                             <i class="bi bi-floppy me-1"></i>Save edits
                         </button>
@@ -416,11 +445,20 @@
                                 onclick="return confirm('Re-draft the factual allegations from your original story? Your current edits will be replaced.');">
                             <i class="bi bi-arrow-clockwise me-1"></i>Re-draft from story
                         </button>
+                        {% endif %}
                     </div>
                     <div class="d-flex gap-2 flex-wrap">
-                        {% if document.payment_status == 'paid' or document.payment_status == 'finalized' %}
+                        {% if document.locked_at %}
                         <a href="{% url 'documents:wizard_generate' document.slug %}?download=1" class="btn btn-primary btn-lg px-4 fw-semibold">
-                            <i class="bi bi-file-earmark-pdf me-1"></i>Download clean PDF
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Re-download PDF
+                        </a>
+                        {% elif document.payment_status == 'paid' %}
+                        <a href="{% url 'documents:wizard_generate' document.slug %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-eye me-1"></i>Preview clean PDF
+                        </a>
+                        <a href="{% url 'documents:wizard_generate' document.slug %}?finalize=1&download=1" class="btn btn-primary btn-lg px-4 fw-semibold"
+                           onclick="return confirm('Finalizing will lock this document. You won\'t be able to edit it or run any more AI calls. Are you sure?');">
+                            <i class="bi bi-lock-fill me-1"></i>Finalize &amp; Download
                         </a>
                         {% else %}
                         <button type="submit" name="action" value="generate_pdf" class="btn btn-outline-secondary">

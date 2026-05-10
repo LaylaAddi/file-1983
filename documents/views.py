@@ -15,6 +15,22 @@ from .models import (
 )
 
 
+def _check_locked_redirect(request, doc):
+    """
+    If the document is locked, push a flash + return a redirect response.
+    Callers: `if rv := _check_locked_redirect(request, doc): return rv`.
+    Returns None when the doc is editable.
+    """
+    if doc.is_locked():
+        messages.error(
+            request,
+            'This document is finalized and locked. Re-download anytime, or '
+            'create a new complaint to make changes.'
+        )
+        return redirect('documents:wizard_draft', document_slug=doc.slug)
+    return None
+
+
 @login_required
 def document_list(request):
     documents = Document.objects.filter(user=request.user).select_related('wizard_session')
@@ -44,6 +60,17 @@ def document_create(request):
         )
         return redirect(f"{'/accounts/profile/'}?next={request.path}")
 
+    # Cap on unpaid drafts. Paid + finalized docs don't count.
+    if not user.is_staff and not user.is_superuser:
+        free_drafts = Document.objects.filter(user=user, payment_status='draft').count()
+        if free_drafts >= settings.FREE_DOCS_PER_USER:
+            messages.warning(
+                request,
+                f'You\'ve reached the limit of {settings.FREE_DOCS_PER_USER} free draft documents. '
+                'Pay for one of your existing drafts (or finalize one) before creating another.'
+            )
+            return redirect('documents:list')
+
     # Create the Document, WizardSession, and pre-populate PlaintiffInfo from profile
     doc = Document.objects.create(user=user)
     WizardSession.objects.create(document=doc)
@@ -58,6 +85,10 @@ def wizard_story(request, document_slug):
     session = doc.wizard_session
 
     if request.method == 'POST':
+        if doc.is_locked():
+            messages.error(request, 'This document is finalized and locked.')
+            return redirect('documents:list')
+
         story_text = request.POST.get('story_text', '').strip()
         action = request.POST.get('action', 'analyze')
         if story_text:
@@ -68,6 +99,16 @@ def wizard_story(request, document_slug):
                 messages.success(request, 'Story saved. Come back any time to continue.')
                 return redirect('documents:wizard_story', document_slug=doc.slug)
             else:
+                from documents.services.ai_quota import (
+                    consume_ai_call, QuotaExceeded, upgrade_message,
+                )
+                try:
+                    consume_ai_call(doc)
+                except QuotaExceeded:
+                    messages.warning(request, upgrade_message(doc))
+                    if doc.payment_status == 'draft':
+                        return redirect('documents:payment_start', document_slug=doc.slug)
+                    return redirect('documents:wizard_story', document_slug=doc.slug)
                 _gpt_test(session)
                 session.current_step = 1
                 session.save(update_fields=['current_step', 'updated_at'])
@@ -203,6 +244,10 @@ def wizard_addendum(request, document_slug):
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     session = doc.wizard_session
 
+    if doc.is_locked():
+        messages.error(request, 'This document is finalized and locked.')
+        return redirect('documents:list')
+
     if not session.ai_extraction_succeeded:
         messages.error(request, 'Please analyze your story first.')
         return redirect('documents:wizard_story', document_slug=doc.slug)
@@ -216,6 +261,17 @@ def wizard_addendum(request, document_slug):
 
     if not text:
         messages.error(request, 'Please enter what you want to add.')
+        return redirect('documents:wizard_summary', document_slug=doc.slug)
+
+    from documents.services.ai_quota import (
+        consume_ai_call, QuotaExceeded, upgrade_message,
+    )
+    try:
+        consume_ai_call(doc)
+    except QuotaExceeded:
+        messages.warning(request, upgrade_message(doc))
+        if doc.payment_status == 'draft':
+            return redirect('documents:payment_start', document_slug=doc.slug)
         return redirect('documents:wizard_summary', document_slug=doc.slug)
 
     label = ADDENDUM_CATEGORIES[category]['label']
@@ -395,6 +451,8 @@ def wizard_step1(request, document_slug):
             pass
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         federal_district_court = request.POST.get('federal_district_court', '').strip()
         court_confirmed = request.POST.get('court_confirmed') == 'on'
 
@@ -548,6 +606,8 @@ def wizard_step2(request, document_slug):
     _heal_state_code(incident)
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         # Parse date
         date_str = request.POST.get('incident_date', '').strip()
         incident.incident_date = date_str or None
@@ -782,6 +842,8 @@ def wizard_step3(request, document_slug):
     gov_entity, _ = GovernmentEntity.objects.get_or_create(document=doc)
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         # --- Parse defendants from indexed POST fields ---
         defendant_count = int(request.POST.get('defendant_count', 0))
         existing_defendants = {d.pk: d for d in doc.defendants.all()}
@@ -864,6 +926,8 @@ def wizard_step4(request, document_slug):
     session = doc.wizard_session
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         claim_count = int(request.POST.get('claim_count', 0))
         existing_claims = {c.pk: c for c in doc.constitutional_claims.all()}
         seen_pks = set()
@@ -952,6 +1016,8 @@ def wizard_step5(request, document_slug):
     session = doc.wizard_session
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         # --- Parse evidence from indexed POST fields ---
         evidence_count = int(request.POST.get('evidence_count', 0))
         existing_evidence = {e.pk: e for e in doc.evidence.all()}
@@ -1083,6 +1149,8 @@ def wizard_step6(request, document_slug):
     prior, _ = PriorComplaints.objects.get_or_create(document=doc)
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         # --- Damages ---
         damages.physical_injury_description = request.POST.get(
             'physical_injury_description', ''
@@ -1196,6 +1264,8 @@ def wizard_caselaw_strategy(request, document_slug):
     session = doc.wizard_session
 
     if request.method == 'POST':
+        if rv := _check_locked_redirect(request, doc):
+            return rv
         choice = request.POST.get('caselaw_strategy', '').strip()
         valid_choices = {key for key, _ in Document.CASELAW_STRATEGY_CHOICES}
         if choice not in valid_choices:
@@ -1357,9 +1427,23 @@ def wizard_draft(request, document_slug):
     paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
 
     if request.method == 'POST':
+        if doc.is_locked():
+            messages.error(request, 'This document is finalized and locked.')
+            return redirect('documents:wizard_draft', document_slug=doc.slug)
+
         action = request.POST.get('action', '')
 
         if action == 'regenerate':
+            from documents.services.ai_quota import (
+                consume_ai_call, QuotaExceeded, upgrade_message,
+            )
+            try:
+                consume_ai_call(doc)
+            except QuotaExceeded:
+                messages.warning(request, upgrade_message(doc))
+                if doc.payment_status == 'draft':
+                    return redirect('documents:payment_start', document_slug=doc.slug)
+                return redirect('documents:wizard_draft', document_slug=doc.slug)
             from documents.services.complaint_drafter import generate_factual_allegations
             new_paragraphs, error = generate_factual_allegations(doc)
             if error:
@@ -1390,14 +1474,22 @@ def wizard_draft(request, document_slug):
         return redirect('documents:wizard_draft', document_slug=doc.slug)
 
     # GET — auto-generate on first load if we don't have a draft yet
-    if not paragraphs:
-        from documents.services.complaint_drafter import generate_factual_allegations
-        new_paragraphs, error = generate_factual_allegations(doc)
-        if error:
-            messages.error(request, f'Could not draft your allegations: {error}')
+    if not paragraphs and not doc.is_locked():
+        from documents.services.ai_quota import (
+            consume_ai_call, QuotaExceeded, upgrade_message,
+        )
+        try:
+            consume_ai_call(doc)
+        except QuotaExceeded:
+            messages.warning(request, upgrade_message(doc))
         else:
-            _save_paragraphs(doc, new_paragraphs)
-            paragraphs = new_paragraphs
+            from documents.services.complaint_drafter import generate_factual_allegations
+            new_paragraphs, error = generate_factual_allegations(doc)
+            if error:
+                messages.error(request, f'Could not draft your allegations: {error}')
+            else:
+                _save_paragraphs(doc, new_paragraphs)
+                paragraphs = new_paragraphs
 
     ctx = _build_complaint_context(doc)
     ctx['session'] = session
@@ -1408,13 +1500,27 @@ def wizard_draft(request, document_slug):
 
 @login_required
 def wizard_generate(request, document_slug):
-    """Render the saved complaint as a PDF via WeasyPrint."""
+    """
+    Render the saved complaint as a PDF via WeasyPrint.
+
+    Query params:
+      download=1   force attachment Content-Disposition (save dialog)
+      finalize=1   on a paid (unlocked) doc, lock + flip to 'finalized'
+                   before serving the PDF. No-op if already locked.
+                   Ignored on unpaid docs.
+    """
     doc = get_object_or_404(Document, slug=document_slug, user=request.user)
     paragraphs = (doc.factual_allegations_json or {}).get('paragraphs', [])
 
     if not paragraphs:
         messages.warning(request, 'Draft your factual allegations first.')
         return redirect('documents:wizard_draft', document_slug=doc.slug)
+
+    if request.GET.get('finalize') and doc.payment_status == 'paid' and not doc.is_locked():
+        from django.utils import timezone
+        doc.payment_status = 'finalized'
+        doc.locked_at = timezone.now()
+        doc.save(update_fields=['payment_status', 'locked_at', 'updated_at'])
 
     ctx = _build_complaint_context(doc)
     html_string = render_to_string('documents/pdf/complaint.html', ctx, request=request)

@@ -205,7 +205,11 @@ def handle_checkout_completed(session) -> dict:
     doc.payment_status = 'paid'
     doc.stripe_session_id = session_id
     doc.paid_at = timezone.now()
-    doc.save(update_fields=['payment_status', 'stripe_session_id', 'paid_at', 'updated_at'])
+    # Reset the AI quota so paid users get a fresh AI_QUOTA_PAID budget.
+    doc.ai_calls_used = 0
+    doc.save(update_fields=[
+        'payment_status', 'stripe_session_id', 'paid_at', 'ai_calls_used', 'updated_at',
+    ])
 
     if promo_code_id:
         try:
