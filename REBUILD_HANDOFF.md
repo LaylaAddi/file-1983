@@ -12,32 +12,41 @@ each section → final review → AI drafts factual allegations → user reviews
 
 ## Where we are right now (read this first)
 
-**Status:** MVP is feature-complete and live on Render at `file1983.com` (Stripe in sandbox/test mode). Recent test users have completed full purchase flows successfully.
+**Status:** MVP is feature-complete and live on Render at `auditfile1983.com` (Stripe in sandbox/test mode). `file1983.com` 301-redirects to `auditfile1983.com` via Django middleware. Recent test users have completed full purchase flows successfully. Self-serve partner dashboard with shareable referral links and self-request partnership flow are live.
 
 **What works end-to-end today:**
 - Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → clean PDF download → finalize lock
 - Promo codes track referrer attribution; admin shows per-code revenue and the partner cut
+- Partner dashboard at `/partner/` with sales table (buyer name+email visible to partner), payout request flow with email to admin, balance adjustments, shareable `?ref=CODE` links that auto-pre-fill the promo at checkout
+- Users can request partnership from their profile; admin approval auto-flips the flag AND creates a PromoCode in one click
 - AI quota limits prevent runaway OpenAI spend on a single document
 - Free-doc cap stops users from creating unlimited drafts
 - One-step undo restores the previous draft after a regenerate
 - Stale-draft block forces users to regenerate before viewing an outdated draft
+- Password reset works via SMTP (Namecheap Private Email, `rights@auditfile1983.com`); confirm page logs out current session and shows which account is being reset
 
 **Latest commits (most recent on top), all on `master` and deployed:**
-- `1d20253` — Dark-mode contrast boost for outline buttons across the wizard
-- `ecdbfe4` — Stale-draft view block + one-step undo of regenerate (migration 0017)
-- `6e7179d` — AI quota per document + Finalize & Lock (Stripe Phase 4 + abuse limits, migration 0016)
-- `ac406b7` — Admin reporting: promo-code revenue, partner cut, CSV export (migration 0015)
-- `820fd5d` — Stripe webhook JSON-payload parse (works around StripeObject .get() removal in v10+)
-- `357bbc5` — Stripe webhook bulletproof exception handling
-- `fa139f2` — Stripe webhook surfaces handler exceptions as JSON (debugging aid)
-- `77d41f1` — Stripe Phase 3: webhook + attachment download (migration 0014)
-- `95070c5` — Stripe Phase 2: Checkout Session + promo validation + Pay button
+- `aa55041` — Password reset confirm: log out current session, show target email
+- `4e61d35` — EMAIL_BACKEND smart default (SMTP in prod, console in dev)
+- `86e7c72` — Fix NoReverseMatch on password reset by namespacing success_urls
+- `2c966bb` — Surface 500 tracebacks to Render logs (LOGGING config) + EMAIL_TIMEOUT
+- `3881a27` — Auto-grant partnership on approval (flip flag + create PromoCode)
+- `9d808c1` — Canonical-domain redirect; PRIMARY_DOMAIN setting; auditfile1983.com is now primary
+- `9b80225` — Signup form pre-fills referral input from `?ref`/session; links referred_by via PromoCode owner
+- `91f971c` — Profile page cleanup (drop legacy Access card, Referral block on the right)
+- `9be59a2` — Partner dashboard Phase 4: capture `?ref=CODE` in session + pre-fill at checkout
+- `2d281c6` — PartnerAdjustment + PartnershipRequest models; profile referral UI; user admin promo-codes-redeemed inline
+- `f434e56` — Partner dashboard Phase 3: payout request flow with modal + min-balance + admin email
+- `bf06cf5` — Partner dashboard Phase 2: read-only `/partner/` with sales, cut, payout history
+- `f23dc7d` — Partner dashboard Phase 1: `is_revenue_partner` flag + PayoutRequest processor/payment-record fields
 
 **Settings worth knowing about (all in `config/settings.py`):**
 - `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` — list and promo prices
 - `PARTNER_CUT_PERCENT=20` — referrer earns $19.80 on each $99 sale
+- `PARTNER_MIN_PAYOUT_CENTS=2000` — $20 minimum balance to request payout
 - `AI_QUOTA_FREE=3` / `AI_QUOTA_PAID=150` — per-document AI call limits
 - `FREE_DOCS_PER_USER=2` — max draft documents in flight per user
+- `PRIMARY_DOMAIN='auditfile1983.com'` — canonical host; CanonicalDomainMiddleware 301-redirects others to it
 
 **What the next Claude should know about user preferences:**
 - User wants step-by-step instructions, not autonomous large changes
@@ -48,8 +57,8 @@ each section → final review → AI drafts factual allegations → user reviews
 - Workflow: develop on `claude/<short-description>` branch → push → user merges to master locally → Render auto-deploys
 
 **Likely next features (user's open roadmap, prioritized):**
-1. Self-serve partner dashboard (`/partner/`) — referrers log in to see their own sales/earnings/payout history
-2. Landing page CMS (`public_pages` is currently a stub)
+1. Landing page CMS (`public_pages` is currently a stub) — primary domain is auditfile1983.com so this is the homepage users see
+2. Switch Stripe to **Live mode** when ready to take real payments
 3. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties
 
 ---
@@ -89,9 +98,10 @@ git push origin master
 ---
 
 ## Domains
-- **`file1983.com`** — primary, the URL given to users
-- **`auditfile1983.com`** — secondary, redirects to `file1983.com`
-- Email: `rights@file1983.com` via Namecheap Private Email (`mail.privateemail.com`, port 587, TLS)
+- **`auditfile1983.com`** — primary (canonical) host that users land on
+- **`file1983.com`** — secondary; 301-redirects to `auditfile1983.com` via `CanonicalDomainMiddleware` (controlled by `PRIMARY_DOMAIN` setting / env var, defaults to `auditfile1983.com`)
+- Both domains are attached to the same Render web service. The redirect happens in Django, NOT at Namecheap; flipping `PRIMARY_DOMAIN` env var on Render reverses the direction with no DNS changes
+- Email: `rights@auditfile1983.com` via Namecheap Private Email (`mail.privateemail.com`, port 587, TLS). The mailbox `rights@file1983.com` also exists from earlier setup but isn't currently used
 
 ---
 
@@ -115,23 +125,34 @@ docker compose exec web python manage.py test documents -v 2
 
 ---
 
-## Environment Variables (`.env` file)
+## Environment Variables (`.env` file in dev / Render env vars in prod)
 ```
 SECRET_KEY=
-DEBUG=1
-ALLOWED_HOSTS=localhost,127.0.0.1
+DEBUG=1                          ← 0 in production
+ALLOWED_HOSTS=localhost,127.0.0.1   ← in prod: file1983.com,www.file1983.com,auditfile1983.com,www.auditfile1983.com,<app>.onrender.com
 DATABASE_URL=postgresql://postgres:postgres@db:5432/file1983
 ADMIN_URL=manage-dev/
+
 OPENAI_API_KEY=                  ← required for extraction, court lookup fallback, draft generation
+
 STRIPE_SECRET_KEY=               ← sk_test_... (sandbox) or sk_live_...
 STRIPE_PUBLISHABLE_KEY=          ← pk_test_... or pk_live_...
 STRIPE_WEBHOOK_SECRET=           ← whsec_... from Stripe Dashboard webhook destination
+
+# Email — settings.py auto-picks SMTP backend in prod (DEBUG=0), console in dev.
+# So in prod you DO NOT need to set EMAIL_BACKEND.
 EMAIL_HOST=mail.privateemail.com
 EMAIL_PORT=587
-EMAIL_USE_TLS=1
-EMAIL_HOST_USER=rights@file1983.com
+EMAIL_HOST_USER=rights@auditfile1983.com
 EMAIL_HOST_PASSWORD='<wrap-in-single-quotes-if-special-chars>'
-DEFAULT_FROM_EMAIL=rights@file1983.com
+DEFAULT_FROM_EMAIL=File 1983 <rights@auditfile1983.com>   ← display name format
+
+# Optional. Defaults to 'auditfile1983.com'. Flip to switch canonical domain.
+PRIMARY_DOMAIN=auditfile1983.com
+
+# Optional. Defaults to DEFAULT_FROM_EMAIL. Where partnership requests + payout
+# requests are emailed.
+PARTNER_PAYOUT_NOTIFY_EMAIL=
 ```
 
 ---
@@ -142,9 +163,10 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 /accounts/register/                         → register
 /accounts/login/                            → login
 /accounts/logout/                           → logout
-/accounts/profile/                          → profile (full address, incomplete-profile banner)
+/accounts/profile/                          → profile (full address, incomplete-profile banner, referral block — partner sees codes+share links; non-partner sees Request Partnership form)
+/accounts/profile/request-partnership/      → POST: creates PartnershipRequest + emails admin
 /accounts/pricing/                          → pricing stub
-/accounts/password-reset/                   → password reset flow
+/accounts/password-reset/                   → password reset flow (logs out current session on confirm page)
 /documents/                                 → document list (admin sees Delete button)
 /documents/new/                             → create document (profile gate)
 /documents/<slug>/delete/                   → POST-only, staff-only, deletes document
@@ -168,9 +190,15 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 /documents/<slug>/pay/cancel/               → Stripe cancel_url; flashes message + redirects to draft
 /stripe/webhook/                            → Stripe webhook endpoint (csrf_exempt, signature-verified). Handles checkout.session.completed
 /documents/lookup-district-court/           → AJAX: GET ?city=&state= → court name JSON
+/partner/                                   → Partner dashboard (gated by is_revenue_partner or is_staff). Sales, cut earned, adjustments, payouts
+/partner/request-payout/                    → POST: creates PayoutRequest + emails admin
 /api/v1/token/                              → JWT obtain
 /api/v1/token/refresh/                      → JWT refresh
 /<ADMIN_URL>/                               → Django admin
+
+Note: Any URL with `?ref=CODE` (e.g. `/?ref=ALICE10`) gets captured by
+CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
+`/pay/` and the referral input on `/accounts/register/`.
 ```
 
 ---
@@ -227,14 +255,27 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - [x] **Stripe Phase 4 + AI abuse limits combined** (commit `6e7179d`, migration `0016`) — Per-document AI quota: 3 calls free, 150 after payment (counter resets to 0 on payment via webhook). Counted: story extraction, draft regeneration, addendums (court-lookup fallback NOT counted). Live counter badge on draft page (yellow at 1 left, red at 0). Free-doc cap of 2 in-flight drafts per user (paid + finalized don't count, staff exempt). Document `locked_at` field set by Finalize & Download flow → status='finalized' + read-only across all wizard step POSTs (lock-blocked via `_check_locked_redirect()` helper). Two-button download UX on draft page for paid docs: Preview clean PDF (no lock) vs Finalize & Download (confirm dialog → lock → save dialog)
 - [x] **Stale-draft view block + one-step undo** (commit `ecdbfe4`, migration `0017`) — Stale drafts can no longer be opened: `wizard_draft` GET redirects to Step 7 when wizard data was edited after the last draft write (locked docs exempt). Step 7 banner is bigger and the "Open Stale Draft" button removed entirely; only "Regenerate Draft" remains. `Document.previous_factual_allegations_json` snapshots the old draft on each regenerate. New `wizard_draft_undo` view + button on draft page lets user restore the previous version (single-use; snapshot cleared after restore). `Document.has_undo()` helper for templates
 - [x] **Dark-mode outline button contrast** (commit `1d20253`) — Wizard "Add Evidence", "Add Defendant", "Add Claim", "Restore previous draft", and Back/Cancel buttons were nearly invisible against the dark theme's `#1a1a2e` background because patriot-blue (`#002868`) is too dark. Added `[data-theme="dark"] .btn-outline-{primary, secondary, warning, danger, info}` overrides: bright accent color, 2px border, subtle filled tint at rest, fully filled on hover. Light mode unchanged
-- [x] Migrations through `0017_document_previous_draft` (accounts: `0001_initial`)
+- [x] Migrations through `0019_partner_adjustment_partnership_request` (accounts through `0002_user_is_revenue_partner`)
+- [x] **Partner dashboard Phase 1 — foundation** (commit `f23dc7d`, accounts migration `0002`, documents migration `0018`) — `User.is_revenue_partner` BooleanField; `PayoutRequest` extended with `payment_processor` (PayPal/Venmo/Zelle/Check/Other), `payment_method_details` (where partner wants the money), `payment_reference` (admin-recorded txn ID/check #), `paid_at`, `admin_notes`. Admin form split into Request / Partner destination / Admin payment record fieldsets; auto-stamps `paid_at` and `resolved_at` when status changes. UserAdmin shows Partner column + filter
+- [x] **Partner dashboard Phase 2 — read-only `/partner/`** (commit `bf06cf5`) — `documents/services/partner_stats.py` aggregates per-user sales, gross revenue, cut earned, paid out, pending, unpaid balance. Dashboard shows 4 summary cards + promo codes + recent sales (date, buyer name + email, code, amount, cut) + payout history. Nav link in user dropdown for partners + staff. Uses `PARTNER_CUT_PERCENT` setting
+- [x] **Partner dashboard Phase 3 — payout request flow** (commit `f434e56`) — Bootstrap modal with payment-method dropdown + destination textarea + optional note. Settings: `PARTNER_MIN_PAYOUT_CENTS=2000` ($20 minimum), `PARTNER_PAYOUT_NOTIFY_EMAIL` env var (falls back to `DEFAULT_FROM_EMAIL`). View blocks if open request exists or unpaid balance < min. Button shows three states (live with amount / pending / below minimum). Email to admin includes deep link to admin record
+- [x] **Partner dashboard Phase 4 — shareable `?ref=CODE`** (commit `9be59a2`) — `documents/middleware.py:CaptureReferralMiddleware` reads `?ref=` on every request, validates against `PromoCode` (active codes only, refuses to seed partner's own code), stores canonical-cased code in `session['referral_code']`. `/pay/` pre-fills the promo input + shows green "From referral link" badge + auto-validates on init. Latest valid `?ref=` clobbers older session value. Anonymous→authenticated session promotion preserves the captured code
+- [x] **PartnerAdjustment model** (commit `2d281c6`, migration `0019`) — admin-created credit/debit on a partner's balance. Signed `amount_cents`, short visible `reason`, `created_by` auto-stamps with the admin user. Folds into `partner_stats.cut_cents`/balance; dashboard shows new Adjustments table with date / reason / signed dollar amount so partners see why their balance moved
+- [x] **PartnershipRequest model** (commit `2d281c6`, migration `0019`) — non-partners see a "Request Partnership" form on profile (desired code + message). Submission creates a `PartnershipRequest` row + emails admin via `PARTNER_PAYOUT_NOTIFY_EMAIL`. Pending state replaces the form on subsequent profile views. **Approval auto-grants** (commit `3881a27`): when admin saves status=approved, `User.is_revenue_partner` flips to True AND a PromoCode is created using the requested code (or a unique fallback like `ALICE2` if taken / email prefix if blank), discount $50 fixed off, `created_by` = the user. Admin form description spells this out
+- [x] **Profile page referral block** (commits `2d281c6`, `91f971c`) — replaces the old random `referral_code` display. Partners see active code(s) with copyable shareable link `https://{{ PRIMARY_DOMAIN }}/?ref=CODE` + button to open partner dashboard. Non-partners see Request Partnership form. Pending requests show a status banner. Page restructured: Profile col-lg-7 (left) + Referral col-lg-5 (right). Legacy "Access" card with `get_ai_uses_remaining` and "Upgrade (coming soon)" removed (replaced by per-document AI quota)
+- [x] **PromoCode admin filter + relabel** (commits `43f131e`, `1386438`) — "Created by" dropdown filtered to `is_revenue_partner=True | is_staff=True` users only. Form label = "Assign code to"; list column = "Assigned to" (partner email)
+- [x] **User admin: promo-codes-redeemed inline** (commit `2d281c6`) — read-only inline on User admin form showing every `PromoCodeUsage` where the user was the buyer, with referrer email + amount paid. Surfaces who-bought-using-whose-code at a glance
+- [x] **Signup form referral pre-fill + two-tier referrer link** (commit `9b80225`) — register view seeds the input from `?ref=` query param or session value (set by middleware). Green "From referral link" badge appears when prefilled. `RegisterForm.save()` two-tier lookup: tries `User.referral_code` first (legacy random-string system), falls back to `PromoCode.code` and uses `created_by` as referrer. So `User.referred_by` now gets populated when a buyer signs up via a partner's link
+- [x] **Canonical domain redirect** (commit `9d808c1`) — `documents/middleware.py:CanonicalDomainMiddleware` 301-redirects any host that isn't `PRIMARY_DOMAIN` to the same path on the canonical host. Skips localhost, IPs, `*.onrender.com`, and no-ops when `DEBUG=True`. `PRIMARY_DOMAIN='auditfile1983.com'` is the new default. Context processor exposes `{{ PRIMARY_DOMAIN }}` in templates so shareable links use it dynamically
+- [x] **Email backend smart default** (commit `4e61d35`) — `EMAIL_BACKEND` now defaults to SMTP in production (DEBUG=False), console in dev. No env var needed in prod. Failure mode is "fail loudly with SMTP error" rather than "silently print bodies to logs"
+- [x] **Password reset hardening** (commits `86e7c72`, `aa55041`, `2c966bb`) — `accounts/urls.py` namespaces `success_url` on `PasswordResetView`/`PasswordResetConfirmView` (was crashing post-send with `NoReverseMatch`). Custom `LogoutOnPasswordResetConfirmView` logs out the current session in dispatch so a logged-in user can't unknowingly reset a different account's password. Confirm template shows "Resetting password for `email@example.com`" banner. `LOGGING` config surfaces 500 tracebacks to stderr → Render logs. `EMAIL_TIMEOUT=15` so SMTP failures fail fast
 
 ### Open
-- [ ] **Self-serve partner dashboard** at `/partner/` — referrers log in to see their own codes, sales count, gross revenue, partner cut earned, and payout history. Foundation already in place (per-code revenue and `PayoutRequest` model); this is the UI layer. See Pending Roadmap §5
-- [ ] **Landing page CMS** — `public_pages` is currently a stub
+- [ ] **Landing page CMS** — `public_pages` is currently a stub. Now that `auditfile1983.com` is the primary domain, this is the homepage users land on
 - [ ] Per-claim case law selection UI (Option B — let users curate which cases apply to which claims rather than auto-pick by amendment). Only worth building once we see whether users actually want curation; the auto-pick covers most auditor cases
-- [ ] Playwright/Selenium browser tests for JS interactions (Alpine cards, timestamp spinner, draft textareas, voice button, addendum modal)
+- [ ] Playwright/Selenium browser tests for JS interactions (Alpine cards, timestamp spinner, draft textareas, voice button, addendum modal, payout-request modal, referral copy buttons)
 - [ ] Switch Stripe to **Live mode** when ready to take real payments — generate live API keys, create a separate live webhook endpoint, update `STRIPE_*` env vars on Render. The code path is identical; only env vars change
+- [ ] Drop stale `accounts.SiteSettings` price fields (`price_3pack`, `price_monthly`, `price_annual`) — not in any code path; remove in a future migration when convenient
 
 ---
 
@@ -328,6 +369,12 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - `0015_promocodeusage_amount_cents` — adds `PromoCodeUsage.amount_cents` to capture the actual sale price for partner-cut accounting
 - `0016_document_ai_quota_lock` — adds `Document.ai_calls_used` (PositiveInt, default 0) and `Document.locked_at` (DateTime, null)
 - `0017_document_previous_draft` — adds `Document.previous_factual_allegations_json` and `previous_factual_allegations_drafted_at` for the one-step regenerate undo
+- `0018_payoutrequest_processor_fields` — extends `PayoutRequest` with `payment_processor` (PayPal/Venmo/Zelle/Check/Other), `payment_method_details`, `payment_reference`, `paid_at`, `admin_notes`; reorders `notes` help text; adds `Meta.ordering = ['-requested_at']`
+- `0019_partner_adjustment_partnership_request` — creates `PartnerAdjustment` (signed `amount_cents`, `reason`, `created_by`) and `PartnershipRequest` (`requested_code`, `message`, `status`, `admin_notes`, `resolved_at`)
+
+**accounts migrations:**
+- `0001_initial` — User, Subscription, DocumentPack, SiteSettings, LegalDocument
+- `0002_user_is_revenue_partner` — adds `User.is_revenue_partner` BooleanField (gates `/partner/` access)
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`)
 ```json
@@ -433,6 +480,48 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 - Chips set both Alpine state AND the Flatpickr instance via `setDate(value, false)` so the popup stays in sync.
 - Dark-mode CSS overrides match the popup to the app theme.
 
+### Partner Dashboard (`/partner/`)
+- **Access gating** — `documents/views.py:_is_partner` allows `is_revenue_partner OR is_staff`. View at `/partner/` renders `templates/partner/dashboard.html`.
+- **Stats helper** — `documents/services/partner_stats.py:get_partner_stats(user)` returns a dict with: `cut_percent`, `codes` (queryset), `sales_count`, `gross_cents/dollars`, `cut_cents/dollars` (sales cut + adjustments), `paid_out_cents/dollars`, `pending_cents/dollars`, `unpaid_balance_cents/dollars`, `recent_sales` (list of dicts with `used_at`, `buyer_name`, `buyer_email`, `code`, `amount_dollars`, `cut_dollars`), `payouts` (queryset), `has_open_request`, `adjustments` (list with precomputed `amount_display`), `sales_cut_*`, `adjustments_*`.
+- **Adjustments fold in** — `cut_cents = sales_cut_cents + adjustments_cents`, so a `PartnerAdjustment(+500)` bumps the unpaid balance by $5; a `PartnerAdjustment(-1000)` clawbacks $10. Dashboard shows the adjustments table only when there are rows (date / reason / signed `+$X.XX` or `-$X.XX`).
+- **Payout request modal** — Bootstrap modal with `payment_processor` select, `payment_method_details` textarea (PayPal email, Venmo handle, Zelle phone/email, mailing address for check), optional `notes`. Posts to `/partner/request-payout/`.
+- **Min balance + open-request guard** — `PARTNER_MIN_PAYOUT_CENTS=2000`. Below that the button is disabled with a tooltip. While a `pending`/`approved` PayoutRequest exists for the user, the button shows "Request pending" disabled.
+- **Admin email** — `partner_request_payout` calls `send_mail(subject="[file1983] Payout request: $X from email", to=PARTNER_PAYOUT_NOTIFY_EMAIL, fail_silently=True)` with partner info + deep link to the admin record. Same pattern in `accounts/views.py:request_partnership` for partnership requests.
+
+### Partnership Request Flow (self-serve onboarding)
+- **Profile form** (`templates/accounts/profile.html`) — non-partners see a "Request Partnership" form: desired code (`pattern="[A-Za-z0-9_-]+"`, max 30 chars) + optional message. Pending state replaces the form on next view.
+- **Submission** — `accounts/views.py:request_partnership` (POST-only). Blocks duplicate pending requests. Creates a `PartnershipRequest`, emails admin.
+- **Auto-grant on approval** — `documents/admin.py:PartnershipRequestAdmin.save_model` calls `_grant_partnership(request, obj)` when status=approved:
+  - Sets `user.is_revenue_partner = True` if not already
+  - Calls `_unique_promo_code(requested, user)` to find a free code: tries the requested code, falls back to `REQUESTED2`, `REQUESTED3`, ... up to 100; if `requested` is empty, falls back to email prefix uppercased
+  - Creates `PromoCode(code=found, discount_type='fixed', discount_value=50, is_active=True, created_by=user)` — $50 off matches the $99 discounted price
+  - Skips creation if the user already has an active code (admin-friendly message)
+- **Manual override** — admin can still flip `User.is_revenue_partner` and create the PromoCode by hand in admin if they want a different code or different discount type.
+
+### Canonical Domain Redirect (`PRIMARY_DOMAIN`)
+- **Setting** — `PRIMARY_DOMAIN = config('PRIMARY_DOMAIN', default='auditfile1983.com')` in `config/settings.py`.
+- **Middleware** — `documents/middleware.py:CanonicalDomainMiddleware` runs on every request. Skips when `DEBUG=True`. Skips localhost / IPs / `*.onrender.com`. For any other host that isn't `PRIMARY_DOMAIN`, returns a 301 redirect to `https://{PRIMARY_DOMAIN}{request.get_full_path()}`. `www.<canonical>` also redirects to bare canonical.
+- **Template access** — `config/context_processors.py:site_settings` injects `PRIMARY_DOMAIN` into every template. Used by the profile-page shareable referral link: `https://{{ PRIMARY_DOMAIN }}/?ref={{ code.code }}`.
+- **To swap canonical** — set Render env var `PRIMARY_DOMAIN=file1983.com` (or whatever) and Render auto-redeploys. No code or DNS change needed.
+
+### Referral Capture Middleware (`?ref=CODE`)
+- **`documents/middleware.py:CaptureReferralMiddleware`** — runs on every request. When `request.GET.get('ref')` is set:
+  - Looks up `PromoCode.objects.filter(code__iexact=ref, is_active=True).first()`
+  - If found AND not the requesting user's own code, stores the canonical-cased code in `request.session['referral_code']`
+  - Latest valid `?ref=` clobbers any older session value
+  - Invalid / inactive codes are silently ignored — no garbage in session
+- **Pre-fill at checkout** — `payment_start` view reads `request.session.get('referral_code')` and passes as `prefilled_code` to `templates/documents/payment_start.html`. The Alpine `paymentForm` seeds `code` from `prefilledCode` and `init()` triggers `checkCode()` so the discounted price renders without typing.
+- **Pre-fill at signup** — `accounts/views.py:register` reads `?ref=` directly OR `session['referral_code']` and passes as initial value to `RegisterForm`. Template shows a green "From referral link" badge.
+- **Linking referrer at signup** — `RegisterForm.save()._resolve_referrer()` does a two-tier lookup: first `User.referral_code` (legacy random string), then falls back to `PromoCode.code` and uses `created_by` as the referrer. Sets `User.referred_by` so admin can see who referred whom.
+
+### Password Reset Flow
+- **URL config** — `accounts/urls.py` namespaces `success_url=reverse_lazy('accounts:password_reset_done')` and `accounts:password_reset_complete`. (Without explicit `success_url`, Django's default `reverse_lazy('password_reset_done')` returns NoReverseMatch because of `app_name='accounts'`.)
+- **Templates** — `password_reset.html`, `password_reset_done.html`, `password_reset_confirm.html`, `password_reset_complete.html` in `templates/accounts/`. Email body templates: `templates/accounts/emails/password_reset_email.txt`, `password_reset_subject.txt`.
+- **`LogoutOnPasswordResetConfirmView`** (in `accounts/views.py`) — subclass of Django's `PasswordResetConfirmView` that logs out the current session in `dispatch()`. Avoids the confusion of a logged-in user resetting a different account.
+- **Target-email banner** — `password_reset_confirm.html` shows `Resetting password for {{ form.user.email }}` so users see exactly which account is being changed.
+- **Email backend** — `EMAIL_BACKEND` auto-defaults to SMTP when `DEBUG=False`, console when `DEBUG=True`. Means prod sends real email without an env var; dev prints to console without configuration. SMTP via Namecheap Private Email at `mail.privateemail.com:587` STARTTLS, login `rights@auditfile1983.com`.
+- **Logging** — `LOGGING` in `config/settings.py` routes `django.request` ERROR-level logs (and `django` INFO) to stderr so 500 tracebacks appear in Render logs.
+
 ### Pro se voice rule
 Per design discussion: keep factual allegations in **plain first person** ("On March 3, 2024, I was filming…"), not third-person legalese. Reserve formal legal phrasing for the count headings and the prayer for relief — those are unavoidably formal. **Do not** use Bluebook parentheticals, signal abbreviations, or Latin beyond the few unavoidable terms (e.g. "pro se" itself). Goal: a complaint that reads as competent but unmistakably written by the plaintiff. This is enforced via the `complaint_drafter.py` system prompt.
 
@@ -529,35 +618,29 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 
 ## Roadmap Status
 
-> **Heads-up on app placement:** `PromoCode`, `PromoCodeUsage`, and `PayoutRequest` all live in **`documents/models.py`** (not `accounts/`). The `accounts` app only has `User`, `Subscription`, `DocumentPack`, `SiteSettings`, `LegalDocument`. Earlier drafts of this doc said `accounts.PromoCode` / `accounts.PayoutRequest` — those were wrong.
+> **Heads-up on app placement:** `PromoCode`, `PromoCodeUsage`, `PayoutRequest`, `PartnerAdjustment`, `PartnershipRequest` all live in **`documents/models.py`** (not `accounts/`). The `accounts` app only has `User`, `Subscription`, `DocumentPack`, `SiteSettings`, `LegalDocument`. Earlier drafts of this doc said `accounts.PromoCode` / `accounts.PayoutRequest` — those were wrong.
 
-**Shipped:** pricing model, Stripe Checkout (Phases 2 + 3), Stripe Phase 4 (finalize + lock on download), per-document AI quota, document locking. See **Build Status → Done** and **What's Built — Detail** for commit SHAs and full shape.
+**Shipped:** pricing model, Stripe Checkout (Phases 2 + 3), Stripe Phase 4 (finalize + lock on download), per-document AI quota, document locking, **full partner dashboard (Phases 1–4)**, partnership self-request + auto-grant on approval, balance adjustments, canonical-domain redirect, password-reset SMTP+UX hardening. See **Build Status → Done** and **What's Built — Detail** for commit SHAs and full shape.
 
-**Stale schema cleanup:** the unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are not in any code path. Safe to drop in a future migration when convenient.
+**Decided knobs:**
+- Referrer cut is **20% of $99 = $19.80 per sale** (`settings.PARTNER_CUT_PERCENT=20`)
+- Min payout balance: $20 (`settings.PARTNER_MIN_PAYOUT_CENTS=2000`)
+- Partners see buyer name + email on sales rows (transparency)
+- CSV export is admin-only (no partner-side export)
+- Auto-granted PromoCode for approved partners: `discount_type='fixed', discount_value=50` ($149 → $99)
 
-### Open: Self-serve partner dashboard
-**Decided:** referrer cut is **20% of $99 = $19.80 per sale** (`settings.PARTNER_CUT_PERCENT=20`).
+**Stale schema cleanup:** unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are not in any code path. Safe to drop in a future migration when convenient.
 
-**Foundation already shipped (commit `ac406b7`):**
-- Every `PromoCode` has `created_by` set to a referrer User
-- Every sale through that code creates a `PromoCodeUsage` row linking code → buyer → document, with `amount_cents` capturing the actual sale price
-- Admin already shows per-code revenue + partner cut + CSV export. You can run a payout cycle today entirely through the admin.
-
-**What's left to build for `/partner/`:**
-- A view that lets a referrer log into the regular auth, then visit `/partner/` and see their own stats: total sales count, total gross revenue (sum of `amount_cents`), total cut owed (`× 0.20`), recent sales table (date / buyer email / amount / cut), and payout history (existing `documents.PayoutRequest` model).
-- A "Request payout" button — creates a `PayoutRequest` row in `pending` status; admin reviews and marks `approved`/`paid` manually.
-- Auth gate: simplest is a `User.is_revenue_partner` BooleanField (one migration), then `@user_passes_test(lambda u: u.is_revenue_partner or u.is_staff)` on the partner views. Or use a `Group`.
-
-**Open questions before building:**
-- Should partners see WHO bought (buyer email/name) or just aggregate stats? Privacy vs transparency tradeoff.
-- Should they be able to download their own CSV, or only request payouts through admin?
-- Do partners need a way to share their referral link directly (e.g. `https://file1983.com/?ref=PARTNERCODE` that pre-fills the promo code at checkout)?
+### Open
+- **Landing page CMS** — `public_pages` is currently a stub. Highest-impact next feature: `auditfile1983.com` is now the primary domain users land on, so this is the homepage for everyone (including partner-shared `?ref=CODE` links). Should be admin-editable copy + simple section model. Could re-purpose the existing `accounts.SiteSettings` model or add a new `LandingSection` model.
+- **Stripe Live mode** — generate live API keys in Stripe, create live webhook endpoint pointed at `https://auditfile1983.com/stripe/webhook/` with events `checkout.session.completed` + `checkout.session.expired`, update `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET` env vars on Render. The code path is identical; only env vars change. **Caveat:** test-mode `PromoCode` and `PromoCodeUsage` rows are still in the DB — audit before going live so test partners don't accidentally get real attribution.
+- Per-claim case-law selection UI (Option B)
+- Playwright/Selenium browser tests
 
 ### Working agreement
 User wants to take features one at a time, structured. Don't bundle. The next Claude session should ask the user which of these to tackle first:
-- Partner dashboard (above)
-- Landing page CMS (`public_pages` is currently a stub)
-- Switch Stripe to live mode
+- Landing page CMS (recommended — primary domain = first impression)
+- Stripe Live mode (when ready for real payments)
 - Something else the user has in mind
 
 Don't assume — ask.
