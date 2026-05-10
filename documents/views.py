@@ -1558,7 +1558,14 @@ def stripe_webhook(request):
 
     event_type = event.get('type', '')
     if event_type == 'checkout.session.completed':
-        result = handle_checkout_completed(event['data']['object'])
+        try:
+            result = handle_checkout_completed(event['data']['object'])
+        except Exception as exc:
+            # Return JSON instead of letting Django's HTML 500 page hide the
+            # real error from the Stripe deliveries view. 500 keeps Stripe's
+            # automatic retry behavior intact.
+            logger.exception('Stripe webhook handler crashed: %s', exc)
+            return JsonResponse({'error': f'{type(exc).__name__}: {exc}'}, status=500)
         logger.info('Stripe webhook checkout.session.completed -> %s', result['status'])
     elif event_type == 'checkout.session.expired':
         logger.info('Stripe webhook checkout.session.expired (no-op)')
