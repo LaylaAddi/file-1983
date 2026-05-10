@@ -1650,10 +1650,12 @@ def payment_start(request, document_slug):
             return redirect('documents:payment_start', document_slug=doc.slug)
         return redirect(result['url'])
 
+    prefilled_code = (request.session.get('referral_code') or '').strip()
     return render(request, 'documents/payment_start.html', {
         'document': doc,
         'price_full_cents': settings.PRICE_FULL_CENTS,
         'price_discounted_cents': settings.PRICE_DISCOUNTED_CENTS,
+        'prefilled_code': prefilled_code,
     })
 
 

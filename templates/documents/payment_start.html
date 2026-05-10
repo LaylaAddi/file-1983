@@ -7,12 +7,21 @@
      x-data="paymentForm({
         fullCents: {{ price_full_cents }},
         discountedCents: {{ price_discounted_cents }},
-        validateUrl: '{% url 'documents:payment_validate_promo' document.slug %}'
-     })">
+        validateUrl: '{% url 'documents:payment_validate_promo' document.slug %}',
+        prefilledCode: '{{ prefilled_code|escapejs }}'
+     })"
+     x-init="init()">
 
   <a href="{% url 'documents:wizard_draft' document.slug %}" class="text-decoration-none small text-muted">
     <i class="bi bi-arrow-left"></i> Back to draft
   </a>
+
+  {% if prefilled_code %}
+  <div class="alert alert-success py-2 small mt-2 mb-0" role="alert">
+    <i class="bi bi-tag-fill me-1"></i>
+    Referral code <code>{{ prefilled_code }}</code> applied. Discount will appear once validated.
+  </div>
+  {% endif %}
 
   <h1 class="mt-2 mb-1" style="font-family:'Playfair Display',serif;">Download your complaint</h1>
   <p class="text-muted">Pay once for a clean, watermark-free PDF of your complaint.</p>
@@ -40,7 +49,12 @@
   <form method="post" action="{% url 'documents:payment_start' document.slug %}">
     {% csrf_token %}
 
-    <label for="promo_code" class="form-label small fw-semibold">Promo code (optional)</label>
+    <label for="promo_code" class="form-label small fw-semibold">
+      Promo code (optional)
+      {% if prefilled_code %}
+      <span class="badge bg-success-subtle text-success-emphasis ms-1">From referral link</span>
+      {% endif %}
+    </label>
     <div class="input-group mb-1">
       <input type="text" id="promo_code" name="promo_code" class="form-control"
              autocomplete="off" autocapitalize="characters"
@@ -70,11 +84,17 @@ function paymentForm(config) {
     fullCents: config.fullCents,
     discountedCents: config.discountedCents,
     validateUrl: config.validateUrl,
-    code: '',
+    code: config.prefilledCode || '',
     currentCents: config.fullCents,
     promoApplied: false,
     message: '',
     checking: false,
+
+    init() {
+      if (this.code) {
+        this.checkCode();
+      }
+    },
 
     formatCents(c) {
       return '$' + (c / 100).toFixed(2);
