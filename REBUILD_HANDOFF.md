@@ -10,6 +10,50 @@ each section → final review → AI drafts factual allegations → user reviews
 
 ---
 
+## Where we are right now (read this first)
+
+**Status:** MVP is feature-complete and live on Render at `file1983.com` (Stripe in sandbox/test mode). Recent test users have completed full purchase flows successfully.
+
+**What works end-to-end today:**
+- Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → clean PDF download → finalize lock
+- Promo codes track referrer attribution; admin shows per-code revenue and the partner cut
+- AI quota limits prevent runaway OpenAI spend on a single document
+- Free-doc cap stops users from creating unlimited drafts
+- One-step undo restores the previous draft after a regenerate
+- Stale-draft block forces users to regenerate before viewing an outdated draft
+
+**Latest commits (most recent on top), all on `master` and deployed:**
+- `1d20253` — Dark-mode contrast boost for outline buttons across the wizard
+- `ecdbfe4` — Stale-draft view block + one-step undo of regenerate (migration 0017)
+- `6e7179d` — AI quota per document + Finalize & Lock (Stripe Phase 4 + abuse limits, migration 0016)
+- `ac406b7` — Admin reporting: promo-code revenue, partner cut, CSV export (migration 0015)
+- `820fd5d` — Stripe webhook JSON-payload parse (works around StripeObject .get() removal in v10+)
+- `357bbc5` — Stripe webhook bulletproof exception handling
+- `fa139f2` — Stripe webhook surfaces handler exceptions as JSON (debugging aid)
+- `77d41f1` — Stripe Phase 3: webhook + attachment download (migration 0014)
+- `95070c5` — Stripe Phase 2: Checkout Session + promo validation + Pay button
+
+**Settings worth knowing about (all in `config/settings.py`):**
+- `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` — list and promo prices
+- `PARTNER_CUT_PERCENT=20` — referrer earns $19.80 on each $99 sale
+- `AI_QUOTA_FREE=3` / `AI_QUOTA_PAID=150` — per-document AI call limits
+- `FREE_DOCS_PER_USER=2` — max draft documents in flight per user
+
+**What the next Claude should know about user preferences:**
+- User wants step-by-step instructions, not autonomous large changes
+- User can't always copy text outside of code blocks — always wrap commands, URLs, codes in triple backticks
+- User is on Windows / PowerShell; chained commands need newlines, not `&&`
+- User does NOT want to use terminal heavily — prefer admin UI and clickable URLs
+- User tests on production Render with a few test accounts (no local Docker setup)
+- Workflow: develop on `claude/<short-description>` branch → push → user merges to master locally → Render auto-deploys
+
+**Likely next features (user's open roadmap, prioritized):**
+1. Self-serve partner dashboard (`/partner/`) — referrers log in to see their own sales/earnings/payout history
+2. Landing page CMS (`public_pages` is currently a stub)
+3. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties
+
+---
+
 ## Git Setup
 
 ### Pull latest from master
@@ -115,8 +159,9 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 /documents/<slug>/wizard/step6/             → Step 6: damages, relief, prior complaints
 /documents/<slug>/wizard/step7/             → Step 7: final review (read-only with edit links)
 /documents/<slug>/wizard/caselaw/           → Case law strategy choice (post-review, optional)
-/documents/<slug>/wizard/draft/             → AI-drafted factual allegations + full complaint preview, editable
-/documents/<slug>/wizard/generate/          → WeasyPrint PDF (watermarked unless paid). ?download=1 forces save dialog instead of inline browser preview
+/documents/<slug>/wizard/draft/             → AI-drafted factual allegations + full complaint preview, editable. Stale drafts redirect to Step 7
+/documents/<slug>/wizard/draft/undo/        → POST: restore previous_factual_allegations snapshot (single-step undo of regenerate)
+/documents/<slug>/wizard/generate/          → WeasyPrint PDF (watermarked unless paid). ?download=1 forces save dialog; ?finalize=1 (paid only) locks the doc to 'finalized' before serving
 /documents/<slug>/pay/                      → Pay $149 (or $99 with promo code) — creates Stripe Checkout Session
 /documents/<slug>/pay/validate-promo/       → AJAX: GET ?code=XYZ → live promo validation for the pay page
 /documents/<slug>/pay/success/              → Stripe success_url; offers clean PDF download
@@ -177,17 +222,19 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - [x] **Step 7 surfaces the Regenerate button** (commit `ddd7eaa`) — three states on the action area: no draft → "Generate Complaint"; draft exists & fresh → "Open Draft" primary + small "Regenerate" secondary; draft exists & stale → yellow banner + primary "Regenerate Draft" + small "Open Stale Draft" link. Both Regenerate paths POST `action=regenerate` to `wizard_draft` and land on the fresh draft, with confirm-before-regenerate
 - [x] **Stripe Phase 2 — Checkout Session + promo validation** (commit `95070c5`) — `documents/services/stripe_service.py` with `validate_promo_for_user()` (DB-side `PromoCode` lookup, blocks reuse via `PromoCodeUsage` uniqueness) and `create_checkout_session()` (inline `price_data`, metadata carries `document_slug`, `user_id`, `promo_code_id` for the webhook). Pay page at `/documents/<slug>/pay/` with live AJAX promo validation (400ms debounce, $149 strikethrough → green $99 when valid). Pricing constants `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` in `config/settings.py`. Replaced obsolete `STRIPE_PRICE_*` env vars
 - [x] **Stripe Phase 3 — webhook + attachment download** (commit `77d41f1`) — webhook at `/stripe/webhook/` (csrf_exempt, signature-verified) handles `checkout.session.completed`: atomically flips `payment_status='paid'`, sets `paid_at`, records `PromoCodeUsage`, increments `PromoCode.times_used`. Idempotent via new `Document.stripe_session_id` (indexed). `wizard_generate` honors `?download=1` for save-dialog (vs inline preview); paid-state Download button + payment success page both use it. Migration `0014_document_payment_fields`
-- [x] Migrations through `0014_document_payment_fields` (accounts: `0001_initial`)
+- [x] **Stripe webhook compatibility hardening** (commits `fa139f2`, `357bbc5`, `820fd5d`) — Webhook view wrapped in defensive try/except so handler exceptions surface as JSON (not Django HTML 500). Worked around stripe-python v10+ removing `dict.get()` from `StripeObject` by re-parsing `request.body` as plain JSON after signature verification
+- [x] **Admin reporting for referrals** (commit `ac406b7`, migration `0015`) — `PromoCodeUsage.amount_cents` captures the actual sale price at usage time; settings `PARTNER_CUT_PERCENT=20` (referrer earns $19.80 on each $99 sale). PromoCode admin list shows Sales count + Total revenue + Partner cut as sortable annotated columns. New PromoCodeUsage admin page with date hierarchy, code/referrer filters. CSV export action on both pages — selected rows → "Action" dropdown → download payout sheet
+- [x] **Stripe Phase 4 + AI abuse limits combined** (commit `6e7179d`, migration `0016`) — Per-document AI quota: 3 calls free, 150 after payment (counter resets to 0 on payment via webhook). Counted: story extraction, draft regeneration, addendums (court-lookup fallback NOT counted). Live counter badge on draft page (yellow at 1 left, red at 0). Free-doc cap of 2 in-flight drafts per user (paid + finalized don't count, staff exempt). Document `locked_at` field set by Finalize & Download flow → status='finalized' + read-only across all wizard step POSTs (lock-blocked via `_check_locked_redirect()` helper). Two-button download UX on draft page for paid docs: Preview clean PDF (no lock) vs Finalize & Download (confirm dialog → lock → save dialog)
+- [x] **Stale-draft view block + one-step undo** (commit `ecdbfe4`, migration `0017`) — Stale drafts can no longer be opened: `wizard_draft` GET redirects to Step 7 when wizard data was edited after the last draft write (locked docs exempt). Step 7 banner is bigger and the "Open Stale Draft" button removed entirely; only "Regenerate Draft" remains. `Document.previous_factual_allegations_json` snapshots the old draft on each regenerate. New `wizard_draft_undo` view + button on draft page lets user restore the previous version (single-use; snapshot cleared after restore). `Document.has_undo()` helper for templates
+- [x] **Dark-mode outline button contrast** (commit `1d20253`) — Wizard "Add Evidence", "Add Defendant", "Add Claim", "Restore previous draft", and Back/Cancel buttons were nearly invisible against the dark theme's `#1a1a2e` background because patriot-blue (`#002868`) is too dark. Added `[data-theme="dark"] .btn-outline-{primary, secondary, warning, danger, info}` overrides: bright accent color, 2px border, subtle filled tint at rest, fully filled on hover. Light mode unchanged
+- [x] Migrations through `0017_document_previous_draft` (accounts: `0001_initial`)
 
 ### Open
+- [ ] **Self-serve partner dashboard** at `/partner/` — referrers log in to see their own codes, sales count, gross revenue, partner cut earned, and payout history. Foundation already in place (per-code revenue and `PayoutRequest` model); this is the UI layer. See Pending Roadmap §5
+- [ ] **Landing page CMS** — `public_pages` is currently a stub
 - [ ] Per-claim case law selection UI (Option B — let users curate which cases apply to which claims rather than auto-pick by amendment). Only worth building once we see whether users actually want curation; the auto-pick covers most auditor cases
-- [ ] **Stripe Phase 4 — gate `wizard_generate` + lock on download** — `wizard_generate` should redirect to `/pay/` when `payment_status='draft'` and `?download=1` is present (the inline preview path can stay open). On clean PDF download, flip status to `'finalized'` and set `Document.locked_at`. Then guard all wizard edit views against locked docs
-- [ ] **AI abuse limits per document** — cap GPT calls per doc to prevent abuse (extractions + addendums + draft regenerations). See "Pending Roadmap"
-- [ ] **Document locking after PDF download** — `Document.locked_at`; locked docs become read-only. See "Pending Roadmap"
-- [ ] **Partner revenue dashboard** — show partner total revenue, expenses, net profit, 50% share, payout history. Use existing `PayoutRequest` model. See "Pending Roadmap"
-- [ ] Landing page CMS (`public_pages` is currently a stub)
-- [ ] **Deploy to Render** — deploy prep is done (commit `0d4212e`); remaining work is the actual Render service creation, DNS, env vars. See "Next Step: Deploy"
 - [ ] Playwright/Selenium browser tests for JS interactions (Alpine cards, timestamp spinner, draft textareas, voice button, addendum modal)
+- [ ] Switch Stripe to **Live mode** when ready to take real payments — generate live API keys, create a separate live webhook endpoint, update `STRIPE_*` env vars on Render. The code path is identical; only env vars change
 
 ---
 
@@ -278,6 +325,9 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - `0012_wizardsession_story_addendums` — adds `WizardSession.story_addendums` JSONField (audit trail of per-category addendums)
 - `0013_document_factual_allegations_drafted_at` — adds the timestamp used by stale-draft detection
 - `0014_document_payment_fields` — adds `Document.stripe_session_id` (indexed, for webhook idempotency) and `Document.paid_at`
+- `0015_promocodeusage_amount_cents` — adds `PromoCodeUsage.amount_cents` to capture the actual sale price for partner-cut accounting
+- `0016_document_ai_quota_lock` — adds `Document.ai_calls_used` (PositiveInt, default 0) and `Document.locked_at` (DateTime, null)
+- `0017_document_previous_draft` — adds `Document.previous_factual_allegations_json` and `previous_factual_allegations_drafted_at` for the one-step regenerate undo
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`)
 ```json
@@ -346,6 +396,26 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 - **Subscribed events:** `checkout.session.completed` (the only one that matters today), `checkout.session.expired` (logged, no-op).
 - **Pay button** lives on the draft page: unpaid sees outlined "Preview (watermarked)" + primary "Pay & download clean PDF"; paid sees primary "Download clean PDF" linking to `wizard_generate?download=1`. Live promo code validation via `/pay/validate-promo/` (400ms debounce).
 - **Referrer foundation:** every `PromoCode` has a `created_by` user and every sale lands a `PromoCodeUsage` row linking code → user → document. Per-referrer revenue is queryable today; the partner dashboard (Pending §5) is the UI on top of this.
+
+### AI Quota + Document Locking (`documents/services/ai_quota.py`)
+- **Per-document AI quota** — `consume_ai_call(document)` atomically increments `Document.ai_calls_used`, raises `QuotaExceeded` if over limit. Counted call types: story extraction (`wizard_story` POST analyze), draft regeneration (`wizard_draft` POST `action=regenerate` AND initial GET-time generation), addendums (`wizard_addendum` POST). Court-lookup fallback intentionally skipped — automatic and small.
+- **Limits** — `AI_QUOTA_FREE=3` for unpaid drafts, `AI_QUOTA_PAID=150` for paid docs. Counter resets to 0 on payment via `handle_checkout_completed` so paid users get a fresh 150-call budget.
+- **Free document cap** — `document_create` view checks `Document.objects.filter(user=u, payment_status='draft').count() >= settings.FREE_DOCS_PER_USER` (default 2). Staff and superusers exempt.
+- **Quota UX** — `Document.ai_quota_state()` returns `{used, limit, remaining, exhausted, is_paid}`. Live counter badge on `wizard_draft.html` turns yellow at 1 left, red at 0. When exhausted on unpaid: redirect to `/pay/` with upgrade message. When exhausted on paid: warning saying "Finalize & download to use it, or contact support."
+- **Document locking** — `Document.locked_at` (DateTime null=True); `Document.is_locked()` helper. Set by `wizard_generate?finalize=1&download=1` flow when `payment_status='paid'`. Confirms via JS dialog: "Finalizing will lock this document. You won't be able to edit it or run any more AI calls. Are you sure?"
+- **Lock-blocking** — `_check_locked_redirect()` helper returns a redirect to `wizard_draft` with a flash if the doc is locked; called at the top of every wizard step POST (1-6), `wizard_caselaw_strategy` POST, `wizard_story` POST, `wizard_addendum`, and `wizard_draft` POST. GET requests still work (read-only viewing). Locked-state UI on draft page: banner + Save/Re-draft buttons hidden + "Re-download PDF" replaces "Finalize & Download". Lock icon on Finalized status badge in documents list.
+
+### One-step Undo of Regenerate (`documents/views.py:wizard_draft_undo`)
+- **Goal:** when a regenerate produces output the user doesn't like, let them roll back to what they had before the regenerate. Single level deep — one click of undo, then snapshot is consumed.
+- **Snapshot** — `_snapshot_current_draft(doc)` copies the current `factual_allegations_json` into `previous_factual_allegations_json` and stamps `previous_factual_allegations_drafted_at`. Called inside `wizard_draft` POST `action=regenerate` immediately before `_save_paragraphs(doc, new_paragraphs)`. NOT called for the GET-time initial generation (nothing to roll back to).
+- **Restore** — `wizard_draft_undo` view (POST-only at `/documents/<slug>/wizard/draft/undo/`): swaps `previous_*` back to current, clears the snapshot, refuses to act on locked docs.
+- **UI** — `Document.has_undo()` returns True when a non-empty snapshot exists. Blue info banner on draft page: "A previous draft is saved from before your last regenerate. [Restore previous draft]" with confirm dialog.
+
+### Stale-draft View Block (`documents/views.py:wizard_draft`)
+- **Goal:** prevent users from looking at outdated drafts after editing wizard data.
+- `wizard_draft` GET: when `paragraphs` exists AND not locked AND `_is_draft_stale(doc, session)`, redirect to Step 7 with warning flash. Locked docs are exempt — their draft is by definition the final version, even if `wizard_session.updated_at` would otherwise mark it stale.
+- Step 7 template: when stale, the "Open Stale Draft" button is gone — only the warning banner + "Regenerate Draft" button remain. Banner uses heading + body (not a one-line note) so it's harder to miss.
+- Regenerate path is allowed on stale docs (it FIXES the staleness).
 
 ### Stale Draft Detection (`documents/views.py:_is_draft_stale`)
 - Goal: when a user edits any wizard step (Step 2 time, Step 3 defendants, Step 4 claims, etc.) AFTER the AI has drafted the factual allegations, the cached narrative paragraphs are out of date.
@@ -474,37 +544,42 @@ These are agreed-upon next features with shape but not yet implemented. A fresh 
 ### 2. Stripe Checkout integration — DONE (Phases 2 + 3)
 See **Build Status → Done** for commits `95070c5` (Phase 2) and `77d41f1` (Phase 3), and **What's Built → Stripe Integration** for the full shape. Phase 4 (gate `wizard_generate` + lock on download) is still open — see Build Status.
 
-### 3. AI abuse limits per document
-**Agreed:** cap GPT calls per document. User selected no concrete numbers; reasonable defaults to propose:
-- 1 initial story extraction + 5 addendums + 3 draft regenerations (recommended)
-- Looser: 1 / 10 / 5 — Tighter: 1 / 3 / 2
-- Counter on `WizardSession`. When exceeded, show "limit reached — admin can bump in admin if needed". Admin override via the existing admin.
-- `User.has_unlimited_access()` already exists (returns True for staff/superuser/active subscription) — useful exemption hook.
+### 3. AI abuse limits per document — DONE
+Implemented in commit `6e7179d` with a single counter on `Document.ai_calls_used`. Final shape: 3 calls free, 150 after payment (counter resets on payment). Counted: story extraction, draft regeneration, addendums. See **Build Status → Done** and **What's Built → AI Quota + Document Locking** for the full spec.
 
-### 4. Document locking after PDF
-**Agreed shape:**
-- New `Document.locked_at` timestamp field
-- Locked = read-only — no wizard edits, no addendums, no re-draft, no regenerate
-- New complaint = `/documents/new/` → fresh document
-- Lock trigger: undecided between (a) on first clean PDF download (`payment_status='finalized'`) — strictest, or (b) on payment success (`payment_status='paid'`) — lets user re-download but stops further edits
+### 4. Document locking after PDF — DONE
+Shipped together with §3 in commit `6e7179d`. Lock trigger: option (a) — explicit user click on "Finalize & Download" on the draft page (with confirm dialog), which sets `Document.locked_at` and flips status to `'finalized'`. Re-download stays available; all wizard edit POSTs blocked via `_check_locked_redirect()`. Re-edits require a new document.
 
-### 5. Partner revenue dashboard
-**Agreed shape:**
-- A partner is marked via a new `User.is_revenue_partner` flag (or a Group). 50/50 split of (revenue − expenses).
-- **Foundation already in place:** every `PromoCode` has `created_by` (referrer); every sale lands a `PromoCodeUsage` row linking code → user → document. Per-referrer gross revenue is queryable today (`PromoCodeUsage.objects.filter(promo_code__created_by=partner).count() * 99`).
-- Still to build: `RevenueEntry` (date, amount, source, optional FK to Document) and `ExpenseEntry` (date, amount, category, description). Stripe webhook can auto-populate `RevenueEntry`.
-- `/partner/` dashboard: YTD revenue, expenses, net profit, partner's 50% share, recent transactions, payout history (use existing **`documents.PayoutRequest`**).
-- **Open question for user:** what % of each sale does a referrer receive? Common choices: 50% gross ($49.50/sale), 30% gross ($29.70/sale), or flat $25/sale.
-- **Open question for user:** which costs count as "expense" — Render hosting, OpenAI API spend, domain renewal, Stripe processing fees, owner pay? Decide before building.
+### 5. Self-serve partner dashboard
+**Decided:** referrer cut is **20% of $99 = $19.80 per sale** (`settings.PARTNER_CUT_PERCENT=20`).
+
+**Foundation already shipped (commit `ac406b7`):**
+- Every `PromoCode` has `created_by` set to a referrer User
+- Every sale through that code creates a `PromoCodeUsage` row linking code → buyer → document, with `amount_cents` capturing the actual sale price
+- Admin already shows per-code revenue + partner cut + CSV export. You can run a payout cycle today entirely through the admin.
+
+**What's left to build for `/partner/`:**
+- A view that lets a referrer log into the regular auth, then visit `/partner/` and see their own stats: total sales count, total gross revenue (sum of `amount_cents`), total cut owed (`× 0.20`), recent sales table (date / buyer email / amount / cut), and payout history (existing `documents.PayoutRequest` model).
+- A "Request payout" button — creates a `PayoutRequest` row in `pending` status; admin reviews and marks `approved`/`paid` manually.
+- Auth gate: simplest is a `User.is_revenue_partner` BooleanField (one migration), then `@user_passes_test(lambda u: u.is_revenue_partner or u.is_staff)` on the partner views. Or use a `Group`.
+
+**Open questions before building:**
+- Should partners see WHO bought (buyer email/name) or just aggregate stats? Privacy vs transparency tradeoff.
+- Should they be able to download their own CSV, or only request payouts through admin?
+- Do partners need a way to share their referral link directly (e.g. `https://file1983.com/?ref=PARTNERCODE` that pre-fills the promo code at checkout)?
 
 ### Approach
-User wants to take these one feature at a time, structured. Don't bundle.
+User wants to take features one at a time, structured. Don't bundle.
 
-**Feature dependencies** (current state):
-- §2 Stripe — DONE (Phases 2+3 shipped). Phase 4 (download gate + doc lock) is the next piece in this thread.
-- §3 abuse limits — independent; can ship anytime.
-- §4 doc locking — naturally folds into Stripe Phase 4 (lock trigger fires after first clean PDF download).
-- §5 partner dashboard — depends on §2 webhook (already shipped) for auto-population of revenue rows; otherwise independent.
+**Status of all five Pending Roadmap items:** §1 (pricing) DONE, §2 (Stripe Checkout) DONE, §3 (AI abuse limits) DONE, §4 (doc locking) DONE. §5 (self-serve partner dashboard) is the only one still open from this list.
+
+The next Claude session should ask the user which of these to tackle first:
+- §5 partner dashboard
+- Landing page CMS (`public_pages` is currently a stub)
+- Switch Stripe to live mode
+- Something else the user has in mind
+
+Don't assume — ask.
 
 ---
 
