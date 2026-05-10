@@ -79,13 +79,9 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 DATABASE_URL=postgresql://postgres:postgres@db:5432/file1983
 ADMIN_URL=manage-dev/
 OPENAI_API_KEY=                  ← required for extraction, court lookup fallback, draft generation
-STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_SINGLE=
-STRIPE_PRICE_3PACK=
-STRIPE_PRICE_MONTHLY=
-STRIPE_PRICE_ANNUAL=
+STRIPE_SECRET_KEY=               ← sk_test_... (sandbox) or sk_live_...
+STRIPE_PUBLISHABLE_KEY=          ← pk_test_... or pk_live_...
+STRIPE_WEBHOOK_SECRET=           ← whsec_... from Stripe Dashboard webhook destination
 EMAIL_HOST=mail.privateemail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=1
@@ -120,7 +116,12 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 /documents/<slug>/wizard/step7/             → Step 7: final review (read-only with edit links)
 /documents/<slug>/wizard/caselaw/           → Case law strategy choice (post-review, optional)
 /documents/<slug>/wizard/draft/             → AI-drafted factual allegations + full complaint preview, editable
-/documents/<slug>/wizard/generate/          → WeasyPrint PDF download (watermarked unless paid)
+/documents/<slug>/wizard/generate/          → WeasyPrint PDF (watermarked unless paid). ?download=1 forces save dialog instead of inline browser preview
+/documents/<slug>/pay/                      → Pay $149 (or $99 with promo code) — creates Stripe Checkout Session
+/documents/<slug>/pay/validate-promo/       → AJAX: GET ?code=XYZ → live promo validation for the pay page
+/documents/<slug>/pay/success/              → Stripe success_url; offers clean PDF download
+/documents/<slug>/pay/cancel/               → Stripe cancel_url; flashes message + redirects to draft
+/stripe/webhook/                            → Stripe webhook endpoint (csrf_exempt, signature-verified). Handles checkout.session.completed
 /documents/lookup-district-court/           → AJAX: GET ?city=&state= → court name JSON
 /api/v1/token/                              → JWT obtain
 /api/v1/token/refresh/                      → JWT refresh
@@ -174,11 +175,13 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - [x] **Stale draft detection** (commit `a416383`) — `Document.factual_allegations_drafted_at` timestamp set whenever the draft is regenerated or saved. `_is_draft_stale(doc, session)` returns True when `wizard_session.updated_at > factual_allegations_drafted_at`. Yellow banner on the draft page with inline "Re-draft now" button. Migration `0013`
 - [x] **Drafter prompt prefers structured data** (commit `800c1d4`) — `complaint_drafter.py` system prompt now explicit that structured wizard data (date/time/address/names/badges) reflects the user's most recent edits and wins on conflict; the story is the source of truth only for the sequence of events and what was said. Times rendered in 12-hour clock with am/pm
 - [x] **Step 7 surfaces the Regenerate button** (commit `ddd7eaa`) — three states on the action area: no draft → "Generate Complaint"; draft exists & fresh → "Open Draft" primary + small "Regenerate" secondary; draft exists & stale → yellow banner + primary "Regenerate Draft" + small "Open Stale Draft" link. Both Regenerate paths POST `action=regenerate` to `wizard_draft` and land on the fresh draft, with confirm-before-regenerate
-- [x] Migrations through `0013_document_factual_allegations_drafted_at` (accounts: `0001_initial`)
+- [x] **Stripe Phase 2 — Checkout Session + promo validation** (commit `95070c5`) — `documents/services/stripe_service.py` with `validate_promo_for_user()` (DB-side `PromoCode` lookup, blocks reuse via `PromoCodeUsage` uniqueness) and `create_checkout_session()` (inline `price_data`, metadata carries `document_slug`, `user_id`, `promo_code_id` for the webhook). Pay page at `/documents/<slug>/pay/` with live AJAX promo validation (400ms debounce, $149 strikethrough → green $99 when valid). Pricing constants `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` in `config/settings.py`. Replaced obsolete `STRIPE_PRICE_*` env vars
+- [x] **Stripe Phase 3 — webhook + attachment download** (commit `77d41f1`) — webhook at `/stripe/webhook/` (csrf_exempt, signature-verified) handles `checkout.session.completed`: atomically flips `payment_status='paid'`, sets `paid_at`, records `PromoCodeUsage`, increments `PromoCode.times_used`. Idempotent via new `Document.stripe_session_id` (indexed). `wizard_generate` honors `?download=1` for save-dialog (vs inline preview); paid-state Download button + payment success page both use it. Migration `0014_document_payment_fields`
+- [x] Migrations through `0014_document_payment_fields` (accounts: `0001_initial`)
 
 ### Open
 - [ ] Per-claim case law selection UI (Option B — let users curate which cases apply to which claims rather than auto-pick by amendment). Only worth building once we see whether users actually want curation; the auto-pick covers most auditor cases
-- [ ] **Stripe payment integration** — gate `wizard_generate` view on `document.payment_status == 'paid'` once wired (the watermark already auto-disappears when payment_status='paid'). See "Pending Roadmap" below for the agreed shape
+- [ ] **Stripe Phase 4 — gate `wizard_generate` + lock on download** — `wizard_generate` should redirect to `/pay/` when `payment_status='draft'` and `?download=1` is present (the inline preview path can stay open). On clean PDF download, flip status to `'finalized'` and set `Document.locked_at`. Then guard all wizard edit views against locked docs
 - [ ] **AI abuse limits per document** — cap GPT calls per doc to prevent abuse (extractions + addendums + draft regenerations). See "Pending Roadmap"
 - [ ] **Document locking after PDF download** — `Document.locked_at`; locked docs become read-only. See "Pending Roadmap"
 - [ ] **Partner revenue dashboard** — show partner total revenue, expenses, net profit, 50% share, payout history. Use existing `PayoutRequest` model. See "Pending Roadmap"
@@ -274,6 +277,7 @@ DEFAULT_FROM_EMAIL=rights@file1983.com
 - `0011_pdfbranding_watermark_textfield` — `watermark_text` CharField → TextField, default updated to two-line "DRAFT\nNOT FOR FILING"
 - `0012_wizardsession_story_addendums` — adds `WizardSession.story_addendums` JSONField (audit trail of per-category addendums)
 - `0013_document_factual_allegations_drafted_at` — adds the timestamp used by stale-draft detection
+- `0014_document_payment_fields` — adds `Document.stripe_session_id` (indexed, for webhook idempotency) and `Document.paid_at`
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`)
 ```json
@@ -331,6 +335,17 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 - After merge, the corresponding section of `WizardSession.ai_analysis` is refreshed so the next addendum sees the latest snapshot.
 - View: `wizard_addendum` (POST-only, `/documents/<slug>/wizard/addendum/`). Form fields: `category`, `text`. Returns to summary page with a flash message.
 - Summary page (`wizard_summary.html`): per-item "Add details" / "Add more" buttons (color-coded by status: red=missing, amber=partial, gray=found) plus an "Add details about something else" picker for categories not surfaced inline (relief, prior complaints, contact info, gov entity).
+
+### Stripe Integration (`documents/services/stripe_service.py`)
+- **Pricing:** one product, `$149` full price, `$99` with valid promo code. Constants `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` in `config/settings.py`.
+- **Discount mechanism:** validated against our own `documents.PromoCode` table (NOT Stripe Coupons — keeps referrer attribution simple via `PromoCode.created_by`). Final amount is passed inline to Checkout via `price_data`, so no Stripe Product/Price needs to be pre-created.
+- **`validate_promo_for_user(code, user)`** returns `{valid, cents, original_cents, message, code}`. Blocks reuse via existing `PromoCodeUsage.unique_together(promo_code, user)`. Honors `discount_type` of `percent`, `fixed`, or `free`.
+- **`create_checkout_session(document, user, code, request)`** — creates the Stripe Checkout Session, attaches `metadata={document_slug, user_id, promo_code_id}` for the webhook to pick up.
+- **Webhook** at `/stripe/webhook/` (csrf_exempt, mounted in `config/urls.py`): `construct_event()` verifies signature with `STRIPE_WEBHOOK_SECRET`; `handle_checkout_completed()` runs in a single transaction, sets `payment_status='paid'` + `paid_at` + `stripe_session_id`, then creates `PromoCodeUsage` and increments `PromoCode.times_used` if a code was used.
+- **Idempotency:** `Document.stripe_session_id` is checked first — duplicate webhook delivery short-circuits without re-flipping status. Won't downgrade a `finalized` doc back to `paid`.
+- **Subscribed events:** `checkout.session.completed` (the only one that matters today), `checkout.session.expired` (logged, no-op).
+- **Pay button** lives on the draft page: unpaid sees outlined "Preview (watermarked)" + primary "Pay & download clean PDF"; paid sees primary "Download clean PDF" linking to `wizard_generate?download=1`. Live promo code validation via `/pay/validate-promo/` (400ms debounce).
+- **Referrer foundation:** every `PromoCode` has a `created_by` user and every sale lands a `PromoCodeUsage` row linking code → user → document. Per-referrer revenue is queryable today; the partner dashboard (Pending §5) is the UI on top of this.
 
 ### Stale Draft Detection (`documents/views.py:_is_draft_stale`)
 - Goal: when a user edits any wizard step (Step 2 time, Step 3 defendants, Step 4 claims, etc.) AFTER the AI has drafted the factual allegations, the cached narrative paragraphs are out of date.
@@ -396,7 +411,9 @@ The app is feature-complete for an MVP launch except payment. Goal: get it live 
    - `EMAIL_HOST=mail.privateemail.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=1`
    - `EMAIL_HOST_USER=rights@file1983.com`, `EMAIL_HOST_PASSWORD=<rotated value>`, `DEFAULT_FROM_EMAIL=rights@file1983.com`
    - `ADMIN_URL=<something-non-obvious>/`
-   - Stripe keys can stay blank until ready
+   - `STRIPE_SECRET_KEY=sk_test_...` (sandbox) — required for `/pay/` to function
+   - `STRIPE_PUBLISHABLE_KEY=pk_test_...`
+   - `STRIPE_WEBHOOK_SECRET=whsec_...` — created in Stripe Dashboard → Developers → Webhooks (or "Event destinations" in the new UI). Endpoint URL: `https://file1983.com/stripe/webhook/`. Subscribe to events `checkout.session.completed` and `checkout.session.expired`. Without this var set, the webhook returns 500 and `payment_status` will not auto-flip to `paid`
 4. **Static files** — `whitenoise` is already in middleware and `STATICFILES_STORAGE` is `CompressedManifestStaticFilesStorage`. Render needs `collectstatic` to run on each deploy. Add a build step in render.yaml (or the dashboard's Build Command):
    ```
    pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
@@ -447,20 +464,15 @@ The app is feature-complete for an MVP launch except payment. Goal: get it live 
 
 These are agreed-upon next features with shape but not yet implemented. A fresh Claude can pick any of these up.
 
-### 1. Pricing model
-**Agreed:** one price per complaint. The old `price_3pack` / `price_monthly` / `price_annual` concepts are scrapped — the site was never live, so no migration concern, but `accounts/SiteSettings` still has those fields.
+> **Heads-up on app placement:** `PromoCode`, `PromoCodeUsage`, and `PayoutRequest` all live in **`documents/models.py`** (not `accounts/`). The `accounts` app only has `User`, `Subscription`, `DocumentPack`, `SiteSettings`, `LegalDocument`. Earlier drafts of this doc said `accounts.PromoCode` / `accounts.PayoutRequest` — those were wrong.
 
-- Discounted price (with referral code): **$99**
-- Regular price: **TBD** — current recommendation is $149 (33% off feels like a real deal without being gimmicky); user undecided
-- A pricing-update commit (`0cda0c3`) was built then reverted off `claude/fix-empty-text-blocks-LSWAF`. Branch is back at `ddd7eaa` matching production master. The reverted commit had: drop `price_3pack/monthly/annual`, add `referral_price` field default $99, raise `price_single` default to $149, update admin fieldsets, build a real pricing card. The user wanted to slow down and be more structured — don't re-apply automatically; wait for direction.
+### 1. Pricing model — DONE
+- Single price per complaint: **$149** full, **$99** with valid promo code. Wired in `config/settings.py` (`PRICE_FULL_CENTS` / `PRICE_DISCOUNTED_CENTS`) and rendered live on `/pay/`.
+- The unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are stale schema but not in any code path. Safe to drop in a future migration when convenient — not blocking anything.
+- A pricing-update commit (`0cda0c3`) was built then reverted off `claude/fix-empty-text-blocks-LSWAF`; that branch is no longer relevant since the actual pricing is now wired through Stripe Checkout.
 
-### 2. Stripe Checkout integration
-**Agreed shape** (not yet built):
-- "Pay $X to download" button on the draft page → Stripe Checkout session
-- Webhook confirms payment → flips `Document.payment_status='paid'` → watermark drops automatically (this part already works — see `PdfBranding`)
-- Downloading the clean PDF flips it to `'finalized'` and locks the doc
-- Referral code field on checkout page that maps to either a Stripe Coupon or our `accounts.PromoCode` table
-- Env vars are already named in `.env`: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`. Stripe SDK is **not** in `requirements.txt` yet.
+### 2. Stripe Checkout integration — DONE (Phases 2 + 3)
+See **Build Status → Done** for commits `95070c5` (Phase 2) and `77d41f1` (Phase 3), and **What's Built → Stripe Integration** for the full shape. Phase 4 (gate `wizard_generate` + lock on download) is still open — see Build Status.
 
 ### 3. AI abuse limits per document
 **Agreed:** cap GPT calls per document. User selected no concrete numbers; reasonable defaults to propose:
@@ -479,12 +491,20 @@ These are agreed-upon next features with shape but not yet implemented. A fresh 
 ### 5. Partner revenue dashboard
 **Agreed shape:**
 - A partner is marked via a new `User.is_revenue_partner` flag (or a Group). 50/50 split of (revenue − expenses).
-- New models: `RevenueEntry` (date, amount, source, optional FK to Document) and `ExpenseEntry` (date, amount, category, description). Manual admin entry until Stripe webhooks auto-populate `RevenueEntry`.
-- `/partner/` dashboard: YTD revenue, expenses, net profit, his 50% share, recent transactions, payout history (use existing `accounts.PayoutRequest`).
-- Open question: which costs count as "expense" — Render hosting, OpenAI API spend, domain renewal, Stripe processing fees, owner pay? Decide with the user before building.
+- **Foundation already in place:** every `PromoCode` has `created_by` (referrer); every sale lands a `PromoCodeUsage` row linking code → user → document. Per-referrer gross revenue is queryable today (`PromoCodeUsage.objects.filter(promo_code__created_by=partner).count() * 99`).
+- Still to build: `RevenueEntry` (date, amount, source, optional FK to Document) and `ExpenseEntry` (date, amount, category, description). Stripe webhook can auto-populate `RevenueEntry`.
+- `/partner/` dashboard: YTD revenue, expenses, net profit, partner's 50% share, recent transactions, payout history (use existing **`documents.PayoutRequest`**).
+- **Open question for user:** what % of each sale does a referrer receive? Common choices: 50% gross ($49.50/sale), 30% gross ($29.70/sale), or flat $25/sale.
+- **Open question for user:** which costs count as "expense" — Render hosting, OpenAI API spend, domain renewal, Stripe processing fees, owner pay? Decide before building.
 
 ### Approach
-User wants to take these one feature at a time, structured. Don't bundle. Stripe + abuse limits + doc-locking would naturally ship as a pair (they share the payment flow), but only with explicit go-ahead.
+User wants to take these one feature at a time, structured. Don't bundle.
+
+**Feature dependencies** (current state):
+- §2 Stripe — DONE (Phases 2+3 shipped). Phase 4 (download gate + doc lock) is the next piece in this thread.
+- §3 abuse limits — independent; can ship anytime.
+- §4 doc locking — naturally folds into Stripe Phase 4 (lock trigger fires after first clean PDF download).
+- §5 partner dashboard — depends on §2 webhook (already shipped) for auto-population of revenue rows; otherwise independent.
 
 ---
 
