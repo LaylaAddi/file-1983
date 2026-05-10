@@ -118,7 +118,7 @@ def _format_cents(c):
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = [
-        'code', 'created_by', 'discount_type', 'discount_value',
+        'code', 'assigned_to', 'discount_type', 'discount_value',
         'sales_count', 'total_revenue', 'partner_cut',
         'is_active', 'expires_at',
     ]
@@ -126,6 +126,11 @@ class PromoCodeAdmin(admin.ModelAdmin):
     search_fields = ['code', 'created_by__email']
     readonly_fields = ['times_used', 'created_at']
     actions = ['export_codes_csv']
+
+    def assigned_to(self, obj):
+        return obj.created_by.email if obj.created_by else '—'
+    assigned_to.short_description = 'Assigned to'
+    assigned_to.admin_order_field = 'created_by__email'
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -141,6 +146,10 @@ class PromoCodeAdmin(admin.ModelAdmin):
             kwargs['queryset'] = User.objects.filter(
                 Q(is_revenue_partner=True) | Q(is_staff=True)
             ).order_by('email')
+            formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+            formfield.label = 'Assign code to'
+            formfield.help_text = 'Only users marked Is revenue partner (or staff) appear here.'
+            return formfield
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def sales_count(self, obj):
