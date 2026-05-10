@@ -129,7 +129,7 @@
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control"
                                            id="ref-link-{{ code.pk }}"
-                                           value="https://file1983.com/?ref={{ code.code }}" readonly>
+                                           value="https://{{ PRIMARY_DOMAIN }}/?ref={{ code.code }}" readonly>
                                     <button type="button" class="btn btn-outline-secondary"
                                             onclick="navigator.clipboard.writeText(document.getElementById('ref-link-{{ code.pk }}').value); this.innerHTML='<i class=\'bi bi-check2\'></i> Copied'; setTimeout(()=>this.innerHTML='<i class=\'bi bi-clipboard\'></i> Copy', 1500);">
                                         <i class="bi bi-clipboard"></i> Copy

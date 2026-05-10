@@ -21,6 +21,11 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.auditfile1983.com',
 ]
 
+# Canonical domain. Any request to a non-canonical host (other than the Render
+# *.onrender.com URL or localhost) is 301-redirected here by
+# CanonicalDomainMiddleware. Used by templates for shareable links too.
+PRIMARY_DOMAIN = config('PRIMARY_DOMAIN', default='auditfile1983.com')
+
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -55,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'documents.middleware.CanonicalDomainMiddleware',
     'documents.middleware.CaptureReferralMiddleware',
 ]
 
