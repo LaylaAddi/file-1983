@@ -154,10 +154,22 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                     <strong>Payout history</strong>
-                    <button type="button" class="btn btn-primary btn-sm" disabled
-                            title="Coming in Phase 3">
-                        <i class="bi bi-cash-coin me-1"></i>Request payout
+                    {% if can_request_payout %}
+                    <button type="button" class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#requestPayoutModal">
+                        <i class="bi bi-cash-coin me-1"></i>Request payout (${{ stats.unpaid_balance_dollars }})
                     </button>
+                    {% elif stats.has_open_request %}
+                    <button type="button" class="btn btn-secondary btn-sm" disabled
+                            title="A request is already pending — wait for it to be resolved.">
+                        <i class="bi bi-hourglass-split me-1"></i>Request pending
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-secondary btn-sm" disabled
+                            title="Minimum payout is ${{ min_payout_dollars }}.">
+                        <i class="bi bi-cash-coin me-1"></i>Request payout (min ${{ min_payout_dollars }})
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="card-body p-0">
                     {% if stats.payouts %}
@@ -204,4 +216,55 @@
         </div>
     </div>
 </div>
+
+{% if can_request_payout %}
+<div class="modal fade" id="requestPayoutModal" tabindex="-1" aria-labelledby="requestPayoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'partner_request_payout' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title" id="requestPayoutModalLabel">
+                    Request payout — ${{ stats.unpaid_balance_dollars }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    We'll send <strong>${{ stats.unpaid_balance_dollars }}</strong> via the method you choose.
+                    An admin reviews and pays manually; you'll see the status update here when it's processed.
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label" for="payment_processor">Payment method</label>
+                    <select class="form-select" id="payment_processor" name="payment_processor" required>
+                        <option value="">Choose…</option>
+                        {% for value, label in processor_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="payment_method_details">Where to send it</label>
+                    <textarea class="form-control" id="payment_method_details" name="payment_method_details"
+                              rows="2" required
+                              placeholder="PayPal email, Venmo handle, Zelle phone/email, mailing address for check, etc."></textarea>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label" for="notes">Note <span class="text-muted small">(optional)</span></label>
+                    <textarea class="form-control" id="notes" name="notes" rows="2"
+                              placeholder="Anything we should know."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send me-1"></i>Submit request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

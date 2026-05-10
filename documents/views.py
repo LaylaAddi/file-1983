@@ -1754,9 +1754,92 @@ def _is_partner(user):
 @login_required
 @user_passes_test(_is_partner)
 def partner_dashboard(request):
+    from decimal import Decimal
+    from .models import PayoutRequest
     from .services.partner_stats import get_partner_stats
 
     stats = get_partner_stats(request.user)
+    min_cents = getattr(settings, 'PARTNER_MIN_PAYOUT_CENTS', 2000)
+    can_request = (
+        not stats['has_open_request']
+        and stats['unpaid_balance_cents'] >= min_cents
+    )
     return render(request, 'partner/dashboard.html', {
         'stats': stats,
+        'can_request_payout': can_request,
+        'min_payout_dollars': (Decimal(min_cents) / Decimal(100)).quantize(Decimal('0.01')),
+        'processor_choices': PayoutRequest.PROCESSOR_CHOICES,
     })
+
+
+@login_required
+@user_passes_test(_is_partner)
+@require_POST
+def partner_request_payout(request):
+    from decimal import Decimal
+    from django.core.mail import send_mail
+    from django.urls import reverse
+    from .models import PayoutRequest
+    from .services.partner_stats import get_partner_stats
+
+    stats = get_partner_stats(request.user)
+
+    if stats['has_open_request']:
+        messages.error(request, 'You already have a pending payout request. Wait until it is resolved before submitting another.')
+        return redirect('partner_dashboard')
+
+    min_cents = getattr(settings, 'PARTNER_MIN_PAYOUT_CENTS', 2000)
+    if stats['unpaid_balance_cents'] < min_cents:
+        min_dollars = Decimal(min_cents) / Decimal(100)
+        messages.error(
+            request,
+            f'Minimum payout is ${min_dollars:.2f}. You have ${stats["unpaid_balance_dollars"]} available.'
+        )
+        return redirect('partner_dashboard')
+
+    processor = (request.POST.get('payment_processor') or '').strip()
+    details = (request.POST.get('payment_method_details') or '').strip()
+    note = (request.POST.get('notes') or '').strip()
+
+    valid_processors = {choice[0] for choice in PayoutRequest.PROCESSOR_CHOICES}
+    if processor not in valid_processors:
+        messages.error(request, 'Choose a payment method.')
+        return redirect('partner_dashboard')
+    if not details:
+        messages.error(request, 'Tell us where to send the payment (PayPal email, Venmo handle, etc.).')
+        return redirect('partner_dashboard')
+
+    payout = PayoutRequest.objects.create(
+        user=request.user,
+        amount=stats['unpaid_balance_dollars'],
+        status='pending',
+        payment_processor=processor,
+        payment_method_details=details,
+        notes=note,
+    )
+
+    notify_to = getattr(settings, 'PARTNER_PAYOUT_NOTIFY_EMAIL', '') or settings.DEFAULT_FROM_EMAIL
+    if notify_to:
+        admin_url = request.build_absolute_uri(
+            reverse('admin:documents_payoutrequest_change', args=[payout.pk])
+        )
+        try:
+            send_mail(
+                subject=f'[file1983] Payout request: ${payout.amount} from {request.user.email}',
+                message=(
+                    f'Partner: {request.user.get_full_name() or request.user.email} ({request.user.email})\n'
+                    f'Amount:  ${payout.amount}\n'
+                    f'Method:  {payout.get_payment_processor_display()}\n'
+                    f'Send to: {payout.payment_method_details}\n'
+                    f'Note:    {payout.notes or "(none)"}\n\n'
+                    f'Review in admin: {admin_url}\n'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[notify_to],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    messages.success(request, f'Payout request for ${payout.amount} submitted. We\'ll email you when it\'s processed.')
+    return redirect('partner_dashboard')

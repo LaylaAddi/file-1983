@@ -140,6 +140,16 @@ PRICE_DISCOUNTED_CENTS = 9900  # $99.00 — with valid promo code
 # 20 -> referrer earns $19.80 on a $99 sale.
 PARTNER_CUT_PERCENT = 20
 
+# Minimum unpaid balance (in cents) a partner must have before they can submit
+# a payout request from the dashboard. Avoids $0.40 trickle requests.
+PARTNER_MIN_PAYOUT_CENTS = 2000  # $20.00
+
+# Where partner payout-request notifications are sent. Falls back to
+# DEFAULT_FROM_EMAIL if unset.
+PARTNER_PAYOUT_NOTIFY_EMAIL = config(
+    'PARTNER_PAYOUT_NOTIFY_EMAIL', default=''
+) or config('DEFAULT_FROM_EMAIL', default='')
+
 # AI quota per document. Counts story extraction + draft regeneration + addendums.
 AI_QUOTA_FREE = 3       # Pre-payment AI calls allowed
 AI_QUOTA_PAID = 150     # Post-payment AI calls (counter resets on payment)
