@@ -134,6 +134,15 @@ class PromoCodeAdmin(admin.ModelAdmin):
             _total_revenue=Sum('usages__amount_cents'),
         )
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'created_by':
+            from django.db.models import Q
+            User = db_field.related_model
+            kwargs['queryset'] = User.objects.filter(
+                Q(is_revenue_partner=True) | Q(is_staff=True)
+            ).order_by('email')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def sales_count(self, obj):
         return obj._sales_count
     sales_count.short_description = 'Sales'
