@@ -81,10 +81,10 @@ git push origin master
 - **Backend:** Django 4.2+, PostgreSQL
 - **Frontend:** Bootstrap 5.3, Bootstrap Icons, Playfair Display, Alpine.js
 - **AI:** OpenAI GPT-4o — story extraction, court lookup fallback, factual-allegations drafting
-- **Payments:** Stripe (not yet wired)
+- **Payments:** Stripe (live on Render in test/sandbox mode; switch to live keys when ready to take real payments)
 - **PDF:** WeasyPrint (wired — Letter, 1in margins, Times 12pt, double-spaced, page footers)
-- **Auth:** Custom User model, email-based (no username)
-- **Deploy target:** Render (not yet deployed)
+- **Auth:** Custom User model, email-based (no username); DRF + JWT exposed at `/api/v1/token/` (not currently used by the web UI)
+- **Deploy:** Render (live at `file1983.com`, auto-deploys from `master`)
 
 ---
 
@@ -399,7 +399,7 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 
 ### AI Quota + Document Locking (`documents/services/ai_quota.py`)
 - **Per-document AI quota** — `consume_ai_call(document)` atomically increments `Document.ai_calls_used`, raises `QuotaExceeded` if over limit. Counted call types: story extraction (`wizard_story` POST analyze), draft regeneration (`wizard_draft` POST `action=regenerate` AND initial GET-time generation), addendums (`wizard_addendum` POST). Court-lookup fallback intentionally skipped — automatic and small.
-- **Limits** — `AI_QUOTA_FREE=3` for unpaid drafts, `AI_QUOTA_PAID=150` for paid docs. Counter resets to 0 on payment via `handle_checkout_completed` so paid users get a fresh 150-call budget.
+- **Limits** — `AI_QUOTA_FREE=3` for unpaid drafts, `AI_QUOTA_PAID=150` for paid docs. Counter resets to 0 on payment via `handle_checkout_completed` so paid users get a fresh 150-call budget. Note the free budget is intentionally tight — typical unpaid path is 1 call (extraction) + 1 call (initial draft generation) leaving 1 spare for an addendum or a single regenerate before the paywall kicks in.
 - **Free document cap** — `document_create` view checks `Document.objects.filter(user=u, payment_status='draft').count() >= settings.FREE_DOCS_PER_USER` (default 2). Staff and superusers exempt.
 - **Quota UX** — `Document.ai_quota_state()` returns `{used, limit, remaining, exhausted, is_paid}`. Live counter badge on `wizard_draft.html` turns yellow at 1 left, red at 0. When exhausted on unpaid: redirect to `/pay/` with upgrade message. When exhausted on paid: warning saying "Finalize & download to use it, or contact support."
 - **Document locking** — `Document.locked_at` (DateTime null=True); `Document.is_locked()` helper. Set by `wizard_generate?finalize=1&download=1` flow when `payment_status='paid'`. Confirms via JS dialog: "Finalizing will lock this document. You won't be able to edit it or run any more AI calls. Are you sure?"
@@ -455,15 +455,15 @@ Runs in ~3 seconds. Asserts:
 - Draft generation + edit-and-save round trip
 - Real WeasyPrint PDF response (`%PDF` blob > 1KB)
 
-What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), real GPT quality (manual sanity), Stripe (not wired).
+What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), real GPT quality (manual sanity), Stripe webhook flow, finalize/lock, undo, stale-draft block, free-doc cap, AI quota enforcement. These shipped after the original test suite was written and have been validated manually on production only — adding pytest coverage for them is worth a future session.
 
 ---
 
-## Next Step: Deploy to Render
+## Render Deployment Reference
 
-The app is feature-complete for an MVP launch except payment. Goal: get it live at `https://file1983.com` with `auditfile1983.com` redirecting in.
+**The app is already live on Render at `file1983.com`** — this section is reference material for re-creating the service or onboarding a new environment. Day-to-day deploys happen automatically when commits land on `master`.
 
-**Code-side prep is done** (commit `0d4212e`): `docker-entrypoint.sh` runs migrate + collectstatic + gunicorn on `$PORT`; `SECURE_PROXY_SSL_HEADER`, `CSRF_TRUSTED_ORIGINS`, secure cookies, and SSL redirect are all wired in `config/settings.py` for `DEBUG=0`. What's left is Render service creation, env-var population, DNS, and the post-deploy checklist below.
+**Code-side prep** (commit `0d4212e`): `docker-entrypoint.sh` runs migrate + collectstatic + gunicorn on `$PORT`; `SECURE_PROXY_SSL_HEADER`, `CSRF_TRUSTED_ORIGINS`, secure cookies, and SSL redirect are all wired in `config/settings.py` for `DEBUG=0`.
 
 ### Render setup outline
 
@@ -484,10 +484,7 @@ The app is feature-complete for an MVP launch except payment. Goal: get it live 
    - `STRIPE_SECRET_KEY=sk_test_...` (sandbox) — required for `/pay/` to function
    - `STRIPE_PUBLISHABLE_KEY=pk_test_...`
    - `STRIPE_WEBHOOK_SECRET=whsec_...` — created in Stripe Dashboard → Developers → Webhooks (or "Event destinations" in the new UI). Endpoint URL: `https://file1983.com/stripe/webhook/`. Subscribe to events `checkout.session.completed` and `checkout.session.expired`. Without this var set, the webhook returns 500 and `payment_status` will not auto-flip to `paid`
-4. **Static files** — `whitenoise` is already in middleware and `STATICFILES_STORAGE` is `CompressedManifestStaticFilesStorage`. Render needs `collectstatic` to run on each deploy. Add a build step in render.yaml (or the dashboard's Build Command):
-   ```
-   pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
-   ```
+4. **Static files + migrations** — handled automatically by `docker-entrypoint.sh` on every container start (migrate → collectstatic → gunicorn). With Docker runtime on Render there is no separate Build Command to configure; do **not** also set one in the dashboard or it will run twice and slow deploys. `whitenoise` is already in middleware and `STATICFILES_STORAGE` is `CompressedManifestStaticFilesStorage`.
 5. **Custom domains** in Render dashboard:
    - Add `file1983.com` and `www.file1983.com` to the web service. Render shows the DNS records to set at Namecheap (typically an `ALIAS`/`ANAME` for the apex and a `CNAME` for `www`)
    - Add `auditfile1983.com` and `www.auditfile1983.com` to the **same** web service. Render auto-issues a TLS cert for each
@@ -530,27 +527,15 @@ The app is feature-complete for an MVP launch except payment. Goal: get it live 
 
 ---
 
-## Pending Roadmap (decisions in flight)
-
-These are agreed-upon next features with shape but not yet implemented. A fresh Claude can pick any of these up.
+## Roadmap Status
 
 > **Heads-up on app placement:** `PromoCode`, `PromoCodeUsage`, and `PayoutRequest` all live in **`documents/models.py`** (not `accounts/`). The `accounts` app only has `User`, `Subscription`, `DocumentPack`, `SiteSettings`, `LegalDocument`. Earlier drafts of this doc said `accounts.PromoCode` / `accounts.PayoutRequest` — those were wrong.
 
-### 1. Pricing model — DONE
-- Single price per complaint: **$149** full, **$99** with valid promo code. Wired in `config/settings.py` (`PRICE_FULL_CENTS` / `PRICE_DISCOUNTED_CENTS`) and rendered live on `/pay/`.
-- The unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are stale schema but not in any code path. Safe to drop in a future migration when convenient — not blocking anything.
-- A pricing-update commit (`0cda0c3`) was built then reverted off `claude/fix-empty-text-blocks-LSWAF`; that branch is no longer relevant since the actual pricing is now wired through Stripe Checkout.
+**Shipped:** pricing model, Stripe Checkout (Phases 2 + 3), Stripe Phase 4 (finalize + lock on download), per-document AI quota, document locking. See **Build Status → Done** and **What's Built — Detail** for commit SHAs and full shape.
 
-### 2. Stripe Checkout integration — DONE (Phases 2 + 3)
-See **Build Status → Done** for commits `95070c5` (Phase 2) and `77d41f1` (Phase 3), and **What's Built → Stripe Integration** for the full shape. Phase 4 (gate `wizard_generate` + lock on download) is still open — see Build Status.
+**Stale schema cleanup:** the unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are not in any code path. Safe to drop in a future migration when convenient.
 
-### 3. AI abuse limits per document — DONE
-Implemented in commit `6e7179d` with a single counter on `Document.ai_calls_used`. Final shape: 3 calls free, 150 after payment (counter resets on payment). Counted: story extraction, draft regeneration, addendums. See **Build Status → Done** and **What's Built → AI Quota + Document Locking** for the full spec.
-
-### 4. Document locking after PDF — DONE
-Shipped together with §3 in commit `6e7179d`. Lock trigger: option (a) — explicit user click on "Finalize & Download" on the draft page (with confirm dialog), which sets `Document.locked_at` and flips status to `'finalized'`. Re-download stays available; all wizard edit POSTs blocked via `_check_locked_redirect()`. Re-edits require a new document.
-
-### 5. Self-serve partner dashboard
+### Open: Self-serve partner dashboard
 **Decided:** referrer cut is **20% of $99 = $19.80 per sale** (`settings.PARTNER_CUT_PERCENT=20`).
 
 **Foundation already shipped (commit `ac406b7`):**
@@ -568,13 +553,9 @@ Shipped together with §3 in commit `6e7179d`. Lock trigger: option (a) — expl
 - Should they be able to download their own CSV, or only request payouts through admin?
 - Do partners need a way to share their referral link directly (e.g. `https://file1983.com/?ref=PARTNERCODE` that pre-fills the promo code at checkout)?
 
-### Approach
-User wants to take features one at a time, structured. Don't bundle.
-
-**Status of all five Pending Roadmap items:** §1 (pricing) DONE, §2 (Stripe Checkout) DONE, §3 (AI abuse limits) DONE, §4 (doc locking) DONE. §5 (self-serve partner dashboard) is the only one still open from this list.
-
-The next Claude session should ask the user which of these to tackle first:
-- §5 partner dashboard
+### Working agreement
+User wants to take features one at a time, structured. Don't bundle. The next Claude session should ask the user which of these to tackle first:
+- Partner dashboard (above)
 - Landing page CMS (`public_pages` is currently a stub)
 - Switch Stripe to live mode
 - Something else the user has in mind
