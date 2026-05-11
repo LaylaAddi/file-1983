@@ -214,8 +214,8 @@ class DocumentPack(models.Model):
 
 class SiteSettings(models.Model):
     """Singleton — use SiteSettings.get_solo()"""
-    app_name = models.CharField(max_length=100, default='File 1983')
-    header_app_name = models.CharField(max_length=100, default='File 1983')
+    app_name = models.CharField(max_length=100, default='AuditFile 1983')
+    header_app_name = models.CharField(max_length=100, default='AuditFile 1983')
 
     # Pricing (displayed on pricing page — kept in sync with Stripe)
     price_single = models.DecimalField(max_digits=8, decimal_places=2, default=49.00)
