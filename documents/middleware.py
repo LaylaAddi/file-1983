@@ -64,6 +64,13 @@ class CanonicalDomainMiddleware:
         if not self.canonical or settings.DEBUG:
             return self.get_response(request)
 
+        # Never redirect external webhooks — Stripe (and most webhook senders)
+        # do NOT follow 3xx responses, so a redirect = a permanently failed
+        # event. Safer to serve the webhook on whichever host Stripe is
+        # configured to hit.
+        if request.path.startswith('/stripe/webhook'):
+            return self.get_response(request)
+
         host = request.get_host().split(':', 1)[0].lower()
 
         if host == self.canonical:

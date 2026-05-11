@@ -30,6 +30,10 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
+    # Stripe (and most webhook senders) do not follow 3xx responses, so any
+    # http→https redirect on /stripe/webhook/ would silently lose events.
+    # Exempting the path keeps webhook delivery resilient to misconfiguration.
+    SECURE_REDIRECT_EXEMPT = [r'^stripe/webhook/?$']
 
 AUTH_USER_MODEL = 'accounts.User'
 
