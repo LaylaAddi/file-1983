@@ -469,9 +469,9 @@
                             <i class="bi bi-file-earmark-pdf me-1"></i>Re-download PDF
                         </a>
                         {% elif document.payment_status == 'paid' %}
-                        <a href="{% url 'documents:wizard_generate' document.slug %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-eye me-1"></i>Preview clean PDF
-                        </a>
+                        <button type="submit" name="action" value="generate_pdf" class="btn btn-outline-secondary">
+                            <i class="bi bi-eye me-1"></i>Preview (watermarked)
+                        </button>
                         <a href="{% url 'documents:document_finalize' document.slug %}" class="btn btn-primary btn-lg px-4 fw-semibold">
                             <i class="bi bi-lock-fill me-1"></i>Finalize &amp; Download
                         </a>

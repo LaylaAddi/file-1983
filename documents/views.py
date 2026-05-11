@@ -1362,10 +1362,12 @@ def _build_complaint_context(doc):
 
     section_num = {name: _to_roman(i + 1) for i, name in enumerate(section_names)}
 
-    # Watermark + footer for draft (unpaid) PDFs. Once Stripe lands and the
-    # document gets payment_status='paid', this flips to False and the PDF
-    # renders cleanly with no template change required.
-    is_draft_preview = doc.payment_status != 'paid'
+    # Watermark + footer until the document is finalized & locked. Paying
+    # alone is not enough — the clean PDF is only served after the user
+    # explicitly confirms on /finalize/ and the document is locked. That
+    # prevents a paid user from previewing → editing → previewing a clean
+    # PDF indefinitely.
+    is_draft_preview = not doc.is_locked()
     if is_draft_preview:
         from documents.models import PdfBranding
         branding = PdfBranding.get_active()
