@@ -79,7 +79,16 @@
 
                             <!-- Right: action button -->
                             <div class="d-flex flex-column gap-2 align-items-end flex-shrink-0">
-                                {% if session %}
+                                {% if doc.is_locked %}
+                                    <a href="{% url 'documents:wizard_generate' doc.slug %}?download=1"
+                                       class="btn btn-primary btn-sm px-3">
+                                        <i class="bi bi-download me-1"></i>Download PDF
+                                    </a>
+                                    <a href="{% url 'documents:wizard_draft' doc.slug %}"
+                                       class="btn btn-outline-secondary btn-sm px-3">
+                                        <i class="bi bi-eye me-1"></i>View
+                                    </a>
+                                {% elif session %}
                                     {% if session.status == 'analyzed' or session.current_step >= 1 %}
                                         <a href="{% if session.current_step >= 1 %}{% url 'documents:wizard_step1' doc.slug %}{% else %}{% url 'documents:wizard_summary' doc.slug %}{% endif %}"
                                            class="btn btn-primary btn-sm px-3">
