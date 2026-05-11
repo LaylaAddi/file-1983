@@ -25,6 +25,7 @@ class RequireLegalAcceptanceMiddleware:
         '/static/',
         '/stripe/webhook',
         '/robots.txt',
+        '/sitemap.xml',
     )
 
     def __init__(self, get_response):

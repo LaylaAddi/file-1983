@@ -1,13 +1,18 @@
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.decorators.csrf import csrf_exempt
 
 from documents import views as document_views
+from public_pages.sitemaps import SITEMAPS
 
 urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
+
+    # SEO
+    path('sitemap.xml', sitemap, {'sitemaps': SITEMAPS}, name='sitemap'),
 
     # Web apps
     path('', include('public_pages.urls')),
