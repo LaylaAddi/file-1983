@@ -1,5 +1,32 @@
 from django.contrib import admin
-from .models import CivilRightsPage, PageSection
+from .models import CivilRightsPage, PageSection, NewsItem
+
+
+@admin.register(NewsItem)
+class NewsItemAdmin(admin.ModelAdmin):
+    list_display = ('title', 'source', 'published_at', 'is_visible', 'fetched_at')
+    list_filter = ('source', 'is_visible')
+    list_editable = ('is_visible',)
+    search_fields = ('title', 'source', 'url')
+    date_hierarchy = 'published_at'
+    readonly_fields = ('url', 'title', 'source', 'published_at', 'summary', 'fetched_at')
+    fieldsets = (
+        ('Visibility', {
+            'fields': ('is_visible',),
+            'description': (
+                'Uncheck to hide this item from the landing page Latest '
+                'Updates widget without deleting the row. Deleted rows can '
+                'come back on the next fetch_news run; hidden rows stay '
+                'hidden permanently.'
+            ),
+        }),
+        ('Content (auto-populated from RSS)', {
+            'fields': ('title', 'url', 'source', 'published_at', 'summary', 'fetched_at'),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 class PageSectionInline(admin.StackedInline):

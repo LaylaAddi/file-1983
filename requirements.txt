@@ -20,3 +20,6 @@ WeasyPrint
 
 # Video evidence
 requests
+
+# RSS news widget on landing page
+feedparser

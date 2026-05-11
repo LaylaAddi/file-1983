@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from datetime import datetime, timedelta
-from .models import CivilRightsPage, PageSection
+from .models import CivilRightsPage, PageSection, NewsItem
 
 
 def robots_txt(request):
@@ -58,11 +58,13 @@ def landing_page(request):
     ]
 
     sample_news = [
-        {'title': 'Federal Court Rules Citizens Have Right to Record Traffic Stops', 'source': 'ACLU', 'date': datetime.now() - timedelta(days=1), 'url': '#'},
-        {'title': 'Supreme Court to Hear Qualified Immunity Case This Term', 'source': 'Reuters', 'date': datetime.now() - timedelta(days=2), 'url': '#'},
-        {'title': 'New Body Camera Footage Requirements Take Effect in Three States', 'source': 'AP News', 'date': datetime.now() - timedelta(days=3), 'url': '#'},
-        {'title': 'Civil Rights Groups Call for Police Accountability Reforms', 'source': 'NPR', 'date': datetime.now() - timedelta(days=4), 'url': '#'},
-        {'title': 'First Amendment Audit Movement Grows Across America', 'source': 'Washington Post', 'date': datetime.now() - timedelta(days=5), 'url': '#'},
+        {
+            'title': item.title,
+            'source': item.source,
+            'date': item.published_at,
+            'url': item.url,
+        }
+        for item in NewsItem.objects.filter(is_visible=True).order_by('-published_at')[:6]
     ]
 
     key_rights = [

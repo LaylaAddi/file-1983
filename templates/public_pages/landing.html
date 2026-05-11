@@ -161,6 +161,13 @@
                             <span><i class="bi bi-clock me-1"></i>{{ news.date|timesince }} ago</span>
                         </div>
                     </div>
+                    {% empty %}
+                    <div class="news-item">
+                        <p class="text-muted small mb-0">
+                            <i class="bi bi-hourglass-split me-1"></i>
+                            Loading the latest civil rights news&hellip;
+                        </p>
+                    </div>
                     {% endfor %}
                 </div>
                 <p class="text-muted mt-3 small">

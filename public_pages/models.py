@@ -2,6 +2,32 @@ from django.db import models
 from django.urls import reverse
 
 
+class NewsItem(models.Model):
+    """
+    Headline + link cached from a curated RSS feed. Populated by the
+    `fetch_news` management command (run on a Render cron). Visible on the
+    landing page's Latest Updates widget. Set is_visible=False in admin to
+    hide anything off-topic that slips through without deleting the row
+    (so we don't refetch it).
+    """
+    url = models.URLField(max_length=600, unique=True)
+    title = models.CharField(max_length=400)
+    source = models.CharField(max_length=100)
+    published_at = models.DateTimeField()
+    summary = models.TextField(blank=True)
+    is_visible = models.BooleanField(default=True)
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-published_at']
+        verbose_name = 'News Item'
+        verbose_name_plural = 'News Items'
+        indexes = [models.Index(fields=['-published_at', 'is_visible'])]
+
+    def __str__(self):
+        return f'[{self.source}] {self.title[:80]}'
+
+
 class CivilRightsPage(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
