@@ -168,6 +168,8 @@ class WizardEndToEndTest(TestCase):
             'last_name': 'Tester',
             'password1': 'CorrectHorseBatteryStaple1!',
             'password2': 'CorrectHorseBatteryStaple1!',
+            'tos_accepted': 'on',
+            'privacy_accepted': 'on',
         })
         self.assertEqual(register_response.status_code, 302)
         self.assertEqual(register_response.url, reverse('documents:list'))

@@ -1,6 +1,8 @@
 from django import forms
+from django.conf import settings as dj_settings
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -18,6 +20,16 @@ class RegisterForm(forms.ModelForm):
         required=False,
         label='Referral Code (optional)',
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter referral code'}),
+    )
+    tos_accepted = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must agree to the Terms of Service to create an account.'},
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    privacy_accepted = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must agree to the Privacy Policy to create an account.'},
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
     )
 
     class Meta:
@@ -46,6 +58,11 @@ class RegisterForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data['password1'])
+        now = timezone.now()
+        user.tos_accepted_at = now
+        user.tos_accepted_version = getattr(dj_settings, 'TOS_VERSION', 'v1')
+        user.privacy_accepted_at = now
+        user.privacy_accepted_version = getattr(dj_settings, 'PRIVACY_VERSION', 'v1')
         if commit:
             user.save()
             ref_code = self.cleaned_data.get('referral_code', '').strip()

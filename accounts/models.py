@@ -55,6 +55,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text='Grants access to the /partner/ dashboard to view sales and request payouts.',
     )
 
+    # Legal acceptance audit trail. Versions are checked against the current
+    # settings.TOS_VERSION / PRIVACY_VERSION; a mismatch forces re-acceptance
+    # at /accounts/accept-terms/ before the user can use the app.
+    tos_accepted_at = models.DateTimeField(null=True, blank=True)
+    tos_accepted_version = models.CharField(max_length=20, blank=True)
+    privacy_accepted_at = models.DateTimeField(null=True, blank=True)
+    privacy_accepted_version = models.CharField(max_length=20, blank=True)
+
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
@@ -123,6 +131,22 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.document_packs.filter(
             ai_uses_used__lt=models.F('ai_uses_total')
         ).exists()
+
+    # ---- Legal acceptance ----
+
+    def needs_legal_acceptance(self):
+        """
+        True when the user has never accepted the Terms or Privacy Policy, or
+        when their last-accepted version is older than the current setting.
+        Drives the re-acceptance gate middleware.
+        """
+        from django.conf import settings as dj_settings
+        current_tos = getattr(dj_settings, 'TOS_VERSION', 'v1')
+        current_privacy = getattr(dj_settings, 'PRIVACY_VERSION', 'v1')
+        return (
+            self.tos_accepted_version != current_tos
+            or self.privacy_accepted_version != current_privacy
+        )
 
 
 class Subscription(models.Model):
@@ -227,12 +251,24 @@ class LegalDocument(models.Model):
         ('terms', 'Terms of Service'),
         ('privacy', 'Privacy Policy'),
         ('disclaimer', 'Legal Disclaimer'),
+        ('cookies', 'Cookie Policy'),
     ]
 
     doc_type = models.CharField(max_length=20, choices=DOC_TYPES, unique=True)
     title = models.CharField(max_length=200)
     content = models.TextField(help_text='HTML content')
+    version = models.CharField(
+        max_length=20,
+        default='v1',
+        help_text=(
+            'Version label shown to users and stamped onto each acceptance. '
+            'Bump this whenever the document changes substantively. For Terms '
+            'and Privacy, also update settings.TOS_VERSION / PRIVACY_VERSION '
+            'so existing users are forced to re-accept on next visit.'
+        ),
+    )
+    effective_date = models.DateField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.title
+        return f'{self.title} ({self.version})'

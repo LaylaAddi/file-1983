@@ -66,6 +66,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'documents.middleware.CanonicalDomainMiddleware',
     'documents.middleware.CaptureReferralMiddleware',
+    'accounts.middleware.RequireLegalAcceptanceMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -177,6 +178,14 @@ AI_QUOTA_PAID = 150     # Post-payment AI calls (counter resets on payment)
 
 # Free draft documents per user. Paid + finalized docs don't count toward this.
 FREE_DOCS_PER_USER = 2
+
+# Current version of Terms of Service and Privacy Policy. Bump when either
+# document changes substantively to force every existing user to re-accept on
+# next visit (RequireLegalAcceptanceMiddleware compares user's stored version
+# against these). Also bump LegalDocument.version in admin so the displayed
+# version label matches.
+TOS_VERSION = config('TOS_VERSION', default='v1')
+PRIVACY_VERSION = config('PRIVACY_VERSION', default='v1')
 
 # OpenAI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')

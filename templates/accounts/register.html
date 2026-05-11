@@ -60,12 +60,30 @@
                     {{ form.referral_code }}
                 </div>
 
-                <div class="border rounded p-3 mb-4 bg-light">
-                    <p class="small text-muted mb-0">
-                        By creating an account you agree to our
-                        <a href="{% url 'public_pages:terms' %}" target="_blank">Terms of Service</a> and
-                        <a href="{% url 'public_pages:privacy' %}" target="_blank">Privacy Policy</a>.
-                    </p>
+                <div class="alert alert-warning mb-3">
+                    <h6 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Before you sign up — please read</h6>
+                    <p class="mb-1 small">{{ header_app_name }} uses <strong>artificial intelligence</strong> to help draft your civil rights complaint. We are <strong>not lawyers</strong> and this is <strong>not legal advice</strong>.</p>
+                    <p class="mb-0 small">AI can and does make mistakes. You are responsible for reviewing every word of any document you generate. <strong>If you are not certain it is accurate, have it reviewed by a licensed attorney before you file.</strong></p>
+                </div>
+
+                <div class="form-check mb-2">
+                    {{ form.tos_accepted }}
+                    <label class="form-check-label small" for="{{ form.tos_accepted.id_for_label }}">
+                        I have read and agree to the
+                        <a href="{% url 'public_pages:terms' %}" target="_blank" rel="noopener">Terms of Service</a>,
+                        including the disclaimers about AI-generated content and the limitation of liability. <span class="text-danger">*</span>
+                    </label>
+                    {% if form.tos_accepted.errors %}<div class="invalid-feedback d-block">{{ form.tos_accepted.errors|join:", " }}</div>{% endif %}
+                </div>
+
+                <div class="form-check mb-4">
+                    {{ form.privacy_accepted }}
+                    <label class="form-check-label small" for="{{ form.privacy_accepted.id_for_label }}">
+                        I have read and agree to the
+                        <a href="{% url 'public_pages:privacy' %}" target="_blank" rel="noopener">Privacy Policy</a>,
+                        including how my story is sent to a third-party AI provider for drafting. <span class="text-danger">*</span>
+                    </label>
+                    {% if form.privacy_accepted.errors %}<div class="invalid-feedback d-block">{{ form.privacy_accepted.errors|join:", " }}</div>{% endif %}
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 py-2">

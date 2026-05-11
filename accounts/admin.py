@@ -29,11 +29,15 @@ class PromoCodeUsageInline(admin.TabularInline):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('user_type', 'is_revenue_partner', 'is_staff', 'is_superuser', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'tos_accepted_version', 'is_staff', 'is_active', 'date_joined')
+    list_filter = ('user_type', 'is_revenue_partner', 'tos_accepted_version', 'is_staff', 'is_superuser', 'is_active')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
-    readonly_fields = ('date_joined', 'referral_code')
+    readonly_fields = (
+        'date_joined', 'referral_code',
+        'tos_accepted_at', 'tos_accepted_version',
+        'privacy_accepted_at', 'privacy_accepted_version',
+    )
     inlines = [PromoCodeUsageInline]
 
     fieldsets = (
@@ -44,6 +48,18 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('phone', 'address', 'city', 'state', 'zip_code'),
         }),
         ('Referral', {'fields': ('referral_code', 'referred_by', 'is_revenue_partner')}),
+        ('Legal Acceptance', {
+            'description': (
+                'Audit stamp of when this user agreed to the Terms of Service '
+                'and Privacy Policy and which versions they agreed to. If the '
+                'stored version is older than settings.TOS_VERSION / '
+                'PRIVACY_VERSION the user is forced to re-accept on next visit.'
+            ),
+            'fields': (
+                ('tos_accepted_at', 'tos_accepted_version'),
+                ('privacy_accepted_at', 'privacy_accepted_version'),
+            ),
+        }),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates', {'fields': ('date_joined', 'last_login')}),
     )
@@ -94,5 +110,18 @@ class SiteSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(LegalDocument)
 class LegalDocumentAdmin(admin.ModelAdmin):
-    list_display = ('doc_type', 'title', 'updated_at')
+    list_display = ('doc_type', 'title', 'version', 'effective_date', 'updated_at')
+    list_filter = ('doc_type',)
     readonly_fields = ('updated_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('doc_type', 'title', 'version', 'effective_date'),
+            'description': (
+                'Bump the version field whenever the content changes substantively. '
+                'For terms / privacy, also update settings.TOS_VERSION / PRIVACY_VERSION '
+                '(env vars on Render) so existing users are forced to re-accept on next visit.'
+            ),
+        }),
+        ('Body (HTML)', {'fields': ('content',)}),
+        ('Audit', {'fields': ('updated_at',)}),
+    )

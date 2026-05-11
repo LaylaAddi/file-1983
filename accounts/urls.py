@@ -12,6 +12,7 @@ urlpatterns = [
     path('logout/', views.user_logout, name='logout'),
     path('profile/', views.profile, name='profile'),
     path('profile/request-partnership/', views.request_partnership, name='request_partnership'),
+    path('accept-terms/', views.accept_terms, name='accept_terms'),
 
     # Password reset flow (Django built-ins with custom templates)
     path('password-reset/', auth_views.PasswordResetView.as_view(

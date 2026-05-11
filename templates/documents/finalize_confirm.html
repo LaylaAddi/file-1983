@@ -17,7 +17,7 @@
         <strong>{{ document.title|default:"this complaint" }}</strong>.
     </p>
 
-    <div class="alert alert-warning border d-flex align-items-start gap-2 mb-4">
+    <div class="alert alert-warning border d-flex align-items-start gap-2 mb-3">
         <i class="bi bi-exclamation-triangle-fill fs-4 mt-1"></i>
         <div>
             <strong>This action is permanent for this document.</strong>
@@ -27,6 +27,15 @@
                 <li>The PDF will remain available to view and re-download anytime.</li>
                 <li>Other documents in your account are unaffected — only this one locks.</li>
             </ul>
+        </div>
+    </div>
+
+    <div class="alert alert-danger border d-flex align-items-start gap-2 mb-4">
+        <i class="bi bi-exclamation-octagon-fill fs-4 mt-1"></i>
+        <div>
+            <strong>Important — please read before downloading.</strong>
+            <p class="mb-1 mt-2 small">This complaint was drafted with the help of <strong>artificial intelligence</strong>. {{ app_name }} is <strong>not a law firm</strong>, this is <strong>not legal advice</strong>, and AI can and does make mistakes — including missing facts, misstating facts, or misapplying law.</p>
+            <p class="mb-0 small">You are responsible for what you file. <strong>If you are not certain this document is accurate, have it reviewed by a licensed attorney before you file it with any court.</strong></p>
         </div>
     </div>
 
@@ -40,11 +49,30 @@
                     name="acknowledge"
                     id="acknowledge"
                     value="1"
+                    {% if ack_complete %}checked{% endif %}
                     required>
                 <label class="form-check-label" for="acknowledge">
                     <strong>I confirm this complaint is complete</strong> and I understand
                     that submitting will permanently lock editing on this document. The PDF
                     will remain available to re-download.
+                </label>
+            </div>
+
+            <div class="form-check mb-4">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    name="acknowledge_disclaimer"
+                    id="acknowledge_disclaimer"
+                    value="1"
+                    {% if ack_disclaimer %}checked{% endif %}
+                    required>
+                <label class="form-check-label" for="acknowledge_disclaimer">
+                    <strong>I understand this document was AI-assisted and is not legal advice.</strong>
+                    {{ app_name }} is not my lawyer and is not responsible for the accuracy
+                    of any content. I take full responsibility for reviewing the document
+                    and for anything I file with a court, and I agree to consult a licensed
+                    attorney if I am unsure.
                 </label>
             </div>
 

@@ -1,12 +1,14 @@
+from django.conf import settings as dj_settings
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.decorators.http import require_POST
+from django.utils import timezone
+from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib.auth import views as auth_views
 
 from .forms import RegisterForm, LoginForm, ProfileForm, CustomPasswordResetForm, CustomSetPasswordForm
-from .models import SiteSettings
+from .models import SiteSettings, LegalDocument
 
 
 def register(request):
@@ -167,6 +169,60 @@ def request_partnership(request):
 
     messages.success(request, 'Partnership request submitted. We\'ll review it and get back to you by email.')
     return redirect('accounts:profile')
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def accept_terms(request):
+    """
+    Re-acceptance gate. RequireLegalAcceptanceMiddleware redirects any
+    authenticated user with stale tos/privacy versions here. Both checkboxes
+    must be ticked to continue. On success we stamp the current timestamp +
+    settings.TOS_VERSION / PRIVACY_VERSION onto the user.
+    """
+    user = request.user
+    current_tos = getattr(dj_settings, 'TOS_VERSION', 'v1')
+    current_privacy = getattr(dj_settings, 'PRIVACY_VERSION', 'v1')
+
+    # If they're already up-to-date, don't keep them on this page.
+    if not user.needs_legal_acceptance():
+        return redirect('documents:list')
+
+    tos_doc = LegalDocument.objects.filter(doc_type='terms').first()
+    privacy_doc = LegalDocument.objects.filter(doc_type='privacy').first()
+
+    error = ''
+    if request.method == 'POST':
+        tos_ok = bool(request.POST.get('tos_accepted'))
+        privacy_ok = bool(request.POST.get('privacy_accepted'))
+        if not (tos_ok and privacy_ok):
+            error = 'You must check both boxes to continue.'
+        else:
+            now = timezone.now()
+            user.tos_accepted_at = now
+            user.tos_accepted_version = current_tos
+            user.privacy_accepted_at = now
+            user.privacy_accepted_version = current_privacy
+            user.save(update_fields=[
+                'tos_accepted_at', 'tos_accepted_version',
+                'privacy_accepted_at', 'privacy_accepted_version',
+            ])
+            messages.success(request, 'Thank you. Your acceptance has been recorded.')
+            return redirect('documents:list')
+
+    # Distinguish first-time acceptance from re-acceptance for clearer copy.
+    is_revision = bool(user.tos_accepted_version or user.privacy_accepted_version)
+
+    return render(request, 'accounts/accept_terms.html', {
+        'tos_doc': tos_doc,
+        'privacy_doc': privacy_doc,
+        'tos_version': current_tos,
+        'privacy_version': current_privacy,
+        'user_tos_version': user.tos_accepted_version,
+        'user_privacy_version': user.privacy_accepted_version,
+        'is_revision': is_revision,
+        'error': error,
+    })
 
 
 class LogoutOnPasswordResetConfirmView(auth_views.PasswordResetConfirmView):

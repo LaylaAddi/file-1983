@@ -186,6 +186,15 @@ class Document(models.Model):
             'finalize confirmation page. Set together with locked_at.'
         )
     )
+    download_disclaimer_acknowledged_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            'Audit stamp: when the user explicitly checked the AI / not-a-lawyer '
+            'disclaimer box on the finalize page. Mirrors the signup TOS checkbox '
+            'so we have a per-document agreement on file at the moment the clean '
+            'PDF is released.'
+        )
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

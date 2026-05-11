@@ -1618,20 +1618,28 @@ def document_finalize(request, document_slug):
         return redirect('documents:wizard_draft', document_slug=doc.slug)
 
     if request.method == 'POST':
-        if not request.POST.get('acknowledge'):
+        ack_complete = bool(request.POST.get('acknowledge'))
+        ack_disclaimer = bool(request.POST.get('acknowledge_disclaimer'))
+        if not (ack_complete and ack_disclaimer):
             messages.error(
                 request,
-                'You must check the confirmation box to finalize this document.'
+                'You must check both confirmation boxes to finalize this document.'
             )
-            return render(request, 'documents/finalize_confirm.html', {'document': doc})
+            return render(request, 'documents/finalize_confirm.html', {
+                'document': doc,
+                'ack_complete': ack_complete,
+                'ack_disclaimer': ack_disclaimer,
+            })
 
         from django.utils import timezone
         now = timezone.now()
         doc.finalize_acknowledged_at = now
+        doc.download_disclaimer_acknowledged_at = now
         doc.locked_at = now
         doc.payment_status = 'finalized'
         doc.save(update_fields=[
-            'finalize_acknowledged_at', 'locked_at', 'payment_status', 'updated_at',
+            'finalize_acknowledged_at', 'download_disclaimer_acknowledged_at',
+            'locked_at', 'payment_status', 'updated_at',
         ])
         from django.urls import reverse
         messages.success(request, 'Document finalized. Your download is starting.')

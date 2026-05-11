@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Updated Terms — {{ header_app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+
+      {% if is_revision %}
+      <div class="alert alert-info">
+        <h4 class="alert-heading"><i class="bi bi-arrow-clockwise me-2"></i>Our Terms have been updated</h4>
+        <p class="mb-0">We've updated the Terms of Service and/or Privacy Policy since you last accepted them. Please review the current versions and confirm that you agree to continue using {{ header_app_name }}.</p>
+      </div>
+      {% else %}
+      <div class="alert alert-warning">
+        <h4 class="alert-heading"><i class="bi bi-shield-exclamation me-2"></i>Please review and accept</h4>
+        <p class="mb-0">Before you can keep using {{ header_app_name }}, please confirm that you've read and agree to the Terms of Service and Privacy Policy.</p>
+      </div>
+      {% endif %}
+
+      <div class="alert alert-danger">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-octagon-fill me-2"></i>Important — please read</h5>
+        <p class="mb-1">{{ header_app_name }} uses <strong>artificial intelligence</strong> to help draft your civil rights complaint. We are <strong>not lawyers</strong> and this is <strong>not legal advice</strong>.</p>
+        <p class="mb-0">AI can and does make mistakes. You are responsible for reviewing every word of any document you generate. <strong>If you are not certain it is accurate, have it reviewed by a licensed attorney before you file.</strong></p>
+      </div>
+
+      {% if error %}
+      <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>{{ error }}</div>
+      {% endif %}
+
+      <div class="row g-4 my-2">
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header">
+              <strong>Terms of Service</strong>
+              {% if tos_doc %}<span class="badge bg-secondary ms-2">{{ tos_doc.version }}</span>{% endif %}
+            </div>
+            <div class="card-body">
+              <p class="small text-muted">Read the full Terms of Service before agreeing.</p>
+              <a href="{% url 'public_pages:terms' %}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open Terms of Service
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-header">
+              <strong>Privacy Policy</strong>
+              {% if privacy_doc %}<span class="badge bg-secondary ms-2">{{ privacy_doc.version }}</span>{% endif %}
+            </div>
+            <div class="card-body">
+              <p class="small text-muted">Read the full Privacy Policy before agreeing.</p>
+              <a href="{% url 'public_pages:privacy' %}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open Privacy Policy
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" class="card mt-3">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="tos_accepted" id="tos_accepted" required>
+            <label class="form-check-label" for="tos_accepted">
+              I have read and agree to the
+              <a href="{% url 'public_pages:terms' %}" target="_blank" rel="noopener">Terms of Service</a>
+              (version {{ tos_version }}), including the disclaimers about AI-generated content and the limitation of liability.
+            </label>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="privacy_accepted" id="privacy_accepted" required>
+            <label class="form-check-label" for="privacy_accepted">
+              I have read and agree to the
+              <a href="{% url 'public_pages:privacy' %}" target="_blank" rel="noopener">Privacy Policy</a>
+              (version {{ privacy_version }}), including how my story is sent to a third-party AI provider for drafting.
+            </label>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <a href="#" class="text-muted small"
+               onclick="event.preventDefault();document.getElementById('logout-form').submit();">
+              I do not agree — log me out
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle me-1"></i>Agree and continue
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <form id="logout-form" method="post" action="{% url 'accounts:logout' %}" class="d-none">
+        {% csrf_token %}
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
