@@ -15,8 +15,11 @@ each section → final review → AI drafts factual allegations → user reviews
 **Status:** MVP is feature-complete and live on Render at `auditfile1983.com` (Stripe in sandbox/test mode). `file1983.com` 301-redirects to `auditfile1983.com` via Django middleware. Recent test users have completed full purchase flows successfully. Self-serve partner dashboard with shareable referral links and self-request partnership flow are live.
 
 **What works end-to-end today:**
-- Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → **explicit checkbox confirmation page** → finalize lock + clean PDF download. Re-download stays available; the watermark is gated by lock (not payment), so paid-but-unlocked previews are still watermarked. Prevents preview-abuse.
-- After lock, **all wizard edit pages** (story, summary, addendum, steps 1–7, case law) bounce to the draft page with a flash on both GET and POST. Lock is per-document; other docs in the same account stay editable.
+- Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → **explicit two-checkbox confirmation page** (acknowledge complete + acknowledge AI-disclaimer) → finalize lock + clean PDF download. Re-download stays available; the watermark is gated by lock (not payment), so paid-but-unlocked previews are still watermarked. Prevents preview-abuse.
+- After lock, **all wizard edit pages** (story, summary, addendum, steps 1–7, case law) bounce to the draft page with a flash on both GET and POST. Lock is per-document; other docs in the same account stay editable. The documents-list row swaps Continue/Edit buttons for Download PDF + View when the doc is locked.
+- **Signup TOS / Privacy gate.** Two required checkboxes on `/accounts/register/` plus a prominent AI / not-a-lawyer warning. Acceptance stamped on the User with `tos_accepted_at`, `tos_accepted_version`, `privacy_accepted_at`, `privacy_accepted_version`.
+- **Re-acceptance gate.** `RequireLegalAcceptanceMiddleware` redirects any logged-in user whose stored version doesn't match `settings.TOS_VERSION` / `PRIVACY_VERSION` to `/accounts/accept-terms/`. Bumping the env var forces every existing user to re-accept on next request.
+- **DB-editable legal copy.** `LegalDocument` rows (terms, privacy, disclaimer, cookies) carry `content` (HTML), `version`, and `effective_date`. Editable in admin at `/<ADMIN_URL>/accounts/legaldocument/`.
 - Promo codes track referrer attribution; admin shows per-code revenue and the partner cut
 - Partner dashboard at `/partner/` with sales table (buyer name+email visible to partner), payout request flow with email to admin, balance adjustments, shareable `?ref=CODE` links that auto-pre-fill the promo at checkout
 - Users can request partnership from their profile; admin approval auto-flips the flag AND creates a PromoCode in one click
@@ -25,23 +28,23 @@ each section → final review → AI drafts factual allegations → user reviews
 - One-step undo restores the previous draft after a regenerate
 - Stale-draft block forces users to regenerate before viewing an outdated draft
 - Password reset works via SMTP (Namecheap Private Email, `rights@auditfile1983.com`); confirm page logs out current session and shows which account is being reset
+- **Live RSS news widget** on the landing page pulls hourly from ACLU, EFF, FIRE, Institute for Justice, SCOTUSblog, Reason via a `fetch_news` management command on a Render Cron Job. Each item opens in a new tab; admin can hide off-topic rows with a checkbox.
+- **`/sitemap.xml`** advertises all 8 public pages + 4 legal pages + any published `CivilRightsPage` rows for search engines. `robots.txt` already references it.
+- **Admin-editable footer contact** — `SiteSettings.contact_email` / `contact_phone` with independent visibility flags render in the footer's brand column as `mailto:` / `tel:` links.
 
-**Latest commits (most recent on top), all on `master` and deployed:**
-- `85f6d0e` — Gate clean PDF behind lock, not behind payment (closes preview-abuse loophole). Removes the "Preview clean PDF" button on paid+unlocked docs; keeps the watermarked preview button. Also fixes incidental bug where `payment_status='finalized'` re-watermarked the PDF
-- `d8abdc8` — Finalize confirmation page + audit stamp; block locked-doc GETs on edit pages. New `/documents/<slug>/finalize/` URL with required checkbox, new `Document.finalize_acknowledged_at` audit field, migration `0020`
-- `aa55041` — Password reset confirm: log out current session, show target email
-- `4e61d35` — EMAIL_BACKEND smart default (SMTP in prod, console in dev)
-- `86e7c72` — Fix NoReverseMatch on password reset by namespacing success_urls
-- `2c966bb` — Surface 500 tracebacks to Render logs (LOGGING config) + EMAIL_TIMEOUT
-- `3881a27` — Auto-grant partnership on approval (flip flag + create PromoCode)
-- `9d808c1` — Canonical-domain redirect; PRIMARY_DOMAIN setting; auditfile1983.com is now primary
-- `9b80225` — Signup form pre-fills referral input from `?ref`/session; links referred_by via PromoCode owner
-- `91f971c` — Profile page cleanup (drop legacy Access card, Referral block on the right)
-- `9be59a2` — Partner dashboard Phase 4: capture `?ref=CODE` in session + pre-fill at checkout
-- `2d281c6` — PartnerAdjustment + PartnershipRequest models; profile referral UI; user admin promo-codes-redeemed inline
-- `f434e56` — Partner dashboard Phase 3: payout request flow with modal + min-balance + admin email
-- `bf06cf5` — Partner dashboard Phase 2: read-only `/partner/` with sales, cut, payout history
-- `f23dc7d` — Partner dashboard Phase 1: `is_revenue_partner` flag + PayoutRequest processor/payment-record fields
+**Latest commits this session (most recent on top), on branch `claude/add-terms-agreement-ZWtyw`:**
+- `1b4d4b0` — Admin-editable footer contact (email + phone with hide toggles); new `SiteSettings.contact_email`/`contact_phone`/`contact_email_visible`/`contact_phone_visible` fields; context processor exposes them; migration `accounts/0005_sitesettings_contact`
+- `3303b14` — Add `/sitemap.xml` via `django.contrib.sitemaps`; `public_pages/sitemaps.py` defines `StaticPagesSitemap`, `LegalPagesSitemap`, `CMSPageSitemap`; `/sitemap.xml` added to legal-acceptance middleware exempts
+- `3d144de` — Replace Cato Institute (malformed RSS) with SCOTUSblog in `fetch_news` FEEDS
+- `ed770d7` — Wire landing-page Latest Updates widget to real RSS; new `NewsItem` model + `public_pages/management/commands/fetch_news.py`; admin hide-toggle; migration `public_pages/0002_newsitem`; `feedparser` added to requirements
+- `0e1387e` — Rebrand "File 1983" → "AuditFile 1983" across seeded legal copy; add explicit "AuditFile 1983 Parties" definition (owners, officers, members, employees, contractors, agents, representatives, affiliates, successors) used in limitation-of-liability + indemnification; `SiteSettings.app_name` / `header_app_name` defaults updated; migration `accounts/0004_rebrand_legal_copy` uses `update_or_create` so it works whether or not 0003 already ran
+- `ff77866` — Hide Continue/Edit buttons on locked documents in `/documents/` list view; primary becomes Download PDF, secondary becomes View
+- `d5fbc72` — **Terms / Privacy acceptance + AI-disclaimer gates (the big one).** Two required checkboxes on register; new `accept_terms` view + template + URL; `RequireLegalAcceptanceMiddleware`; `User.{tos,privacy}_accepted_at`/`version` fields; `LegalDocument.version`/`effective_date` + seeded v1 copy; second AI-disclaimer checkbox on `/finalize/` stamps `Document.download_disclaimer_acknowledged_at`; footer Terms/Privacy/Disclaimer links wired; UserAdmin "Legal Acceptance" fieldset + TOS version column/filter; LegalDocumentAdmin polish; migrations `accounts/0003_legal_acceptance` + `documents/0021_document_download_disclaimer`
+
+**Previously deployed (before this session) — see git log for full history. Notable recent ones on `master`:**
+- `85f6d0e` — Gate clean PDF behind lock, not behind payment
+- `d8abdc8` — Finalize confirmation page + audit stamp (`Document.finalize_acknowledged_at`)
+- `9d808c1` — Canonical-domain redirect; `PRIMARY_DOMAIN` setting
 
 **Settings worth knowing about (all in `config/settings.py`):**
 - `PRICE_FULL_CENTS=14900` / `PRICE_DISCOUNTED_CENTS=9900` — list and promo prices
@@ -49,7 +52,13 @@ each section → final review → AI drafts factual allegations → user reviews
 - `PARTNER_MIN_PAYOUT_CENTS=2000` — $20 minimum balance to request payout
 - `AI_QUOTA_FREE=3` / `AI_QUOTA_PAID=150` — per-document AI call limits
 - `FREE_DOCS_PER_USER=2` — max draft documents in flight per user
-- `PRIMARY_DOMAIN='auditfile1983.com'` — canonical host; CanonicalDomainMiddleware 301-redirects others to it
+- `PRIMARY_DOMAIN='auditfile1983.com'` — canonical host; `CanonicalDomainMiddleware` 301-redirects others to it
+- `TOS_VERSION='v1'` / `PRIVACY_VERSION='v1'` — env-overridable. Bump on Render to force every existing user to re-accept on next request (must also bump the matching `LegalDocument.version` in admin).
+
+**Render service inventory (current):**
+- **Web service** — Docker, master branch, auto-deploys from `master`. Runs `docker-entrypoint.sh` (migrate + collectstatic + gunicorn).
+- **Postgres** — Starter plan, internal connection to the web service.
+- **Cron Job — fetch_news** — Docker, master branch. Schedule `0 * * * *`. Command (in Docker Command field): `python manage.py fetch_news`. Needs `DATABASE_URL`, `SECRET_KEY`, `DEBUG=0`, `ALLOWED_HOSTS`, `ADMIN_URL` copied from the web service.
 
 **What the next Claude should know about user preferences:**
 - User wants step-by-step instructions, not autonomous large changes
@@ -60,10 +69,10 @@ each section → final review → AI drafts factual allegations → user reviews
 - Workflow: develop on `claude/<short-description>` branch → push → user merges to master locally → Render auto-deploys
 
 **Likely next features (user's open roadmap, prioritized):**
-1. **Terms of Service + signup acknowledgement** ← user wants to tackle this next in a fresh Claude session. Need a TOS page (probably under `public_pages` or `accounts`) and a required checkbox on `/accounts/register/` with an audit-stamped field on `User` (e.g. `tos_accepted_at`, mirror of how `Document.finalize_acknowledged_at` works) so the acceptance is verifiable later. Probably also want `tos_version` so future TOS changes can prompt re-acceptance.
-2. Landing page CMS (`public_pages` is currently a stub) — primary domain is auditfile1983.com so this is the homepage users see
-3. Switch Stripe to **Live mode** when ready to take real payments
-4. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties
+1. **Mobile experience: PWA vs native framework** ← user wants this in the next fresh Claude session. The current app is responsive Bootstrap-only, no mobile-specific affordances. Key decision points to walk the user through before writing code: (a) **PWA** path — service worker + manifest.json + offline shell, installable from browser, no app stores, can wrap the existing Django app with minimal changes, no separate codebase. Limits: iOS notification support is weaker, no native device APIs beyond what mobile browsers expose. (b) **Native wrapper** (Capacitor, Expo, React Native, Flutter) — separate codebase, app store distribution, real push notifications, native camera/voice integration could improve the wizard's evidence + dictation flows. Heavier ongoing maintenance, $99/yr Apple developer fee + Google Play one-time fee. (c) **Hybrid** — keep web as primary, ship a thin PWA now, add a native app later if the audience demands it. The user's audience (First Amendment auditors documenting incidents in the field) is mobile-heavy and would benefit from camera-first evidence capture + offline-capable story drafting, so this is a meaningful product question, not just packaging. Use `AskUserQuestion` to surface the trade-offs before committing to an approach.
+2. Landing page CMS — `public_pages.CivilRightsPage` and `PageSection` models already exist with the right shape; just need admin polish + a few seeded pages. Primary domain is auditfile1983.com so this is the homepage users see.
+3. Switch Stripe to **Live mode** when ready to take real payments — generate live keys, create a live webhook endpoint at `https://auditfile1983.com/stripe/webhook/`, swap `STRIPE_*` env vars on Render.
+4. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties.
 
 ---
 
@@ -163,15 +172,22 @@ PARTNER_PAYOUT_NOTIFY_EMAIL=
 
 ## URL Map
 ```
-/                                           → public_pages:home (stub)
-/accounts/register/                         → register
+/                                           → public_pages:home (landing page with hero, featured articles, live RSS news widget, key rights, resources)
+/sitemap.xml                                → Django sitemaps framework — static pages + legal pages + published CMS pages
+/robots.txt                                 → User-agent: * / Disallow /accounts/ /documents/ / advertises /sitemap.xml
+/legal/terms/                               → Terms of Service rendered from LegalDocument(doc_type='terms')
+/legal/privacy/                             → Privacy Policy rendered from LegalDocument(doc_type='privacy')
+/legal/disclaimer/                          → Legal Disclaimer (hardcoded template — no LegalDocument row seeded yet)
+/legal/cookies/                             → Cookie Policy (hardcoded template — no LegalDocument row seeded yet)
+/accounts/register/                         → register; two required checkboxes (TOS + Privacy), AI/not-a-lawyer warning, stamps tos/privacy_accepted_at + version on User
 /accounts/login/                            → login
 /accounts/logout/                           → logout
+/accounts/accept-terms/                     → re-acceptance gate. Logged-in users with stale tos_accepted_version / privacy_accepted_version are redirected here by RequireLegalAcceptanceMiddleware. Two checkboxes required to continue; logout link for "I do not agree"
 /accounts/profile/                          → profile (full address, incomplete-profile banner, referral block — partner sees codes+share links; non-partner sees Request Partnership form)
 /accounts/profile/request-partnership/      → POST: creates PartnershipRequest + emails admin
 /accounts/pricing/                          → pricing stub
 /accounts/password-reset/                   → password reset flow (logs out current session on confirm page)
-/documents/                                 → document list (admin sees Delete button)
+/documents/                                 → document list. Locked docs show Download PDF + View buttons (no Continue/Edit). Admin sees Delete button
 /documents/new/                             → create document (profile gate)
 /documents/<slug>/delete/                   → POST-only, staff-only, deletes document
 /documents/<slug>/wizard/                   → story input page (with Dictate voice button)
@@ -188,7 +204,7 @@ PARTNER_PAYOUT_NOTIFY_EMAIL=
 /documents/<slug>/wizard/draft/             → AI-drafted factual allegations + full complaint preview, editable. Stale drafts redirect to Step 7
 /documents/<slug>/wizard/draft/undo/        → POST: restore previous_factual_allegations snapshot (single-step undo of regenerate)
 /documents/<slug>/wizard/generate/          → WeasyPrint PDF. Watermarked unless doc.is_locked() (so paid+unlocked previews are still watermarked — closes preview-abuse). ?download=1 forces save dialog. The old ?finalize=1 query path was removed; locking now lives at /finalize/.
-/documents/<slug>/finalize/                 → GET: confirmation page with required "I confirm complete + understand editing locks" checkbox. POST: stamps Document.finalize_acknowledged_at AND locked_at, flips status to 'finalized', then redirects to wizard_generate?download=1. Refuses to act on already-locked docs (bounces to draft) and unpaid docs (bounces to /pay/)
+/documents/<slug>/finalize/                 → GET: confirmation page with TWO required checkboxes — (1) "I confirm complete + understand editing locks" and (2) AI-disclaimer: "I understand this was AI-assisted, you're not my lawyer, I'll consult an attorney if unsure." POST: stamps Document.finalize_acknowledged_at AND download_disclaimer_acknowledged_at AND locked_at, flips status to 'finalized', then redirects to wizard_generate?download=1. Refuses to act on already-locked docs (bounces to draft) and unpaid docs (bounces to /pay/)
 /documents/<slug>/pay/                      → Pay $149 (or $99 with promo code) — creates Stripe Checkout Session
 /documents/<slug>/pay/validate-promo/       → AJAX: GET ?code=XYZ → live promo validation for the pay page
 /documents/<slug>/pay/success/              → Stripe success_url; offers clean PDF download
@@ -260,7 +276,13 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 - [x] **Stripe Phase 4 + AI abuse limits combined** (commit `6e7179d`, migration `0016`) — Per-document AI quota: 3 calls free, 150 after payment (counter resets to 0 on payment via webhook). Counted: story extraction, draft regeneration, addendums (court-lookup fallback NOT counted). Live counter badge on draft page (yellow at 1 left, red at 0). Free-doc cap of 2 in-flight drafts per user (paid + finalized don't count, staff exempt). Document `locked_at` field set by Finalize & Download flow → status='finalized' + read-only across all wizard step POSTs (lock-blocked via `_check_locked_redirect()` helper). Two-button download UX on draft page for paid docs: Preview clean PDF (no lock) vs Finalize & Download (confirm dialog → lock → save dialog)
 - [x] **Stale-draft view block + one-step undo** (commit `ecdbfe4`, migration `0017`) — Stale drafts can no longer be opened: `wizard_draft` GET redirects to Step 7 when wizard data was edited after the last draft write (locked docs exempt). Step 7 banner is bigger and the "Open Stale Draft" button removed entirely; only "Regenerate Draft" remains. `Document.previous_factual_allegations_json` snapshots the old draft on each regenerate. New `wizard_draft_undo` view + button on draft page lets user restore the previous version (single-use; snapshot cleared after restore). `Document.has_undo()` helper for templates
 - [x] **Dark-mode outline button contrast** (commit `1d20253`) — Wizard "Add Evidence", "Add Defendant", "Add Claim", "Restore previous draft", and Back/Cancel buttons were nearly invisible against the dark theme's `#1a1a2e` background because patriot-blue (`#002868`) is too dark. Added `[data-theme="dark"] .btn-outline-{primary, secondary, warning, danger, info}` overrides: bright accent color, 2px border, subtle filled tint at rest, fully filled on hover. Light mode unchanged
-- [x] Migrations through `0019_partner_adjustment_partnership_request` (accounts through `0002_user_is_revenue_partner`)
+- [x] Migrations through `documents/0021_document_download_disclaimer` (accounts through `0005_sitesettings_contact`, public_pages through `0002_newsitem`)
+- [x] **Terms of Service / Privacy acceptance + AI-disclaimer gates** (commit `d5fbc72`) — see "What works end-to-end" above for the full shape. Two required checkboxes on register, re-acceptance gate via middleware, DB-editable copy, four audit fields on User, second AI-disclaimer checkbox on /finalize/, /accounts/accept-terms/ view + template, footer Terms/Privacy/Disclaimer links wired
+- [x] **Lock-aware documents list** (commit `ff77866`) — locked docs show Download PDF + View instead of Continue/Edit
+- [x] **Rebrand to AuditFile 1983** (commit `0e1387e`, migration `accounts/0004`) — seeded legal copy, SiteSettings defaults, "AuditFile 1983 Parties" definition with owners/officers/employees/contractors/agents/representatives/affiliates/successors
+- [x] **Live RSS news widget** (commits `ed770d7`, `3d144de`, migration `public_pages/0002`) — `NewsItem` model, `fetch_news` management command, 6 curated feeds (ACLU, EFF, FIRE, IJ, SCOTUSblog, Reason), hourly Render Cron Job, admin hide-toggle
+- [x] **`/sitemap.xml`** (commit `3303b14`) — Django sitemaps framework, 12 URLs (8 static + 4 legal) + auto-included published CMS pages
+- [x] **Admin-editable footer contact** (commit `1b4d4b0`, migration `accounts/0005`) — email + phone with independent visibility flags
 - [x] **Partner dashboard Phase 1 — foundation** (commit `f23dc7d`, accounts migration `0002`, documents migration `0018`) — `User.is_revenue_partner` BooleanField; `PayoutRequest` extended with `payment_processor` (PayPal/Venmo/Zelle/Check/Other), `payment_method_details` (where partner wants the money), `payment_reference` (admin-recorded txn ID/check #), `paid_at`, `admin_notes`. Admin form split into Request / Partner destination / Admin payment record fieldsets; auto-stamps `paid_at` and `resolved_at` when status changes. UserAdmin shows Partner column + filter
 - [x] **Partner dashboard Phase 2 — read-only `/partner/`** (commit `bf06cf5`) — `documents/services/partner_stats.py` aggregates per-user sales, gross revenue, cut earned, paid out, pending, unpaid balance. Dashboard shows 4 summary cards + promo codes + recent sales (date, buyer name + email, code, amount, cut) + payout history. Nav link in user dropdown for partners + staff. Uses `PARTNER_CUT_PERCENT` setting
 - [x] **Partner dashboard Phase 3 — payout request flow** (commit `f434e56`) — Bootstrap modal with payment-method dropdown + destination textarea + optional note. Settings: `PARTNER_MIN_PAYOUT_CENTS=2000` ($20 minimum), `PARTNER_PAYOUT_NOTIFY_EMAIL` env var (falls back to `DEFAULT_FROM_EMAIL`). View blocks if open request exists or unpaid balance < min. Button shows three states (live with amount / pending / below minimum). Email to admin includes deep link to admin record
@@ -379,10 +401,18 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 - `0018_payoutrequest_processor_fields` — extends `PayoutRequest` with `payment_processor` (PayPal/Venmo/Zelle/Check/Other), `payment_method_details`, `payment_reference`, `paid_at`, `admin_notes`; reorders `notes` help text; adds `Meta.ordering = ['-requested_at']`
 - `0019_partner_adjustment_partnership_request` — creates `PartnerAdjustment` (signed `amount_cents`, `reason`, `created_by`) and `PartnershipRequest` (`requested_code`, `message`, `status`, `admin_notes`, `resolved_at`)
 - `0020_document_finalize_acknowledged_at` — adds `Document.finalize_acknowledged_at` (DateTimeField, null) — separate audit stamp from `locked_at` for the explicit checkbox acknowledgement on `/finalize/`
+- `0021_document_download_disclaimer` — adds `Document.download_disclaimer_acknowledged_at` (DateTimeField, null) — stamped when user ticks the AI-disclaimer checkbox on `/finalize/` alongside the existing "complete" acknowledgement. Surfaced as readonly in DocumentAdmin.
 
 **accounts migrations:**
 - `0001_initial` — User, Subscription, DocumentPack, SiteSettings, LegalDocument
 - `0002_user_is_revenue_partner` — adds `User.is_revenue_partner` BooleanField (gates `/partner/` access)
+- `0003_legal_acceptance` — adds `User.tos_accepted_at` / `tos_accepted_version` / `privacy_accepted_at` / `privacy_accepted_version`; adds `LegalDocument.version` (default `'v1'`) and `effective_date`; adds `'cookies'` to `LegalDocument.doc_type` choices; data migration seeds Terms + Privacy at version `'v1'` with disclaimer-heavy AI / not-a-lawyer copy
+- `0004_rebrand_legal_copy` — rebrands seeded Terms + Privacy from "File 1983" → "AuditFile 1983"; adds "Who we are" section defining "AuditFile 1983 Parties" (owners, officers, members, employees, contractors, agents, representatives, affiliates, successors); references that defined term in limitation-of-liability + indemnification clauses; nudges `SiteSettings.app_name` + `header_app_name` to "AuditFile 1983" if still on the original default; uses `update_or_create` so it works whether or not 0003 already ran
+- `0005_sitesettings_contact` — adds `SiteSettings.contact_email` (default `rights@auditfile1983.com`), `contact_email_visible`, `contact_phone` (default `555-555-1212`), `contact_phone_visible` for the footer
+
+**public_pages migrations:**
+- `0001_initial` — `CivilRightsPage`, `PageSection` (CMS scaffolding)
+- `0002_newsitem` — adds `NewsItem` (url unique, title, source, published_at, summary, is_visible, fetched_at) for the landing-page RSS widget
 
 ### `ai_analysis` JSON shape (what GPT returns, stored in `WizardSession.ai_analysis`)
 ```json
@@ -650,14 +680,20 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 **Stale schema cleanup:** unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are not in any code path. Safe to drop in a future migration when convenient.
 
 ### Open
-- **Terms of Service + signup acknowledgement** ← **next session is starting here.** Need (1) a public TOS page (probably `/tos/` under `public_pages` or `accounts`; consider also a Privacy Policy if scope allows), (2) a required checkbox on `/accounts/register/` ("I have read and agree to the Terms of Service"), (3) audit fields on `User`: `tos_accepted_at` (DateTime null) + `tos_version` (CharField, e.g. `"2026-05-11"` or `"v1"`) so future TOS revisions can detect users who need to re-accept. Mirror the pattern from `Document.finalize_acknowledged_at` (separate audit field, surfaced as readonly in admin). Decision points to ask the user about: where TOS copy lives (hardcoded template vs DB-editable like `PdfBranding`), versioning strategy (manual bump in settings vs admin model), whether existing users need to re-accept on next login or are grandfathered in.
-- **Landing page CMS** — `public_pages` is currently a stub. Highest-impact next feature: `auditfile1983.com` is now the primary domain users land on, so this is the homepage for everyone (including partner-shared `?ref=CODE` links). Should be admin-editable copy + simple section model. Could re-purpose the existing `accounts.SiteSettings` model or add a new `LandingSection` model.
+- **Mobile experience: PWA vs native framework** ← **next session starts here.** The current app is responsive Bootstrap-only with no mobile-specific affordances. The user's audience (First Amendment auditors documenting incidents in the field) is mobile-heavy, so this is a real product question, not just packaging. **Decision points to surface to the user via `AskUserQuestion` before writing code:**
+  1. **Which approach?** (a) **PWA** — service worker + `manifest.json` + offline shell, installable from browser, no app stores, no separate codebase, wraps the existing Django app with minimal changes. Limits: iOS push notifications are weaker, native camera/voice APIs are limited to browser capabilities. (b) **Native wrapper** (Capacitor is the lowest-friction here since the app is HTML/CSS/JS, or Expo / React Native / Flutter for a full rewrite) — app-store distribution, real push notifications, deeper native integrations. Heavier ongoing maintenance, $99/yr Apple dev fee + Google Play one-time fee. (c) **Hybrid** — ship a PWA now (low effort), revisit native if user demand justifies it.
+  2. **What's the actual mobile pain?** Before picking a path, find out what's actually broken on mobile. Likely candidates: wizard textareas + camera capture in evidence step, voice dictation reliability on iOS Safari, address entry friction, viewport issues on the Step 2 flatpickr pickers, PDF preview behavior. The fix might be CSS tuning rather than a packaging change.
+  3. **Offline support?** The story textarea + wizard steps could plausibly work offline with a service worker if the user wants to draft in the field with bad signal. Stripe checkout cannot. Decide scope.
+  4. **Install prompt UX?** If PWA, where do we surface "Install this app"? Profile? Footer? An iOS install instruction page? (iOS doesn't trigger `beforeinstallprompt`.)
+  - Concrete starting point if PWA wins: `django-pwa` package or hand-rolled service worker + `manifest.webmanifest` static file + `<link rel="manifest">` in `base.html`. Service worker scope: cache shell + static assets, network-first for everything dynamic. Add an icon set (192, 512, maskable) under `static/images/pwa/`.
+- **Landing page CMS** — `public_pages.CivilRightsPage` + `PageSection` models already exist with the right shape. Just need admin polish (a couple of seeded section types, maybe a preview button) and a few seeded pages.
 - **Stripe Live mode** — generate live API keys in Stripe, create live webhook endpoint pointed at `https://auditfile1983.com/stripe/webhook/` with events `checkout.session.completed` + `checkout.session.expired`, update `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET` env vars on Render. The code path is identical; only env vars change. **Caveat:** test-mode `PromoCode` and `PromoCodeUsage` rows are still in the DB — audit before going live so test partners don't accidentally get real attribution.
 - Per-claim case-law selection UI (Option B)
 - Playwright/Selenium browser tests
+- Drop unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` when convenient
 
 ### Working agreement
-User wants to take features one at a time, structured. Don't bundle. The next Claude session should start with TOS / signup acknowledgement. Use `AskUserQuestion` for the open design decisions (where copy lives, versioning, grandfathering) before writing code.
+User wants to take features one at a time, structured. Don't bundle. The next Claude session should start with the mobile / PWA-vs-native decision — use `AskUserQuestion` to surface the trade-offs (which approach, what mobile pain exists today, offline scope, install-prompt UX) **before** writing any code.
 
 Don't assume — ask.
 
