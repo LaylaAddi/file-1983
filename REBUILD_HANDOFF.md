@@ -15,7 +15,8 @@ each section → final review → AI drafts factual allegations → user reviews
 **Status:** MVP is feature-complete and live on Render at `auditfile1983.com` (Stripe in sandbox/test mode). `file1983.com` 301-redirects to `auditfile1983.com` via Django middleware. Recent test users have completed full purchase flows successfully. Self-serve partner dashboard with shareable referral links and self-request partnership flow are live.
 
 **What works end-to-end today:**
-- Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → clean PDF download → finalize lock
+- Story → wizard → AI draft → preview PDF → pay $149 (or $99 with promo code) → webhook flips status → **explicit checkbox confirmation page** → finalize lock + clean PDF download. Re-download stays available; the watermark is gated by lock (not payment), so paid-but-unlocked previews are still watermarked. Prevents preview-abuse.
+- After lock, **all wizard edit pages** (story, summary, addendum, steps 1–7, case law) bounce to the draft page with a flash on both GET and POST. Lock is per-document; other docs in the same account stay editable.
 - Promo codes track referrer attribution; admin shows per-code revenue and the partner cut
 - Partner dashboard at `/partner/` with sales table (buyer name+email visible to partner), payout request flow with email to admin, balance adjustments, shareable `?ref=CODE` links that auto-pre-fill the promo at checkout
 - Users can request partnership from their profile; admin approval auto-flips the flag AND creates a PromoCode in one click
@@ -26,6 +27,8 @@ each section → final review → AI drafts factual allegations → user reviews
 - Password reset works via SMTP (Namecheap Private Email, `rights@auditfile1983.com`); confirm page logs out current session and shows which account is being reset
 
 **Latest commits (most recent on top), all on `master` and deployed:**
+- `85f6d0e` — Gate clean PDF behind lock, not behind payment (closes preview-abuse loophole). Removes the "Preview clean PDF" button on paid+unlocked docs; keeps the watermarked preview button. Also fixes incidental bug where `payment_status='finalized'` re-watermarked the PDF
+- `d8abdc8` — Finalize confirmation page + audit stamp; block locked-doc GETs on edit pages. New `/documents/<slug>/finalize/` URL with required checkbox, new `Document.finalize_acknowledged_at` audit field, migration `0020`
 - `aa55041` — Password reset confirm: log out current session, show target email
 - `4e61d35` — EMAIL_BACKEND smart default (SMTP in prod, console in dev)
 - `86e7c72` — Fix NoReverseMatch on password reset by namespacing success_urls
@@ -57,9 +60,10 @@ each section → final review → AI drafts factual allegations → user reviews
 - Workflow: develop on `claude/<short-description>` branch → push → user merges to master locally → Render auto-deploys
 
 **Likely next features (user's open roadmap, prioritized):**
-1. Landing page CMS (`public_pages` is currently a stub) — primary domain is auditfile1983.com so this is the homepage users see
-2. Switch Stripe to **Live mode** when ready to take real payments
-3. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties
+1. **Terms of Service + signup acknowledgement** ← user wants to tackle this next in a fresh Claude session. Need a TOS page (probably under `public_pages` or `accounts`) and a required checkbox on `/accounts/register/` with an audit-stamped field on `User` (e.g. `tos_accepted_at`, mirror of how `Document.finalize_acknowledged_at` works) so the acceptance is verifiable later. Probably also want `tos_version` so future TOS changes can prompt re-acceptance.
+2. Landing page CMS (`public_pages` is currently a stub) — primary domain is auditfile1983.com so this is the homepage users see
+3. Switch Stripe to **Live mode** when ready to take real payments
+4. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties
 
 ---
 
@@ -183,7 +187,8 @@ PARTNER_PAYOUT_NOTIFY_EMAIL=
 /documents/<slug>/wizard/caselaw/           → Case law strategy choice (post-review, optional)
 /documents/<slug>/wizard/draft/             → AI-drafted factual allegations + full complaint preview, editable. Stale drafts redirect to Step 7
 /documents/<slug>/wizard/draft/undo/        → POST: restore previous_factual_allegations snapshot (single-step undo of regenerate)
-/documents/<slug>/wizard/generate/          → WeasyPrint PDF (watermarked unless paid). ?download=1 forces save dialog; ?finalize=1 (paid only) locks the doc to 'finalized' before serving
+/documents/<slug>/wizard/generate/          → WeasyPrint PDF. Watermarked unless doc.is_locked() (so paid+unlocked previews are still watermarked — closes preview-abuse). ?download=1 forces save dialog. The old ?finalize=1 query path was removed; locking now lives at /finalize/.
+/documents/<slug>/finalize/                 → GET: confirmation page with required "I confirm complete + understand editing locks" checkbox. POST: stamps Document.finalize_acknowledged_at AND locked_at, flips status to 'finalized', then redirects to wizard_generate?download=1. Refuses to act on already-locked docs (bounces to draft) and unpaid docs (bounces to /pay/)
 /documents/<slug>/pay/                      → Pay $149 (or $99 with promo code) — creates Stripe Checkout Session
 /documents/<slug>/pay/validate-promo/       → AJAX: GET ?code=XYZ → live promo validation for the pay page
 /documents/<slug>/pay/success/              → Stripe success_url; offers clean PDF download
@@ -269,6 +274,8 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 - [x] **Canonical domain redirect** (commit `9d808c1`) — `documents/middleware.py:CanonicalDomainMiddleware` 301-redirects any host that isn't `PRIMARY_DOMAIN` to the same path on the canonical host. Skips localhost, IPs, `*.onrender.com`, and no-ops when `DEBUG=True`. `PRIMARY_DOMAIN='auditfile1983.com'` is the new default. Context processor exposes `{{ PRIMARY_DOMAIN }}` in templates so shareable links use it dynamically
 - [x] **Email backend smart default** (commit `4e61d35`) — `EMAIL_BACKEND` now defaults to SMTP in production (DEBUG=False), console in dev. No env var needed in prod. Failure mode is "fail loudly with SMTP error" rather than "silently print bodies to logs"
 - [x] **Password reset hardening** (commits `86e7c72`, `aa55041`, `2c966bb`) — `accounts/urls.py` namespaces `success_url` on `PasswordResetView`/`PasswordResetConfirmView` (was crashing post-send with `NoReverseMatch`). Custom `LogoutOnPasswordResetConfirmView` logs out the current session in dispatch so a logged-in user can't unknowingly reset a different account's password. Confirm template shows "Resetting password for `email@example.com`" banner. `LOGGING` config surfaces 500 tracebacks to stderr → Render logs. `EMAIL_TIMEOUT=15` so SMTP failures fail fast
+- [x] **Finalize confirmation page + audit stamp** (commit `d8abdc8`, migration `0020`) — New URL `/documents/<slug>/finalize/` (`document_finalize` view) replaces the one-click JS `confirm()` with a dedicated checkbox confirmation page. POST requires the `acknowledge` checkbox; on success stamps `Document.finalize_acknowledged_at` AND `Document.locked_at` to the same `now` and flips `payment_status='finalized'`. The new `finalize_acknowledged_at` field is a separate audit timestamp (verifiable in admin) — admin changelist shows both columns; `DocumentAdmin.readonly_fields` includes `finalize_acknowledged_at`, `locked_at`, `paid_at`. The legacy `?finalize=1` query path on `wizard_generate` was removed. Same commit lifts `_check_locked_redirect()` to the top of every wizard view so locked docs block GETs too (previously only POSTs blocked) — `wizard_story`, `wizard_extraction_summary`, `wizard_addendum`, `wizard_step1`–`step7`, `wizard_caselaw_strategy`. The draft page itself stays open (re-download UI lives there)
+- [x] **Watermark gated by lock, not payment** (commit `85f6d0e`) — `_build_complaint_context()` previously set `is_draft_preview = doc.payment_status != 'paid'`, which (a) let paid users hit `/wizard/generate/` for a clean PDF before locking and edit-preview-edit indefinitely, and (b) had a side bug where `payment_status='finalized'` re-watermarked. New rule: `is_draft_preview = not doc.is_locked()`. Only locked docs get a clean PDF; the only path to lock is `/finalize/`. The "Preview clean PDF" button on the draft page (paid+unlocked) was removed in favor of the watermarked Preview button, so paid users can still sanity-check layout before committing
 
 ### Open
 - [ ] **Landing page CMS** — `public_pages` is currently a stub. Now that `auditfile1983.com` is the primary domain, this is the homepage users land on
@@ -371,6 +378,7 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 - `0017_document_previous_draft` — adds `Document.previous_factual_allegations_json` and `previous_factual_allegations_drafted_at` for the one-step regenerate undo
 - `0018_payoutrequest_processor_fields` — extends `PayoutRequest` with `payment_processor` (PayPal/Venmo/Zelle/Check/Other), `payment_method_details`, `payment_reference`, `paid_at`, `admin_notes`; reorders `notes` help text; adds `Meta.ordering = ['-requested_at']`
 - `0019_partner_adjustment_partnership_request` — creates `PartnerAdjustment` (signed `amount_cents`, `reason`, `created_by`) and `PartnershipRequest` (`requested_code`, `message`, `status`, `admin_notes`, `resolved_at`)
+- `0020_document_finalize_acknowledged_at` — adds `Document.finalize_acknowledged_at` (DateTimeField, null) — separate audit stamp from `locked_at` for the explicit checkbox acknowledgement on `/finalize/`
 
 **accounts migrations:**
 - `0001_initial` — User, Subscription, DocumentPack, SiteSettings, LegalDocument
@@ -449,8 +457,18 @@ Dropdown shows only for `is_staff` users or when `DEBUG=True`
 - **Limits** — `AI_QUOTA_FREE=3` for unpaid drafts, `AI_QUOTA_PAID=150` for paid docs. Counter resets to 0 on payment via `handle_checkout_completed` so paid users get a fresh 150-call budget. Note the free budget is intentionally tight — typical unpaid path is 1 call (extraction) + 1 call (initial draft generation) leaving 1 spare for an addendum or a single regenerate before the paywall kicks in.
 - **Free document cap** — `document_create` view checks `Document.objects.filter(user=u, payment_status='draft').count() >= settings.FREE_DOCS_PER_USER` (default 2). Staff and superusers exempt.
 - **Quota UX** — `Document.ai_quota_state()` returns `{used, limit, remaining, exhausted, is_paid}`. Live counter badge on `wizard_draft.html` turns yellow at 1 left, red at 0. When exhausted on unpaid: redirect to `/pay/` with upgrade message. When exhausted on paid: warning saying "Finalize & download to use it, or contact support."
-- **Document locking** — `Document.locked_at` (DateTime null=True); `Document.is_locked()` helper. Set by `wizard_generate?finalize=1&download=1` flow when `payment_status='paid'`. Confirms via JS dialog: "Finalizing will lock this document. You won't be able to edit it or run any more AI calls. Are you sure?"
-- **Lock-blocking** — `_check_locked_redirect()` helper returns a redirect to `wizard_draft` with a flash if the doc is locked; called at the top of every wizard step POST (1-6), `wizard_caselaw_strategy` POST, `wizard_story` POST, `wizard_addendum`, and `wizard_draft` POST. GET requests still work (read-only viewing). Locked-state UI on draft page: banner + Save/Re-draft buttons hidden + "Re-download PDF" replaces "Finalize & Download". Lock icon on Finalized status badge in documents list.
+- **Document locking** — `Document.locked_at` (DateTime null=True); `Document.is_locked()` helper. Set by the new `/documents/<slug>/finalize/` confirmation page (`document_finalize` view) — POST stamps `locked_at` AND `finalize_acknowledged_at` together, flips `payment_status='finalized'`, then redirects to `wizard_generate?download=1`. Replaces the old one-click `wizard_generate?finalize=1&download=1` JS-confirm path.
+- **Lock-blocking** — `_check_locked_redirect()` helper returns a redirect to `wizard_draft` with a flash if the doc is locked; called at the **top** of every wizard view (both GET and POST): `wizard_story`, `wizard_extraction_summary`, `wizard_addendum`, `wizard_step1`–`step7`, `wizard_caselaw_strategy`, `wizard_draft` (POST only — GET stays open since the re-download UI lives there), `wizard_draft_undo`. Lock is per-document; other documents in the same account stay editable. Locked-state UI on draft page: banner + Save/Re-draft buttons hidden + "Re-download PDF" replaces "Finalize & Download". Lock icon on Finalized status badge in documents list.
+- **Watermark gating** — `_build_complaint_context()` sets `is_draft_preview = not doc.is_locked()`. Paid-but-unlocked previews are still watermarked, so a paid user can't grab a clean PDF without going through `/finalize/`. After lock, all `wizard_generate` calls (including `?download=1` re-downloads) render clean.
+
+### Finalize Confirmation Flow (`documents/views.py:document_finalize`)
+- **Goal:** require an explicit, audit-stamped acknowledgement before locking a paid document and serving the clean PDF. Replaces the older one-click JS `confirm()` flow.
+- **URL:** `/documents/<slug>/finalize/` (named `documents:document_finalize`).
+- **GET** → renders `templates/documents/finalize_confirm.html`: warning panel + required checkbox ("I confirm this complaint is complete and I understand that submitting will permanently lock editing on this document. The PDF will remain available to re-download.") + Cancel / Confirm & Download buttons.
+- **POST** → requires `acknowledge` checkbox; if missing, re-renders with an error flash. On success, sets `Document.finalize_acknowledged_at = now`, `Document.locked_at = now`, `payment_status='finalized'` (single `save(update_fields=...)`), then redirects to `wizard_generate?download=1` so the browser save dialog fires.
+- **Guards:** already-locked → bounces to draft (info flash). Unpaid → bounces to `/pay/` (warning flash). No paragraphs → bounces to draft (warning flash).
+- **Audit:** `finalize_acknowledged_at` is a separate field from `locked_at` (even though both are stamped at the same `now`) so the explicit user acknowledgement is independently verifiable. `DocumentAdmin` shows both in the changelist + as readonly fields. `paid_at` is also readonly so admin can correlate the three timestamps.
+- **Watermark interaction:** `_build_complaint_context()` keys the watermark off `doc.is_locked()`, so the redirect to `wizard_generate?download=1` after this view's POST is the first time the user gets a clean PDF. Pre-finalize, even paid users only see the watermarked preview.
 
 ### One-step Undo of Regenerate (`documents/views.py:wizard_draft_undo`)
 - **Goal:** when a regenerate produces output the user doesn't like, let them roll back to what they had before the regenerate. Single level deep — one click of undo, then snapshot is consumed.
@@ -632,16 +650,14 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 **Stale schema cleanup:** unused `price_3pack` / `price_monthly` / `price_annual` fields on `accounts.SiteSettings` are not in any code path. Safe to drop in a future migration when convenient.
 
 ### Open
+- **Terms of Service + signup acknowledgement** ← **next session is starting here.** Need (1) a public TOS page (probably `/tos/` under `public_pages` or `accounts`; consider also a Privacy Policy if scope allows), (2) a required checkbox on `/accounts/register/` ("I have read and agree to the Terms of Service"), (3) audit fields on `User`: `tos_accepted_at` (DateTime null) + `tos_version` (CharField, e.g. `"2026-05-11"` or `"v1"`) so future TOS revisions can detect users who need to re-accept. Mirror the pattern from `Document.finalize_acknowledged_at` (separate audit field, surfaced as readonly in admin). Decision points to ask the user about: where TOS copy lives (hardcoded template vs DB-editable like `PdfBranding`), versioning strategy (manual bump in settings vs admin model), whether existing users need to re-accept on next login or are grandfathered in.
 - **Landing page CMS** — `public_pages` is currently a stub. Highest-impact next feature: `auditfile1983.com` is now the primary domain users land on, so this is the homepage for everyone (including partner-shared `?ref=CODE` links). Should be admin-editable copy + simple section model. Could re-purpose the existing `accounts.SiteSettings` model or add a new `LandingSection` model.
 - **Stripe Live mode** — generate live API keys in Stripe, create live webhook endpoint pointed at `https://auditfile1983.com/stripe/webhook/` with events `checkout.session.completed` + `checkout.session.expired`, update `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET` env vars on Render. The code path is identical; only env vars change. **Caveat:** test-mode `PromoCode` and `PromoCodeUsage` rows are still in the DB — audit before going live so test partners don't accidentally get real attribution.
 - Per-claim case-law selection UI (Option B)
 - Playwright/Selenium browser tests
 
 ### Working agreement
-User wants to take features one at a time, structured. Don't bundle. The next Claude session should ask the user which of these to tackle first:
-- Landing page CMS (recommended — primary domain = first impression)
-- Stripe Live mode (when ready for real payments)
-- Something else the user has in mind
+User wants to take features one at a time, structured. Don't bundle. The next Claude session should start with TOS / signup acknowledgement. Use `AskUserQuestion` for the open design decisions (where copy lives, versioning, grandfathering) before writing code.
 
 Don't assume — ask.
 
