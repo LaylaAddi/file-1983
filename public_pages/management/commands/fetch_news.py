@@ -33,7 +33,7 @@ FEEDS = [
     ('EFF',                     'https://www.eff.org/rss/updates.xml'),
     ('FIRE',                    'https://www.thefire.org/feed'),
     ('Institute for Justice',   'https://ij.org/feed/'),
-    ('Cato Institute',          'https://www.cato.org/rss/recent-op-eds.xml'),
+    ('SCOTUSblog',              'https://www.scotusblog.com/feed/'),
     ('Reason',                  'https://reason.com/feed/'),
 ]
 
