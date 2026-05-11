@@ -201,6 +201,22 @@
                         Helping Americans understand their constitutional rights and document
                         violations under Section 1983 of the Civil Rights Act.
                     </p>
+                    {% if contact_email or contact_phone %}
+                    <div class="small text-light text-opacity-75 mt-2">
+                        {% if contact_email %}
+                        <div class="mb-1">
+                            <i class="bi bi-envelope me-1"></i>
+                            <a href="mailto:{{ contact_email }}" class="text-light text-opacity-90 text-decoration-none">{{ contact_email }}</a>
+                        </div>
+                        {% endif %}
+                        {% if contact_phone %}
+                        <div>
+                            <i class="bi bi-telephone me-1"></i>
+                            <a href="tel:{{ contact_phone }}" class="text-light text-opacity-90 text-decoration-none">{{ contact_phone }}</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="col-6 col-lg-2 mb-4 mb-lg-0">
                     <h6>Resources</h6>

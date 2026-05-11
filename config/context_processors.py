@@ -13,13 +13,17 @@ def site_settings(request):
         return {
             'app_name': settings_obj.app_name,
             'header_app_name': settings_obj.header_app_name,
+            'contact_email': settings_obj.contact_email if settings_obj.contact_email_visible else '',
+            'contact_phone': settings_obj.contact_phone if settings_obj.contact_phone_visible else '',
             'ADMIN_URL': admin_url,
             'PRIMARY_DOMAIN': primary_domain,
         }
     except Exception:
         return {
-            'app_name': 'File 1983',
-            'header_app_name': 'File 1983',
+            'app_name': 'AuditFile 1983',
+            'header_app_name': 'AuditFile 1983',
+            'contact_email': '',
+            'contact_phone': '',
             'ADMIN_URL': admin_url,
             'PRIMARY_DOMAIN': primary_domain,
         }

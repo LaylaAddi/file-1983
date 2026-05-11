@@ -97,6 +97,16 @@ class DocumentPackAdmin(admin.ModelAdmin):
 class SiteSettingsAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Branding', {'fields': ('app_name', 'header_app_name')}),
+        ('Footer Contact', {
+            'description': (
+                'Email and phone shown in the site footer. Uncheck the '
+                '"visible" box to hide a value site-wide without deleting it.'
+            ),
+            'fields': (
+                ('contact_email', 'contact_email_visible'),
+                ('contact_phone', 'contact_phone_visible'),
+            ),
+        }),
         ('Pricing', {'fields': ('price_single', 'price_3pack', 'price_monthly', 'price_annual')}),
         ('Feature Flags', {'fields': ('registration_open', 'stripe_live_mode', 'maintenance_mode', 'maintenance_message')}),
     )

@@ -223,6 +223,12 @@ class SiteSettings(models.Model):
     price_monthly = models.DecimalField(max_digits=8, decimal_places=2, default=29.00)
     price_annual = models.DecimalField(max_digits=8, decimal_places=2, default=249.00)
 
+    # Public contact info (rendered in the site footer)
+    contact_email = models.EmailField(default='rights@auditfile1983.com', blank=True)
+    contact_email_visible = models.BooleanField(default=True)
+    contact_phone = models.CharField(max_length=40, default='555-555-1212', blank=True)
+    contact_phone_visible = models.BooleanField(default=True)
+
     # Feature flags
     registration_open = models.BooleanField(default=True)
     stripe_live_mode = models.BooleanField(default=False)
