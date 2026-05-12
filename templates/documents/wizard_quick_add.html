@@ -65,6 +65,17 @@
         border-left: 3px solid #f59e0b;
         background: #fff8e6;
     }
+    .chunk-item { position: relative; }
+    .chunk-delete {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.15rem 0.4rem;
+        line-height: 1;
+        opacity: 0.55;
+    }
+    .chunk-delete:hover { opacity: 1; }
+    .chunk-item .chunk-body { padding-right: 1.8rem; }
     [data-theme="dark"] .chunk-queued {
         background: #2d2a1a;
         border-color: #4a4233;
@@ -191,6 +202,12 @@
                 <!-- Queued (offline) chunks — render at top, oldest queued first -->
                 <template x-for="item in queuedItems" :key="item.id">
                     <div class="chunk-item chunk-queued">
+                        <button type="button"
+                                class="btn btn-sm btn-link text-danger chunk-delete"
+                                title="Delete this queued chunk"
+                                @click="deleteQueued(item.id)">
+                            <i class="bi bi-trash"></i>
+                        </button>
                         <div class="chunk-meta">
                             <span class="badge bg-warning text-dark">Queued</span>
                             <i class="bi bi-cloud-arrow-up"></i>
@@ -203,6 +220,18 @@
                 {% for chunk in chunks %}
                 <div class="chunk-item {% if not chunk.timestamp %}chunk-intro{% endif %}"
                      {% if forloop.counter0 >= 3 and chunks|length > 3 %}x-show="showAll" x-cloak{% endif %}>
+                    <form method="post"
+                          action="{% url 'documents:wizard_quick_add_delete_chunk' document.slug %}"
+                          class="chunk-delete-form"
+                          onsubmit="return confirm('Delete this chunk from your story? This cannot be undone.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
+                        <button type="submit"
+                                class="btn btn-sm btn-link text-danger chunk-delete"
+                                title="Delete this chunk">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
                     <div class="chunk-meta">
                         <span class="badge bg-secondary">#{{ forloop.counter }}</span>
                         {% if chunk.timestamp %}
@@ -530,6 +559,12 @@ function quickAdd() {
             } else {
                 await this.refreshQueue();
             }
+        },
+
+        async deleteQueued(id) {
+            if (!confirm('Delete this queued chunk? It will not be sent to the server.')) return;
+            try { await window.__outbox.delete(id); } catch (e) {}
+            await this.refreshQueue();
         },
 
         dismissHowto() {

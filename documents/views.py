@@ -437,6 +437,54 @@ def wizard_quick_add(request, document_slug):
     })
 
 
+@login_required
+@require_POST
+def wizard_quick_add_delete_chunk(request, document_slug):
+    """Delete a single chunk from `story_text` by its position index.
+
+    POST `idx` is 0-based and refers to the same ordering returned by
+    `_parse_story_chunks`. Refuses to act on locked or analyzed-and-empty
+    cases (no harm — just returns to the page). Rewrites story_text to
+    omit the targeted chunk; preserves the divider format so the chunk
+    parser keeps working for remaining chunks.
+    """
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
+    session = doc.wizard_session
+
+    try:
+        idx = int(request.POST.get('idx', ''))
+    except ValueError:
+        messages.error(request, 'Bad chunk index.')
+        return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+    chunks = _parse_story_chunks(session.story_text)
+    if idx < 0 or idx >= len(chunks):
+        messages.error(request, 'That chunk no longer exists.')
+        return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+    kept = [c for i, c in enumerate(chunks) if i != idx]
+    session.story_text = _rebuild_story_text(kept)
+    session.save(update_fields=['story_text', 'updated_at'])
+    messages.success(request, f'Deleted chunk #{idx + 1}.')
+    return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+
+def _rebuild_story_text(chunks):
+    """Inverse of `_parse_story_chunks`. Chunks with timestamp=None render
+    as plain text (the original-story intro); chunks with a timestamp get
+    their `--- Added <stamp> ---` divider back. Chunks are separated by
+    blank lines."""
+    parts = []
+    for c in chunks:
+        if c['timestamp']:
+            parts.append(f"--- Added {c['timestamp']} ---\n{c['text']}")
+        else:
+            parts.append(c['text'])
+    return '\n\n'.join(parts)
+
+
 _STORY_DIVIDER_RE = re.compile(r'^--- Added (.+?) ---$', re.MULTILINE)
 
 

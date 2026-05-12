@@ -396,6 +396,7 @@
                 voiceRecording: false,
                 voiceError: '',
                 _voiceRec: null,
+                _voiceLastIndex: -1,
 
                 initVoice() {
                     if (!this.voiceSupported) return;
@@ -405,9 +406,18 @@
                     rec.interimResults = false;
                     rec.lang = 'en-US';
                     rec.onresult = (e) => {
+                        // Some Android engines (esp. when the cloud STT is
+                        // unreachable) re-emit prior results with resultIndex
+                        // reset to 0, which would duplicate the transcript on
+                        // every event. Track the highest index we've already
+                        // consumed and skip anything <=.
                         let added = '';
                         for (let i = e.resultIndex; i < e.results.length; i++) {
-                            if (e.results[i].isFinal) added += e.results[i][0].transcript + ' ';
+                            if (i <= this._voiceLastIndex) continue;
+                            if (e.results[i].isFinal) {
+                                added += e.results[i][0].transcript + ' ';
+                                this._voiceLastIndex = i;
+                            }
                         }
                         if (!added) return;
                         const cur = this[targetProp] || '';
@@ -428,7 +438,17 @@
                     if (this.voiceRecording) {
                         this._voiceRec.stop();
                     } else {
+                        // Web Speech API on Android Chrome uses cloud STT — it
+                        // fails or duplicates badly when offline. Refuse to
+                        // start and surface the reason instead.
+                        if (!navigator.onLine) {
+                            this.voiceError = 'dictation needs an internet connection';
+                            return;
+                        }
                         try {
+                            // Fresh start — reset the dedup cursor so a new
+                            // recognition session starts from scratch.
+                            this._voiceLastIndex = -1;
                             this._voiceRec.start();
                             this.voiceRecording = true;
                             this.voiceError = '';
