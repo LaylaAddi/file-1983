@@ -35,6 +35,60 @@
     </div>
 </section>
 
+<!-- PWA Install card — mobile only, hides itself when already installed -->
+<section class="d-lg-none py-3"
+         x-data="pwaInstall()"
+         x-show="show"
+         x-cloak>
+    <div class="container">
+        <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg,#002868 0%,#BF0A30 100%); color:#fff; border-radius:0.75rem;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <img src="{% static 'images/pwa/icon-192.png' %}" alt=""
+                     width="56" height="56"
+                     style="border-radius:0.5rem; flex-shrink:0;">
+                <div class="flex-grow-1">
+                    <div class="fw-semibold mb-1" style="font-size:0.95rem;">
+                        Install on your phone
+                    </div>
+                    <div class="small" style="opacity:0.9;" x-text="hint"></div>
+                </div>
+                <button type="button"
+                        class="btn btn-light btn-sm fw-semibold flex-shrink-0"
+                        x-show="canPrompt"
+                        @click="install()">
+                    <i class="bi bi-download me-1"></i>Install
+                </button>
+                <button type="button"
+                        class="btn btn-light btn-sm fw-semibold flex-shrink-0"
+                        x-show="!canPrompt"
+                        @click="showHelp = !showHelp">
+                    <i class="bi bi-info-circle me-1"></i>How
+                </button>
+            </div>
+            <!-- iOS / fallback instructions -->
+            <div class="px-3 pb-3 small" x-show="showHelp" x-cloak style="opacity:0.95;">
+                <hr class="my-2" style="border-color:rgba(255,255,255,0.3);">
+                <template x-if="platform === 'ios'">
+                    <ol class="mb-0 ps-3">
+                        <li>Tap the <i class="bi bi-box-arrow-up"></i> <strong>Share</strong> icon at the bottom of Safari.</li>
+                        <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
+                        <li>Tap <strong>Add</strong> in the top right.</li>
+                    </ol>
+                </template>
+                <template x-if="platform === 'android'">
+                    <ol class="mb-0 ps-3">
+                        <li>Tap the <strong>⋮</strong> menu in Chrome.</li>
+                        <li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+                    </ol>
+                </template>
+                <template x-if="platform === 'other'">
+                    <div>Open this page in Chrome (Android) or Safari (iPhone) to install it as an app.</div>
+                </template>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Quick Stats -->
 <section class="section-light py-4">
     <div class="container">
@@ -287,4 +341,60 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function pwaInstall() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    const isAndroid = /Android/.test(ua);
+    const isStandalone =
+        window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+
+    let platform = 'other';
+    if (isIOS) platform = 'ios';
+    else if (isAndroid) platform = 'android';
+
+    const hints = {
+        ios: 'Add this app to your iPhone home screen.',
+        android: 'Add this app to your Android home screen.',
+        other: 'Install on a mobile device for one-tap access.',
+    };
+
+    return {
+        platform: platform,
+        hint: hints[platform],
+        show: !isStandalone,
+        canPrompt: !!window.__deferredInstallPrompt,
+        showHelp: false,
+
+        init() {
+            // beforeinstallprompt may fire after this component mounts.
+            window.addEventListener('pwa-installable', () => {
+                this.canPrompt = true;
+            });
+            window.addEventListener('pwa-installed', () => {
+                this.show = false;
+            });
+        },
+
+        async install() {
+            const evt = window.__deferredInstallPrompt;
+            if (!evt) {
+                this.showHelp = true;
+                return;
+            }
+            evt.prompt();
+            const choice = await evt.userChoice;
+            window.__deferredInstallPrompt = null;
+            this.canPrompt = false;
+            if (choice && choice.outcome === 'accepted') {
+                this.show = false;
+            }
+        },
+    };
+}
+</script>
 {% endblock %}
