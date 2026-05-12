@@ -40,6 +40,25 @@ def document_list(request):
 
 
 @login_required
+def pwa_start(request):
+    """PWA `start_url` target.
+
+    Auditors usually work one active complaint at a time, so when the user
+    taps the home-screen icon we jump straight to the quick-add page for
+    their most recent unfinalized document. Falls back to the document list
+    when there's nothing to land on (no docs, or only finalized ones).
+    """
+    doc = (Document.objects
+           .filter(user=request.user)
+           .exclude(payment_status='finalized')
+           .order_by('-id')
+           .first())
+    if doc:
+        return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+    return redirect('documents:list')
+
+
+@login_required
 @require_POST
 @user_passes_test(lambda u: u.is_staff)
 def document_delete(request, document_slug):

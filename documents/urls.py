@@ -5,6 +5,7 @@ app_name = 'documents'
 
 urlpatterns = [
     path('', views.document_list, name='list'),
+    path('start/', views.pwa_start, name='pwa_start'),
     path('new/', views.document_create, name='create'),
     path('<str:document_slug>/delete/', views.document_delete, name='delete'),
     path('<str:document_slug>/wizard/', views.wizard_story, name='wizard_story'),

@@ -2,7 +2,7 @@
   "name": "1983 Law — Civil Rights Complaint Builder",
   "short_name": "1983 Law",
   "description": "Document and build your Section 1983 civil rights complaint. Add story chunks from the field as incidents unfold.",
-  "start_url": "/documents/",
+  "start_url": "/documents/start/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
