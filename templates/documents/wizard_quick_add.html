@@ -61,6 +61,15 @@
         line-height: 1.45;
     }
     .chunk-intro { border-left: 3px solid #002868; }
+    .chunk-queued {
+        border-left: 3px solid #f59e0b;
+        background: #fff8e6;
+    }
+    [data-theme="dark"] .chunk-queued {
+        background: #2d2a1a;
+        border-color: #4a4233;
+        border-left-color: #f59e0b;
+    }
 
     /* Dark-theme overrides — site uses [data-theme="dark"] on <html>. */
     [data-theme="dark"] .chunk-item {
@@ -87,16 +96,27 @@
         <div class="col-lg-7">
 
             <!-- Header -->
-            <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <a href="{% url 'documents:list' %}"
                    class="text-muted text-decoration-none small">
                     <i class="bi bi-arrow-left me-1"></i>My Documents
                 </a>
-                {% if chunk_count %}
-                <span class="badge bg-light text-dark chunk-badge">
-                    <i class="bi bi-journal-text me-1"></i>{{ chunk_count }} chunk{{ chunk_count|pluralize }} saved
-                </span>
-                {% endif %}
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning text-dark chunk-badge"
+                          x-show="!isOnline" x-cloak>
+                        <i class="bi bi-wifi-off me-1"></i>Offline
+                    </span>
+                    <span class="badge bg-info text-dark chunk-badge"
+                          x-show="queuedCount > 0" x-cloak>
+                        <i class="bi bi-cloud-arrow-up me-1"></i>
+                        <span x-text="queuedCount + ' queued'"></span>
+                    </span>
+                    {% if chunk_count %}
+                    <span class="badge bg-light text-dark chunk-badge">
+                        <i class="bi bi-journal-text me-1"></i>{{ chunk_count }} saved
+                    </span>
+                    {% endif %}
+                </div>
             </div>
 
             <h3 class="mb-1" style="font-family:'Playfair Display',serif;">
@@ -153,9 +173,10 @@
                 {% endfor %}
             {% endif %}
 
-            <!-- Your story so far — read-only stack of saved chunks -->
-            {% if chunks %}
-            <div class="mb-3">
+            <!-- Your story so far — read-only stack of saved + queued chunks -->
+            <div class="mb-3"
+                 x-show="{% if chunks %}true{% else %}false{% endif %} || queuedItems.length > 0"
+                 {% if not chunks %}x-cloak{% endif %}>
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="mb-0 text-muted text-uppercase small fw-bold">
                         <i class="bi bi-journal-text me-1"></i>Your story so far
@@ -166,6 +187,19 @@
                         <span x-show="showAll" x-cloak>Show less</span>
                     </button>
                 </div>
+
+                <!-- Queued (offline) chunks — render at top, oldest queued first -->
+                <template x-for="item in queuedItems" :key="item.id">
+                    <div class="chunk-item chunk-queued">
+                        <div class="chunk-meta">
+                            <span class="badge bg-warning text-dark">Queued</span>
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <span>Saved offline — will sync when online</span>
+                        </div>
+                        <div class="chunk-body" x-text="item.text"></div>
+                    </div>
+                </template>
+
                 {% for chunk in chunks %}
                 <div class="chunk-item {% if not chunk.timestamp %}chunk-intro{% endif %}"
                      {% if forloop.counter0 >= 3 and chunks|length > 3 %}x-show="showAll" x-cloak{% endif %}>
@@ -181,7 +215,6 @@
                 </div>
                 {% endfor %}
             </div>
-            {% endif %}
 
             <!-- Add new chunk / addendum form -->
             <div class="card shadow-sm quick-card">
@@ -191,7 +224,8 @@
                         {% if analyzed %}Add a detail{% else %}Add a new chunk{% endif %}
                     </h6>
 
-                    <form method="post" action="{% url 'documents:wizard_quick_add' document.slug %}">
+                    <form method="post" action="{% url 'documents:wizard_quick_add' document.slug %}"
+                          @submit.prevent="save()">
                         {% csrf_token %}
 
                         {% if analyzed %}
@@ -250,9 +284,15 @@
 
                         <button type="submit"
                                 class="btn btn-primary w-100 mt-3 quick-submit fw-semibold"
-                                :disabled="!text.trim() {% if analyzed %}|| !category{% endif %}">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            {% if analyzed %}Add to my complaint{% else %}Save chunk{% endif %}
+                                :disabled="submitting || !text.trim() {% if analyzed %}|| !category{% endif %}">
+                            <span x-show="!submitting">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                {% if analyzed %}Add to my complaint{% else %}Save chunk{% endif %}
+                            </span>
+                            <span x-show="submitting" x-cloak>
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                Saving…
+                            </span>
                         </button>
                     </form>
                 </div>
@@ -290,7 +330,73 @@
 
 {% block extra_js %}
 <script>
+// IndexedDB outbox helpers — scoped to this page. If IndexedDB is unavailable
+// (private browsing on some Safari versions), all helpers reject and the
+// component falls back to "online-only" behavior gracefully.
+(function () {
+    const DB_NAME = 'auditfile-outbox';
+    const STORE = 'chunks';
+    let dbPromise = null;
+
+    function open() {
+        if (dbPromise) return dbPromise;
+        if (!('indexedDB' in window)) {
+            dbPromise = Promise.reject(new Error('IndexedDB unavailable'));
+            return dbPromise;
+        }
+        dbPromise = new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE)) {
+                    const s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    s.createIndex('doc_slug', 'doc_slug', { unique: false });
+                }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+        return dbPromise;
+    }
+
+    window.__outbox = {
+        add(record) {
+            return open().then(db => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                const r = tx.objectStore(STORE).add(record);
+                r.onsuccess = () => resolve(r.result);
+                r.onerror = () => reject(r.error);
+            }));
+        },
+        list(slug) {
+            return open().then(db => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly');
+                const idx = tx.objectStore(STORE).index('doc_slug');
+                const r = idx.getAll(IDBKeyRange.only(slug));
+                r.onsuccess = () => resolve((r.result || []).sort((a, b) => a.id - b.id));
+                r.onerror = () => reject(r.error);
+            }));
+        },
+        delete(id) {
+            return open().then(db => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                const r = tx.objectStore(STORE).delete(id);
+                r.onsuccess = () => resolve();
+                r.onerror = () => reject(r.error);
+            }));
+        },
+    };
+})();
+
 function quickAdd() {
+    const DOC_SLUG = '{{ document.slug }}';
+    const POST_URL = '{% url "documents:wizard_quick_add" document.slug %}';
+
+    function csrf() {
+        const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return el ? el.value : '';
+    }
+
     return {
         text: '',
         category: '',
@@ -298,19 +404,21 @@ function quickAdd() {
         showHowto: true,
         showAll: false,
         chunks_total: {{ chunk_count }},
+        isOnline: navigator.onLine,
+        queuedItems: [],
+        submitting: false,
         ...withVoice('text'),
 
-        init() {
+        get queuedCount() { return this.queuedItems.length; },
+
+        async init() {
             this.initVoice();
-            // Restore dismissed how-to from localStorage.
             try {
                 if (localStorage.getItem('quickAddHowtoDismissed') === '1') {
                     this.showHowto = false;
                 }
             } catch (e) { /* private mode */ }
             {% if analyzed %}
-            // Swap the textarea placeholder when the category changes so the
-            // hint matches what we want the user to type.
             this.$watch('category', (key) => {
                 if (!key) { this.placeholder = 'Pick a category above first…'; return; }
                 const sel = document.getElementById('category');
@@ -320,6 +428,108 @@ function quickAdd() {
                 }
             });
             {% endif %}
+
+            window.addEventListener('online', () => {
+                this.isOnline = true;
+                this.drain();
+            });
+            window.addEventListener('offline', () => { this.isOnline = false; });
+
+            await this.refreshQueue();
+            if (this.isOnline && this.queuedItems.length > 0) {
+                this.drain();
+            }
+        },
+
+        async refreshQueue() {
+            try { this.queuedItems = await window.__outbox.list(DOC_SLUG); }
+            catch (e) { this.queuedItems = []; }
+        },
+
+        async save() {
+            const text = this.text.trim();
+            if (!text) return;
+            {% if analyzed %}
+            if (!this.category) return;
+            {% endif %}
+
+            this.submitting = true;
+
+            // Try the network first if we believe we're online.
+            if (this.isOnline) {
+                const sent = await this._postOnce(text, {% if analyzed %}this.category{% else %}null{% endif %});
+                if (sent === 'ok') {
+                    window.location.reload();
+                    return;
+                }
+                if (sent === 'server-error') {
+                    // Server rejected — don't queue, surface to user.
+                    this.submitting = false;
+                    return;
+                }
+                // sent === 'network-error' falls through to queue
+            }
+
+            // Offline or network failure — queue locally.
+            try {
+                await window.__outbox.add({
+                    doc_slug: DOC_SLUG,
+                    text: text,
+                    {% if analyzed %}category: this.category,{% endif %}
+                    created_at: new Date().toISOString(),
+                });
+                await this.refreshQueue();
+                this.text = '';
+                {% if analyzed %}this.category = '';{% endif %}
+            } catch (e) {
+                alert('Offline save unavailable on this browser. Try again when you have signal.');
+            }
+            this.submitting = false;
+        },
+
+        // Returns 'ok' | 'server-error' | 'network-error'
+        async _postOnce(text, category) {
+            const fd = new FormData();
+            fd.append('text', text);
+            if (category) fd.append('category', category);
+            fd.append('csrfmiddlewaretoken', csrf());
+            try {
+                const res = await fetch(POST_URL, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRFToken': csrf() },
+                    body: fd,
+                    credentials: 'same-origin',
+                });
+                if (res.ok) return 'ok';
+                let msg = 'Save failed (' + res.status + ')';
+                try { const data = await res.json(); if (data.error) msg = data.error; } catch (e) {}
+                alert(msg);
+                return 'server-error';
+            } catch (networkErr) {
+                return 'network-error';
+            }
+        },
+
+        async drain() {
+            if (!navigator.onLine) return;
+            const items = await window.__outbox.list(DOC_SLUG).catch(() => []);
+            if (items.length === 0) return;
+            let drained = 0;
+            for (const item of items) {
+                const result = await this._postOnce(item.text, item.category || null);
+                if (result === 'ok') {
+                    await window.__outbox.delete(item.id).catch(() => {});
+                    drained++;
+                } else {
+                    // Stop on first failure to preserve order.
+                    break;
+                }
+            }
+            if (drained > 0) {
+                window.location.reload();
+            } else {
+                await this.refreshQueue();
+            }
         },
 
         dismissHowto() {

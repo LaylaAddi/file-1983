@@ -51,6 +51,17 @@
             window.__deferredInstallPrompt = null;
             window.dispatchEvent(new CustomEvent('pwa-installed'));
         });
+
+        // Register the service worker (app-shell cache + offline navigation).
+        // Only runs on HTTPS (Render serves over HTTPS) or localhost; browsers
+        // refuse SW registration on plain http otherwise. Failures are silent
+        // so they never break page rendering.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .catch(function () { /* no-op: offline mode just unavailable */ });
+            });
+        }
     </script>
 
     <!-- Bootstrap 5 CSS -->

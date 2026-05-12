@@ -14,6 +14,9 @@ urlpatterns = [
     # SEO
     path('sitemap.xml', sitemap, {'sitemaps': SITEMAPS}, name='sitemap'),
 
+    # PWA service worker — served from root so it can claim the whole origin.
+    path('sw.js', document_views.service_worker, name='service_worker'),
+
     # Web apps
     path('', include('public_pages.urls')),
     path('accounts/', include('accounts.urls')),

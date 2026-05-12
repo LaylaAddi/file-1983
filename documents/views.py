@@ -1,11 +1,13 @@
 import json
+import os
 import pprint
 import re
+import time
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -37,6 +39,30 @@ def _check_locked_redirect(request, doc):
 def document_list(request):
     documents = Document.objects.filter(user=request.user).select_related('wizard_session')
     return render(request, 'documents/list.html', {'documents': documents})
+
+
+# Cache version baked into the service worker. Stable for the lifetime of a
+# deploy: prefer Render's commit hash if present, otherwise fall back to
+# process start time. Computed once at import so every /sw.js fetch returns
+# the same bytes (otherwise browsers would constantly reinstall the SW).
+_PWA_CACHE_VERSION = (
+    os.environ.get('RENDER_GIT_COMMIT', '')[:8]
+    or str(int(time.time()))
+)
+
+
+def service_worker(request):
+    """Serve the service worker at the site root with JS content-type and the
+    Service-Worker-Allowed header so it can claim the whole origin even though
+    the source template lives elsewhere.
+    """
+    body = render_to_string('service-worker.js', {
+        'cache_version': _PWA_CACHE_VERSION,
+    })
+    resp = HttpResponse(body, content_type='application/javascript')
+    resp['Service-Worker-Allowed'] = '/'
+    resp['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @login_required
@@ -328,16 +354,24 @@ def wizard_quick_add(request, document_slug):
     analyzed = session.ai_extraction_succeeded
 
     if request.method == 'POST':
+        # The offline outbox replays POSTs via fetch() with Accept: application/json
+        # so the client can keep using a small JSON contract for queued chunks.
+        wants_json = 'application/json' in request.headers.get('Accept', '')
+
+        def _err(msg, status=400):
+            if wants_json:
+                return JsonResponse({'ok': False, 'error': msg}, status=status)
+            messages.error(request, msg)
+            return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
         text = request.POST.get('text', '').strip()
         if not text:
-            messages.error(request, 'Please enter what you want to add.')
-            return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+            return _err('Please enter what you want to add.')
 
         if analyzed:
             category = request.POST.get('category', '').strip()
             if category not in ADDENDUM_CATEGORIES:
-                messages.error(request, 'Please pick a category.')
-                return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+                return _err('Please pick a category.')
 
             from documents.services.ai_quota import (
                 consume_ai_call, QuotaExceeded, upgrade_message,
@@ -345,7 +379,10 @@ def wizard_quick_add(request, document_slug):
             try:
                 consume_ai_call(doc)
             except QuotaExceeded:
-                messages.warning(request, upgrade_message(doc))
+                msg = upgrade_message(doc)
+                if wants_json:
+                    return JsonResponse({'ok': False, 'error': msg, 'quota': True}, status=402)
+                messages.warning(request, msg)
                 if doc.payment_status == 'draft':
                     return redirect('documents:payment_start', document_slug=doc.slug)
                 return redirect('documents:wizard_quick_add', document_slug=doc.slug)
@@ -353,9 +390,10 @@ def wizard_quick_add(request, document_slug):
             label = ADDENDUM_CATEGORIES[category]['label']
             _, error = apply_addendum(session, category, text)
             if error:
-                messages.error(request, f'Could not add {label}: {error}')
-            else:
-                messages.success(request, f'Added details for {label}.')
+                return _err(f'Could not add {label}: {error}', status=500)
+            if wants_json:
+                return JsonResponse({'ok': True, 'mode': 'addendum', 'label': label})
+            messages.success(request, f'Added details for {label}.')
             return redirect('documents:wizard_quick_add', document_slug=doc.slug)
 
         # Pre-analyze: append to story_text with a timestamp divider.
@@ -369,6 +407,13 @@ def wizard_quick_add(request, document_slug):
         session.status = 'in_progress'
         session.save(update_fields=['story_text', 'status', 'updated_at'])
         new_count = len(_parse_story_chunks(session.story_text))
+        if wants_json:
+            return JsonResponse({
+                'ok': True,
+                'mode': 'chunk',
+                'chunk_number': new_count,
+                'timestamp': stamp,
+            })
         messages.success(
             request,
             f'Saved chunk #{new_count}. Keep going, or tap "Review & analyze" '
