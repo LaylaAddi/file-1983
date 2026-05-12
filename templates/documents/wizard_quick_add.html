@@ -61,6 +61,22 @@
         line-height: 1.45;
     }
     .chunk-intro { border-left: 3px solid #002868; }
+
+    /* Dark-theme overrides — site uses [data-theme="dark"] on <html>. */
+    [data-theme="dark"] .chunk-item {
+        background: var(--dark-bg-secondary, #16213e);
+        border-color: var(--dark-border, #2d3748);
+        color: var(--dark-text, #e4e4e4);
+    }
+    [data-theme="dark"] .chunk-item .chunk-meta {
+        color: var(--dark-text-muted, #a0a0a0);
+    }
+    [data-theme="dark"] .chunk-intro { border-left-color: #4a8fff; }
+    [data-theme="dark"] .chunk-item .badge.bg-secondary {
+        background: var(--dark-bg-card, #0f3460) !important;
+        color: var(--dark-text, #e4e4e4);
+    }
+
     [x-cloak] { display: none !important; }
 </style>
 {% endblock %}
