@@ -1,0 +1,25 @@
+{
+  "name": "1983 Law — Civil Rights Complaint Builder",
+  "short_name": "1983 Law",
+  "description": "Document and build your Section 1983 civil rights complaint. Add story chunks from the field as incidents unfold.",
+  "start_url": "/documents/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#002868",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/static/images/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/images/gavel-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

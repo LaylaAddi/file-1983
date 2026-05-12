@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.conf import settings
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import (
@@ -280,6 +281,91 @@ def wizard_addendum(request, document_slug):
         messages.success(request, f'Added details for {label}.')
 
     return redirect('documents:wizard_summary', document_slug=doc.slug)
+
+
+@login_required
+def wizard_quick_add(request, document_slug):
+    """
+    Mobile field-capture page. One textarea + voice mic, two semantics:
+
+      * Before first analyze (`ai_extraction_succeeded == False`):
+        append the chunk to `story_text` with a timestamp divider so the
+        user can keep dumping notes throughout the day and Analyze once.
+
+      * After first analyze:
+        post acts like an addendum — user picks a category, the
+        addendum_service merges non-destructively. Re-analyze is NOT
+        triggered, so manual edits in steps 1-7 are preserved.
+    """
+    from documents.services.addendum_service import (
+        apply_addendum, ADDENDUM_CATEGORIES,
+    )
+
+    doc = get_object_or_404(Document, slug=document_slug, user=request.user)
+    if rv := _check_locked_redirect(request, doc):
+        return rv
+    session = doc.wizard_session
+    analyzed = session.ai_extraction_succeeded
+
+    if request.method == 'POST':
+        text = request.POST.get('text', '').strip()
+        if not text:
+            messages.error(request, 'Please enter what you want to add.')
+            return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+        if analyzed:
+            category = request.POST.get('category', '').strip()
+            if category not in ADDENDUM_CATEGORIES:
+                messages.error(request, 'Please pick a category.')
+                return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+            from documents.services.ai_quota import (
+                consume_ai_call, QuotaExceeded, upgrade_message,
+            )
+            try:
+                consume_ai_call(doc)
+            except QuotaExceeded:
+                messages.warning(request, upgrade_message(doc))
+                if doc.payment_status == 'draft':
+                    return redirect('documents:payment_start', document_slug=doc.slug)
+                return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+            label = ADDENDUM_CATEGORIES[category]['label']
+            _, error = apply_addendum(session, category, text)
+            if error:
+                messages.error(request, f'Could not add {label}: {error}')
+            else:
+                messages.success(request, f'Added details for {label}.')
+            return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+        # Pre-analyze: append to story_text with a timestamp divider.
+        stamp = timezone.now().strftime('%b %-d, %Y %-I:%M %p UTC')
+        divider = f'--- Added {stamp} ---'
+        existing = (session.story_text or '').rstrip()
+        if existing:
+            session.story_text = f'{existing}\n\n{divider}\n{text}'
+        else:
+            session.story_text = f'{divider}\n{text}'
+        session.status = 'in_progress'
+        session.save(update_fields=['story_text', 'status', 'updated_at'])
+        messages.success(request, 'Added to your story.')
+        return redirect('documents:wizard_quick_add', document_slug=doc.slug)
+
+    addendum_categories = None
+    if analyzed:
+        addendum_categories = ADDENDUM_CATEGORIES
+
+    chunk_count = 0
+    if session.story_text:
+        chunk_count = session.story_text.count('--- Added ')
+
+    return render(request, 'documents/wizard_quick_add.html', {
+        'document': doc,
+        'session': session,
+        'analyzed': analyzed,
+        'addendum_categories': addendum_categories,
+        'chunk_count': chunk_count,
+    })
 
 
 def _score_extraction(ai):
