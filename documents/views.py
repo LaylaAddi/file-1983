@@ -1,5 +1,6 @@
 import json
 import pprint
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -348,24 +349,58 @@ def wizard_quick_add(request, document_slug):
             session.story_text = f'{divider}\n{text}'
         session.status = 'in_progress'
         session.save(update_fields=['story_text', 'status', 'updated_at'])
-        messages.success(request, 'Added to your story.')
+        new_count = len(_parse_story_chunks(session.story_text))
+        messages.success(
+            request,
+            f'Saved chunk #{new_count}. Keep going, or tap "Review & analyze" '
+            f'when you\'re done.'
+        )
         return redirect('documents:wizard_quick_add', document_slug=doc.slug)
 
     addendum_categories = None
     if analyzed:
         addendum_categories = ADDENDUM_CATEGORIES
 
-    chunk_count = 0
-    if session.story_text:
-        chunk_count = session.story_text.count('--- Added ')
+    chunks = _parse_story_chunks(session.story_text)
 
     return render(request, 'documents/wizard_quick_add.html', {
         'document': doc,
         'session': session,
         'analyzed': analyzed,
         'addendum_categories': addendum_categories,
-        'chunk_count': chunk_count,
+        'chunks': chunks,
+        'chunk_count': len(chunks),
     })
+
+
+_STORY_DIVIDER_RE = re.compile(r'^--- Added (.+?) ---$', re.MULTILINE)
+
+
+def _parse_story_chunks(story_text):
+    """Split `story_text` on `--- Added <timestamp> ---` lines.
+
+    Returns a list of {'timestamp': str|None, 'text': str} in order.
+    Text before the first divider (the original story textarea content,
+    if any) is included as a chunk with timestamp=None.
+    """
+    if not story_text:
+        return []
+    matches = list(_STORY_DIVIDER_RE.finditer(story_text))
+    if not matches:
+        body = story_text.strip()
+        return [{'timestamp': None, 'text': body}] if body else []
+
+    chunks = []
+    intro = story_text[:matches[0].start()].strip()
+    if intro:
+        chunks.append({'timestamp': None, 'text': intro})
+    for i, m in enumerate(matches):
+        body_start = m.end()
+        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(story_text)
+        body = story_text[body_start:body_end].strip()
+        if body:
+            chunks.append({'timestamp': m.group(1), 'text': body})
+    return chunks
 
 
 def _score_extraction(ai):

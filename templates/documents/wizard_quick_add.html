@@ -4,21 +4,63 @@
 
 {% block extra_css %}
 <style>
-    .quick-card {
-        border-radius: 0.75rem;
-    }
+    .quick-card { border-radius: 0.75rem; }
     .quick-textarea {
         font-size: 1.05rem;
-        min-height: 200px;
+        min-height: 140px;
     }
-    .chunk-badge {
-        font-size: 0.8rem;
-    }
-    /* Make the submit button comfortably tappable on mobile */
+    .chunk-badge { font-size: 0.8rem; }
     .quick-submit {
         min-height: 52px;
         font-size: 1.05rem;
     }
+    .howto-strip {
+        background: linear-gradient(135deg, #002868 0%, #BF0A30 100%);
+        color: #fff;
+        border-radius: 0.6rem;
+    }
+    .howto-step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    .howto-step .step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.25);
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+    .chunk-item {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 0.75rem 0.9rem;
+        margin-bottom: 0.6rem;
+    }
+    .chunk-item .chunk-meta {
+        color: var(--bs-secondary-color);
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .chunk-item .chunk-body {
+        white-space: pre-wrap;
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+    .chunk-intro { border-left: 3px solid #002868; }
     [x-cloak] { display: none !important; }
 </style>
 {% endblock %}
@@ -49,10 +91,42 @@
                     Pick a category and dictate or type the new detail. We'll merge it
                     into the existing complaint without losing anything you've edited.
                 {% else %}
-                    Speak or type a chunk of what just happened. Each save is added to
-                    your story with a timestamp. When you're done, run analysis once.
+                    Add a piece at a time. Each save becomes a timestamped chunk of
+                    your story. When you're done, run analysis once.
                 {% endif %}
             </p>
+
+            <!-- How this works strip (dismissible, pre-analyze only) -->
+            {% if not analyzed %}
+            <div class="howto-strip p-3 mb-3"
+                 x-show="showHowto"
+                 x-cloak>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong class="small">
+                        <i class="bi bi-lightbulb-fill me-1"></i>How this works
+                    </strong>
+                    <button type="button"
+                            class="btn-close btn-close-white"
+                            aria-label="Dismiss"
+                            @click="dismissHowto()"
+                            style="font-size:0.7rem;"></button>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    <div class="howto-step">
+                        <span class="step-num">1</span>
+                        <span>Tap <strong>Dictate</strong> and speak, or just type.</span>
+                    </div>
+                    <div class="howto-step">
+                        <span class="step-num">2</span>
+                        <span>Tap <strong>Save chunk</strong> — it joins your story with a timestamp.</span>
+                    </div>
+                    <div class="howto-step">
+                        <span class="step-num">3</span>
+                        <span>Come back any time to add more. Hit <strong>Review &amp; analyze</strong> when done.</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Flash messages -->
             {% if messages %}
@@ -63,9 +137,43 @@
                 {% endfor %}
             {% endif %}
 
-            <!-- Main card -->
+            <!-- Your story so far — read-only stack of saved chunks -->
+            {% if chunks %}
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-muted text-uppercase small fw-bold">
+                        <i class="bi bi-journal-text me-1"></i>Your story so far
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-link text-muted p-0"
+                            @click="showAll = !showAll" x-show="chunks_total > 3">
+                        <span x-show="!showAll">Show all {{ chunks|length }}</span>
+                        <span x-show="showAll" x-cloak>Show less</span>
+                    </button>
+                </div>
+                {% for chunk in chunks %}
+                <div class="chunk-item {% if not chunk.timestamp %}chunk-intro{% endif %}"
+                     {% if forloop.counter0 >= 3 and chunks|length > 3 %}x-show="showAll" x-cloak{% endif %}>
+                    <div class="chunk-meta">
+                        <span class="badge bg-secondary">#{{ forloop.counter }}</span>
+                        {% if chunk.timestamp %}
+                            <i class="bi bi-clock"></i>{{ chunk.timestamp }}
+                        {% else %}
+                            <i class="bi bi-pencil"></i>Original story
+                        {% endif %}
+                    </div>
+                    <div class="chunk-body">{{ chunk.text }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Add new chunk / addendum form -->
             <div class="card shadow-sm quick-card">
                 <div class="card-body p-3 p-md-4">
+                    <h6 class="mb-3 fw-bold">
+                        <i class="bi bi-plus-circle me-1 text-primary"></i>
+                        {% if analyzed %}Add a detail{% else %}Add a new chunk{% endif %}
+                    </h6>
 
                     <form method="post" action="{% url 'documents:wizard_quick_add' document.slug %}">
                         {% csrf_token %}
@@ -105,7 +213,7 @@
                         </div>
                         <textarea name="text" id="text"
                                   class="form-control quick-textarea"
-                                  rows="6"
+                                  rows="5"
                                   :placeholder="placeholder"
                                   x-model="text"
                                   required></textarea>
@@ -115,7 +223,7 @@
                                     {% if analyzed %}
                                         Addresses, names, badge numbers — we'll merge it in.
                                     {% else %}
-                                        Just a sentence or two is fine.
+                                        Just a sentence or two is fine. Save when ready.
                                     {% endif %}
                                 </span>
                                 <span x-show="voiceError" class="text-danger"
@@ -128,7 +236,7 @@
                                 class="btn btn-primary w-100 mt-3 quick-submit fw-semibold"
                                 :disabled="!text.trim() {% if analyzed %}|| !category{% endif %}">
                             <i class="bi bi-plus-circle me-1"></i>
-                            {% if analyzed %}Add to my complaint{% else %}Add to story{% endif %}
+                            {% if analyzed %}Add to my complaint{% else %}Save chunk{% endif %}
                         </button>
                     </form>
                 </div>
@@ -159,16 +267,6 @@
             </div>
             {% endif %}
 
-            <!-- Existing story preview (pre-analyze) -->
-            {% if not analyzed and session.story_text %}
-            <details class="mt-3">
-                <summary class="text-muted small" style="cursor:pointer;">
-                    <i class="bi bi-eye me-1"></i>Show what I've added so far
-                </summary>
-                <pre class="bg-light p-3 mt-2 small rounded" style="white-space:pre-wrap; max-height:320px; overflow-y:auto;">{{ session.story_text }}</pre>
-            </details>
-            {% endif %}
-
         </div>
     </div>
 </div>
@@ -181,10 +279,19 @@ function quickAdd() {
         text: '',
         category: '',
         placeholder: {% if analyzed %}'Pick a category above first…'{% else %}'e.g. Officer was Tampa PD, badge 4892. Stop happened in front of 1320 Main St.'{% endif %},
+        showHowto: true,
+        showAll: false,
+        chunks_total: {{ chunk_count }},
         ...withVoice('text'),
 
         init() {
             this.initVoice();
+            // Restore dismissed how-to from localStorage.
+            try {
+                if (localStorage.getItem('quickAddHowtoDismissed') === '1') {
+                    this.showHowto = false;
+                }
+            } catch (e) { /* private mode */ }
             {% if analyzed %}
             // Swap the textarea placeholder when the category changes so the
             // hint matches what we want the user to type.
@@ -197,6 +304,11 @@ function quickAdd() {
                 }
             });
             {% endif %}
+        },
+
+        dismissHowto() {
+            this.showHowto = false;
+            try { localStorage.setItem('quickAddHowtoDismissed', '1'); } catch (e) {}
         },
     };
 }
