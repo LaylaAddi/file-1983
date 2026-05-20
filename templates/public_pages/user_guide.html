@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}User Guide — {{ app_name }}{% endblock %}
+
+{% block meta_description %}Step-by-step walkthrough of {{ app_name }} — creating your case, writing your story, the wizard, case law, payment, finalizing, the mobile app, and the referral program.{% endblock %}
+
+{% block extra_css %}
+<style>
+    .guide-wrap { padding-top: 1rem; }
+    .guide-toc {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+    }
+    .guide-toc a {
+        display: block;
+        padding: 0.4rem 0.6rem;
+        color: var(--bs-secondary-color);
+        text-decoration: none;
+        border-left: 3px solid transparent;
+        font-size: 0.9rem;
+        line-height: 1.35;
+    }
+    .guide-toc a:hover {
+        color: #002868;
+        border-left-color: #002868;
+        background: rgba(0, 40, 104, 0.04);
+    }
+    [data-theme="dark"] .guide-toc a:hover {
+        color: #4a8fff;
+        border-left-color: #4a8fff;
+        background: rgba(74, 143, 255, 0.08);
+    }
+    .guide-section {
+        scroll-margin-top: 80px;
+        padding-bottom: 2rem;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .guide-section:last-of-type { border-bottom: none; }
+    .guide-section h2 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.6rem;
+        margin-bottom: 1rem;
+        color: #002868;
+    }
+    [data-theme="dark"] .guide-section h2 { color: #6fa8ff; }
+    .guide-section h3 {
+        font-size: 1.1rem;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    .guide-step {
+        display: flex;
+        gap: 0.85rem;
+        margin-bottom: 0.85rem;
+    }
+    .guide-step .step-num {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 999px;
+        background: #002868;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    [data-theme="dark"] .guide-step .step-num { background: #4a8fff; }
+    .callout {
+        background: #fff8e6;
+        border-left: 3px solid #f59e0b;
+        padding: 0.75rem 1rem;
+        border-radius: 0.4rem;
+        margin: 0.75rem 0;
+        font-size: 0.92rem;
+    }
+    [data-theme="dark"] .callout {
+        background: #2d2a1a;
+        color: #e4e4e4;
+    }
+    .callout-info {
+        background: #e7f3ff;
+        border-left-color: #0d6efd;
+    }
+    [data-theme="dark"] .callout-info {
+        background: #1a2a3e;
+    }
+    kbd {
+        background: #f1f3f5;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding: 0.1rem 0.4rem;
+        font-size: 0.85em;
+        color: #212529;
+    }
+    [data-theme="dark"] kbd {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e4e4e4;
+    }
+    .ui-btn {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 0.4rem;
+        background: #002868;
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .ui-btn.outline {
+        background: transparent;
+        color: #002868;
+        border: 1.5px solid #002868;
+    }
+    [data-theme="dark"] .ui-btn { background: #4a8fff; }
+    [data-theme="dark"] .ui-btn.outline { color: #6fa8ff; border-color: #6fa8ff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container guide-wrap">
+
+    <div class="row mb-4">
+        <div class="col-lg-9">
+            <h1 class="mb-1" style="font-family:'Playfair Display',serif;">
+                User Guide
+            </h1>
+            <p class="text-muted mb-0">
+                A walkthrough of everything {{ app_name }} does — from creating a case to finalizing
+                your complaint, the mobile app, and the referral program.
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <!-- Sticky table of contents -->
+        <div class="col-lg-3 d-none d-lg-block">
+            <nav class="guide-toc" aria-label="Guide sections">
+                <div class="text-uppercase text-muted small fw-bold mb-2 px-2">On this page</div>
+                <a href="#overview">Overview</a>
+                <a href="#account">1. Create your account</a>
+                <a href="#profile">2. Complete your profile</a>
+                <a href="#install">3. Install on your phone (PWA)</a>
+                <a href="#new-case">4. Create a new case</a>
+                <a href="#story">5. Tell your story</a>
+                <a href="#quick-add">6. Add to your story in the field</a>
+                <a href="#wizard">7. The wizard steps (1–7)</a>
+                <a href="#case-law">8. Case law strategy</a>
+                <a href="#draft">9. Draft preview &amp; editing</a>
+                <a href="#payment">10. Payment</a>
+                <a href="#finalize">11. Finalize &amp; download</a>
+                <a href="#redownload">12. Re-downloading later</a>
+                <a href="#offline">13. Offline &amp; syncing</a>
+                <a href="#referrals" class="fw-bold">14. Referral program (read this!)</a>
+                <a href="#faq">15. FAQ</a>
+            </nav>
+        </div>
+
+        <!-- Body -->
+        <div class="col-lg-9">
+
+            <!-- Mobile-only TOC (collapsible) -->
+            <div class="d-lg-none mb-4">
+                <details>
+                    <summary class="btn btn-outline-secondary w-100 text-start">
+                        <i class="bi bi-list me-2"></i>On this page
+                    </summary>
+                    <nav class="mt-2 ps-2">
+                        <a class="d-block py-1 text-decoration-none" href="#overview">Overview</a>
+                        <a class="d-block py-1 text-decoration-none" href="#account">1. Create your account</a>
+                        <a class="d-block py-1 text-decoration-none" href="#profile">2. Complete your profile</a>
+                        <a class="d-block py-1 text-decoration-none" href="#install">3. Install on your phone</a>
+                        <a class="d-block py-1 text-decoration-none" href="#new-case">4. Create a new case</a>
+                        <a class="d-block py-1 text-decoration-none" href="#story">5. Tell your story</a>
+                        <a class="d-block py-1 text-decoration-none" href="#quick-add">6. Add in the field</a>
+                        <a class="d-block py-1 text-decoration-none" href="#wizard">7. Wizard steps 1–7</a>
+                        <a class="d-block py-1 text-decoration-none" href="#case-law">8. Case law strategy</a>
+                        <a class="d-block py-1 text-decoration-none" href="#draft">9. Draft &amp; editing</a>
+                        <a class="d-block py-1 text-decoration-none" href="#payment">10. Payment</a>
+                        <a class="d-block py-1 text-decoration-none" href="#finalize">11. Finalize</a>
+                        <a class="d-block py-1 text-decoration-none" href="#redownload">12. Re-download</a>
+                        <a class="d-block py-1 text-decoration-none" href="#offline">13. Offline mode</a>
+                        <a class="d-block py-1 text-decoration-none fw-bold" href="#referrals">14. Referral program</a>
+                        <a class="d-block py-1 text-decoration-none" href="#faq">15. FAQ</a>
+                    </nav>
+                </details>
+            </div>
+
+            <!-- Overview -->
+            <section id="overview" class="guide-section">
+                <h2>Overview</h2>
+                <p>
+                    {{ app_name }} guides you through building a <strong>Section 1983 federal civil
+                    rights complaint</strong> against government officials who violated your
+                    constitutional rights. You tell your story in plain English, our AI extracts
+                    the legal structure, and a wizard lets you review and edit each piece. The
+                    final output is a court-formatted PDF you can file pro se.
+                </p>
+                <div class="callout">
+                    <strong>This is not legal advice.</strong> {{ app_name }} is a self-help drafting
+                    tool. We are not your attorney. Consult one if you're unsure — especially
+                    before filing.
+                </div>
+            </section>
+
+            <!-- 1. Account -->
+            <section id="account" class="guide-section">
+                <h2>1. Create your account</h2>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>
+                        Click <span class="ui-btn">Get Started</span> in the top-right.
+                        Fill in email + password + name. Two checkboxes are required: you accept
+                        the Terms of Service and the Privacy Policy. There's also a clearly-worded
+                        AI / not-a-lawyer warning — read it.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>
+                        If you arrived via a partner's referral link (a URL ending in
+                        <code>?ref=SOMECODE</code>), the referral code is pre-filled in the signup
+                        form with a green <em>"From referral link"</em> badge. Leave it alone —
+                        that's how the partner gets credit.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>
+                        Submit the form. You'll be logged in immediately. We don't require email
+                        verification today.
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Profile -->
+            <section id="profile" class="guide-section">
+                <h2>2. Complete your profile</h2>
+                <p>
+                    Click your name in the top-right → <span class="ui-btn outline">Profile</span>.
+                    Add your full legal name, address, city, state, ZIP, and phone. <strong>This
+                    is required before you can create a case</strong> — the system needs your
+                    contact information to render the case caption on the complaint.
+                </p>
+                <div class="callout callout-info">
+                    Your profile data is auto-copied into the case's <em>plaintiff</em> block when
+                    you create a new document. You can edit it per-case afterward if it differs.
+                </div>
+            </section>
+
+            <!-- 3. PWA install -->
+            <section id="install" class="guide-section">
+                <h2>3. Install on your phone (PWA)</h2>
+                <p>
+                    {{ app_name }} is an installable web app. You don't go to an app store — you
+                    install it directly from your browser. Once installed it lives on your home
+                    screen like any other app, with no address bar.
+                </p>
+                <h3><i class="bi bi-android2 me-1"></i>Android (Chrome)</h3>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>Open Chrome → go to <code>{{ PRIMARY_DOMAIN|default:"auditfile1983.com" }}</code>.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>Scroll to the gradient install card under the hero — tap the white <span class="ui-btn">Install</span> button.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>Confirm the install dialog. Tap the new icon on your home screen — it opens with no Chrome bar.</div>
+                </div>
+
+                <h3 class="mt-4"><i class="bi bi-apple me-1"></i>iPhone (Safari)</h3>
+                <p class="small text-muted mb-2">Apple doesn't allow automatic install prompts — every iOS PWA is added manually.</p>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>Open <strong>Safari</strong> (not Chrome — iOS Chrome can't install PWAs).</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>Tap the <i class="bi bi-box-arrow-up"></i> <strong>Share</strong> icon at the bottom.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>Scroll and tap <strong>Add to Home Screen</strong> → <strong>Add</strong>.</div>
+                </div>
+
+                <div class="callout">
+                    Once installed, tapping the home-screen icon takes you straight to the
+                    <strong>Add to story</strong> page of your most-recently-active case — built
+                    for field use.
+                </div>
+            </section>
+
+            <!-- 4. New case -->
+            <section id="new-case" class="guide-section">
+                <h2>4. Create a new case</h2>
+                <p>
+                    From the navbar, click <span class="ui-btn">+ New Case</span>, or from
+                    <strong>My Documents</strong> click <span class="ui-btn">+ New Document</span>.
+                    A blank case is created with you as the plaintiff and an empty wizard. Free
+                    accounts can have up to 2 in-flight drafts at a time. Paid + finalized cases
+                    don't count toward that limit.
+                </p>
+            </section>
+
+            <!-- 5. Story -->
+            <section id="story" class="guide-section">
+                <h2>5. Tell your story</h2>
+                <p>
+                    On the case page (<em>Tell Us What Happened</em>) describe the incident in
+                    your own words — speak or type. Include:
+                </p>
+                <ul>
+                    <li>Where you were and what you were doing (filming, walking, asking questions)</li>
+                    <li>Who approached you (officer, deputy, sergeant — names + badges if you have them)</li>
+                    <li>What they said and what you said</li>
+                    <li>What they did — orders, force, arrest, equipment seized</li>
+                    <li>What happened after — released, charged, hospitalized</li>
+                </ul>
+                <p>
+                    Tap <span class="ui-btn outline"><i class="bi bi-mic-fill"></i> Dictate</span> to speak instead of typing.
+                    When you're done, click <span class="ui-btn">Analyze My Story</span>. The AI
+                    reads your text and fills in every section of the complaint for you to review
+                    and edit.
+                </p>
+                <div class="callout">
+                    <strong>Hitting Analyze again later replaces existing edits.</strong> If
+                    you've already analyzed and edited the wizard steps, don't re-analyze — use
+                    <strong>Add details</strong> (covered next) instead.
+                </div>
+            </section>
+
+            <!-- 6. Quick add -->
+            <section id="quick-add" class="guide-section">
+                <h2>6. Add to your story in the field</h2>
+                <p>
+                    From <strong>My Documents</strong>, tap the blue <span class="ui-btn"><i class="bi bi-plus-circle"></i> Add to story</span>
+                    button on your case. This opens the mobile <em>quick-add</em> page — the
+                    field-use tool for collecting details as they come.
+                </p>
+                <p>
+                    Each save adds a <strong>timestamped chunk</strong> to your story. Saved
+                    chunks appear as read-only cards above the input — you can see your timeline,
+                    but you can't accidentally tap inside a prior chunk and dictate into the
+                    wrong spot.
+                </p>
+                <h3>Workflow</h3>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>Tap <strong>Dictate</strong> and speak (or type) what just happened.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>Tap <strong>Save chunk</strong>. The chunk joins your story with a UTC timestamp.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>Repeat throughout the day. When you're done collecting, tap <strong>Review &amp; analyze</strong>.</div>
+                </div>
+                <p>
+                    If you save a chunk after the initial Analyze step has already run, the page
+                    asks you to pick a category (Officers, Evidence, Damages, etc.). Your
+                    addition is merged into the existing complaint without overwriting the edits
+                    you've already made in steps 1–7.
+                </p>
+                <h3>Delete a chunk</h3>
+                <p>
+                    Each chunk card has a small <i class="bi bi-trash text-danger"></i> trash
+                    icon in the top-right. Tap it, confirm, and the chunk is removed from your
+                    story.
+                </p>
+            </section>
+
+            <!-- 7. Wizard -->
+            <section id="wizard" class="guide-section">
+                <h2>7. The wizard steps (1–7)</h2>
+                <p>
+                    After your story is analyzed, you walk through 7 review steps. Each step is
+                    pre-filled from the AI extraction — you only need to fix or add what's
+                    wrong. Use the clickable progress dots at the top to jump between completed
+                    steps.
+                </p>
+                <h3>Step 1 — Federal jurisdiction</h3>
+                <p>Confirms the federal district court for your case based on the city and state of the incident. Override available.</p>
+                <h3>Step 2 — Incident details</h3>
+                <p>Date, time, address, city, state, county, location type, what you were doing, force used, equipment seized or damaged.</p>
+                <h3>Step 3 — Defendants</h3>
+                <p>The officers and the government entity (city police department, county sheriff). For each defendant: name, badge, rank, agency, capacity (individual / official / both), supervisor flag.</p>
+                <h3>Step 4 — Constitutional claims</h3>
+                <p>The amendments that were violated (1st, 4th, 5th, etc.) and how. Each comes with a plain-English explainer. <strong>This step drives which case-law citations the system pulls in step 8.</strong></p>
+                <h3>Step 5 — Evidence &amp; witnesses</h3>
+                <p>Videos, photos, body-cam footage, audio recordings, witness names and contact info. For video evidence, you can mark a <strong>Key Timestamp</strong> (HH:MM:SS) for a deep-link to the moment.</p>
+                <h3>Step 6 — Damages, relief sought, prior complaints</h3>
+                <p>Physical injuries, emotional distress, property damage, lost wages. The <span class="ui-btn outline">Use recommended</span> button one-clicks the six standard 1983 asks (declaratory judgment, injunctive relief, compensatory + punitive damages, attorney's fees, costs).</p>
+                <h3>Step 7 — Final review</h3>
+                <p>Read-only summary of every section with pencil-edit links back to each step. Includes the case-law strategy card (see next section).</p>
+            </section>
+
+            <!-- 8. Case law -->
+            <section id="case-law" class="guide-section">
+                <h2>8. Case law strategy</h2>
+                <p>
+                    On Step 7 you'll see a prominent <strong>Case Law Strategy</strong> card. By
+                    default your complaint is generated <strong>without case law</strong> —
+                    pleading just the facts is often the strongest approach for pro se filers
+                    (judges hold pro se complaints to a more lenient standard under
+                    <em>Haines v. Kerner</em>).
+                </p>
+                <p>If you want to add case law, click <strong>Choose case law strategy</strong> and pick one of:</p>
+                <ul>
+                    <li><strong>No case law</strong> — facts only. Default.</li>
+                    <li><strong>Inline citations</strong> — short cites within the complaint paragraphs (<em>Smith v. Jones, 555 U.S. 123 (2008)</em>).</li>
+                    <li><strong>Appendix</strong> — a list of supporting authority at the end of the complaint.</li>
+                    <li><strong>Memorandum of law</strong> — a separate section with case names, holdings, and how they apply to your case.</li>
+                </ul>
+                <p>
+                    The cases themselves come from our <strong>curated library of foundational
+                    civil rights case law</strong>. The system auto-picks one case per
+                    constitutional claim by the amendment you chose, plus Monell v. Department
+                    of Social Services if you named a government entity. <strong>We do not use AI
+                    to generate or summarize case law</strong> — hallucinated citations carry
+                    serious legal risk, so every case in our library is hand-verified.
+                </p>
+            </section>
+
+            <!-- 9. Draft -->
+            <section id="draft" class="guide-section">
+                <h2>9. Draft preview &amp; editing</h2>
+                <p>
+                    After Step 7 (or after picking a case-law strategy), you land on the
+                    <strong>Draft</strong> page. The complaint is rendered in court format —
+                    caption, parties, jurisdiction, factual allegations, claims, prayer for
+                    relief, signature.
+                </p>
+                <p>
+                    The <strong>Factual Allegations</strong> section is editable (auto-sizing
+                    textareas). The other sections come straight from your wizard data — to
+                    change them, click the pencil-edit links back to the relevant step.
+                </p>
+                <h3>Regenerate</h3>
+                <p>
+                    If you've edited wizard data since the last draft, the Regenerate banner
+                    appears. Click <span class="ui-btn">Regenerate Draft</span> to re-run the AI
+                    drafter on your updated data.
+                </p>
+                <h3>Undo</h3>
+                <p>
+                    A single-use <span class="ui-btn outline">Undo regenerate</span> button is
+                    available right after a regenerate. It restores the prior draft. Once you
+                    use it, the snapshot is cleared.
+                </p>
+            </section>
+
+            <!-- 10. Payment -->
+            <section id="payment" class="guide-section">
+                <h2>10. Payment</h2>
+                <p>
+                    Drafts can be previewed as a watermarked PDF for free (<em>DRAFT — NOT FOR
+                    FILING</em>). To get a clean filable PDF you pay <strong>$149</strong> — or
+                    <strong>$99</strong> with a valid promo code.
+                </p>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>On the Draft page, click <span class="ui-btn">Pay &amp; download clean PDF</span>.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>Enter a promo code if you have one (auto-filled if you came via a partner link). The price updates live.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>Pay via Stripe Checkout. You're returned to the draft with a confirmation.</div>
+                </div>
+                <div class="callout callout-info">
+                    Paying alone doesn't unlock the clean PDF — it just enables Finalize. You
+                    still get unlimited watermarked previews while you finish reviewing.
+                </div>
+            </section>
+
+            <!-- 11. Finalize -->
+            <section id="finalize" class="guide-section">
+                <h2>11. Finalize &amp; download</h2>
+                <p>
+                    When you're ready to file, click <span class="ui-btn">Finalize &amp; Download</span>.
+                    This is a deliberate, one-way step.
+                </p>
+                <p>The Finalize page has <strong>two required checkboxes</strong>:</p>
+                <ul>
+                    <li>"I confirm this complaint is complete and ready to file."</li>
+                    <li>"I understand this draft was AI-assisted. {{ app_name }} is not my attorney and I will consult one if I'm unsure."</li>
+                </ul>
+                <p>
+                    Both must be checked. On submit, the document is <strong>locked</strong> —
+                    you can re-download but no longer edit. We stamp the time of confirmation
+                    and the AI-disclaimer acknowledgement on the record.
+                </p>
+                <div class="callout">
+                    <strong>Why locking?</strong> Once you've filed, the version we generated
+                    needs to match what's on the court docket. The lock prevents accidental
+                    edits that would diverge from the filed version. To make changes after
+                    locking, you'd need to start a new case (or, post-filing, draft an amended
+                    complaint).
+                </div>
+            </section>
+
+            <!-- 12. Re-download -->
+            <section id="redownload" class="guide-section">
+                <h2>12. Re-downloading later</h2>
+                <p>
+                    Lost the PDF? Need another copy? Go to <strong>My Documents</strong> — your
+                    finalized case has a <span class="ui-btn">Download PDF</span> button. The
+                    clean (non-watermarked) PDF stays available forever.
+                </p>
+            </section>
+
+            <!-- 13. Offline -->
+            <section id="offline" class="guide-section">
+                <h2>13. Offline &amp; syncing</h2>
+                <p>
+                    The mobile app works offline for <strong>quick-add (adding chunks to your
+                    story)</strong>. Auditors filming inside courthouses, basements, or remote
+                    areas can keep adding details — they sync automatically when signal returns.
+                </p>
+                <h3>How it works</h3>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>Open the installed PWA. The page is cached, so it loads even with no signal.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>When offline, the header shows <span class="badge bg-warning text-dark"><i class="bi bi-wifi-off"></i> Offline</span>.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>Type a chunk → Save. It's stored locally with a yellow <span class="badge bg-warning text-dark">Queued</span> badge and a <span class="badge bg-info text-dark"><i class="bi bi-cloud-arrow-up"></i> N queued</span> count in the header.</div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">4</span>
+                    <div>When you're back online, queued chunks sync automatically. They become regular timestamped chunks in your story.</div>
+                </div>
+                <div class="callout">
+                    <strong>Voice dictation does NOT work offline.</strong> Phones use Google or
+                    Apple's cloud speech-to-text, which needs internet. Type your chunks if
+                    you're offline. The mic button is disabled when offline so you don't waste
+                    effort.
+                </div>
+                <h3>Things that still need internet</h3>
+                <ul>
+                    <li>Running AI analysis on your story</li>
+                    <li>Regenerating the draft</li>
+                    <li>Voice dictation</li>
+                    <li>Payment (Stripe Checkout)</li>
+                    <li>Downloading the PDF</li>
+                </ul>
+            </section>
+
+            <!-- 14. Referrals (the headliner) -->
+            <section id="referrals" class="guide-section">
+                <h2>14. Referral program (read this!)</h2>
+                <p>
+                    {{ app_name }} has a partner program. When you refer a buyer, you earn
+                    <strong>20% of every $99 sale</strong> made through your code — that's
+                    <strong>$19.80 per sale</strong>. Here's how the whole flow works in plain
+                    English.
+                </p>
+
+                <h3>Step A — Becoming a partner</h3>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>
+                        Open your <span class="ui-btn outline">Profile</span> page. On the right
+                        you'll see a <strong>Referral &amp; Partnership</strong> section. If
+                        you're not yet a partner there's a form to <strong>Request
+                        Partnership</strong>. Fill in your desired promo code (something easy to
+                        remember, like your first name + a number) and a short message about
+                        yourself.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>
+                        An admin reviews your request. When approved, two things happen in one
+                        click: your account is flipped to <em>revenue partner</em> AND a promo
+                        code is created in your name (your requested code if it's available, or
+                        a unique fallback). The promo code is worth $50 off — buyers pay $99
+                        instead of $149 when they use it.
+                    </div>
+                </div>
+
+                <h3>Step B — Your referral link</h3>
+                <p>
+                    Once approved, your Profile page's referral block changes. You'll see your
+                    promo code (e.g. <code>ALICE10</code>) and a <strong>copyable shareable
+                    link</strong> that looks like this:
+                </p>
+                <pre class="bg-light p-3 rounded small mb-2"><code>https://{{ PRIMARY_DOMAIN|default:"auditfile1983.com" }}/?ref=ALICE10</code></pre>
+                <p>
+                    Tap the copy button next to the link to copy it to your clipboard. Share that
+                    URL anywhere — Twitter, YouTube descriptions, comments on auditing videos,
+                    DM to a friend. Anything that links someone to that URL counts.
+                </p>
+
+                <h3>Step C — What happens when someone clicks your link</h3>
+                <div class="guide-step">
+                    <span class="step-num">1</span>
+                    <div>
+                        Visitor opens <code>https://{{ PRIMARY_DOMAIN|default:"auditfile1983.com" }}/?ref=ALICE10</code>.
+                        Our middleware reads the <code>?ref=</code> parameter, validates it
+                        against the active promo codes, and stores it in their browser session.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">2</span>
+                    <div>
+                        The visitor browses the site. The referral code stays in their session
+                        even if they navigate to other pages.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">3</span>
+                    <div>
+                        They sign up. The referral code is pre-filled in the signup form (green
+                        "From referral link" badge appears). They submit — they're now linked to
+                        you as their referrer.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">4</span>
+                    <div>
+                        Later, they hit the pay page. Your promo code is automatically applied,
+                        dropping their price from $149 to $99. They check out via Stripe.
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <span class="step-num">5</span>
+                    <div>
+                        The webhook records the sale. You earn <strong>$19.80</strong> (20% of
+                        $99). It shows up on your Partner Dashboard within seconds.
+                    </div>
+                </div>
+
+                <div class="callout callout-info">
+                    <strong>Why $99 not $149?</strong> Your link gives the buyer the discount —
+                    that's the value of clicking your link. Without your link they'd pay full
+                    price. The 20% cut comes out of the discounted price, not the full price.
+                </div>
+
+                <h3>Step D — Tracking your earnings (the Partner Dashboard)</h3>
+                <p>
+                    Once you're a partner, a new <strong>Partner Dashboard</strong> link appears
+                    in the user dropdown (top-right). On that page you'll see:
+                </p>
+                <ul>
+                    <li><strong>Four summary cards:</strong> total sales count, gross revenue from your code, your cut earned, your unpaid balance.</li>
+                    <li><strong>Your promo codes</strong> with sales counts and revenue.</li>
+                    <li><strong>Recent sales</strong> table — date, buyer name + email (so you can verify), amount paid, your cut.</li>
+                    <li><strong>Adjustments</strong> — credits or debits posted by admin (bonuses, corrections, etc.) with reasons.</li>
+                    <li><strong>Payout history</strong> — what you've requested and what's been paid.</li>
+                </ul>
+
+                <h3>Step E — Getting paid</h3>
+                <p>
+                    When your unpaid balance reaches <strong>$20 or more</strong>, the
+                    <span class="ui-btn">Request Payout</span> button on the dashboard is live.
+                    Click it. A small form pops up:
+                </p>
+                <ul>
+                    <li><strong>Payment method:</strong> PayPal, Venmo, Zelle, Check by mail, or Other</li>
+                    <li><strong>Destination details:</strong> your PayPal email, Venmo handle, Zelle phone/email, or mailing address — whatever the method needs to reach you</li>
+                    <li><strong>Notes:</strong> optional — anything you want admin to know</li>
+                </ul>
+                <p>
+                    Submit. An email goes to admin with a deep link to your payout record. Admin
+                    processes the payment outside the app (via the actual payment platform), then
+                    marks the request as paid in the admin panel and records the transaction
+                    reference. You see "Paid" on your dashboard, with the payment date.
+                </p>
+
+                <h3>Common confusion points</h3>
+                <ul>
+                    <li>
+                        <strong>The link must include <code>?ref=YOURCODE</code> exactly.</strong>
+                        Sharing just <code>{{ PRIMARY_DOMAIN|default:"auditfile1983.com" }}</code> won't credit you.
+                        Always copy the full link from your Profile page.
+                    </li>
+                    <li>
+                        <strong>One sale, one credit.</strong> If a buyer uses your code, that
+                        sale is credited to you. The same buyer can't reuse the same code for
+                        another purchase (the system blocks it).
+                    </li>
+                    <li>
+                        <strong>The visitor must actually buy.</strong> Click-throughs alone
+                        don't earn anything. You earn when they pay. (We may add visit
+                        analytics later; not today.)
+                    </li>
+                    <li>
+                        <strong>You can't refer yourself.</strong> The middleware refuses to
+                        seed your own code into your own session.
+                    </li>
+                    <li>
+                        <strong>$20 minimum payout.</strong> This isn't because we want to keep
+                        your money — it's because PayPal / Zelle transaction fees on smaller
+                        amounts eat too much of what you'd get.
+                    </li>
+                </ul>
+            </section>
+
+            <!-- 15. FAQ -->
+            <section id="faq" class="guide-section">
+                <h2>15. FAQ</h2>
+
+                <h3>Can {{ app_name }} represent me in court?</h3>
+                <p>No. We're a drafting tool, not a law firm. We're not your attorney. The complaint we generate is yours to file (or take to a lawyer for review). We do not appear in court.</p>
+
+                <h3>What if I make a mistake after finalizing?</h3>
+                <p>You can't edit a finalized document. The fix is to either (a) start a new case in {{ app_name }} and file an amended complaint, or (b) consult a lawyer about how to amend in court.</p>
+
+                <h3>How long do you keep my data?</h3>
+                <p>See the <a href="{% url 'public_pages:privacy' %}">Privacy Policy</a>. We don't share your story with anyone outside the OpenAI API call that runs the extraction and draft. You can delete your account from the profile page.</p>
+
+                <h3>What if my voice dictation isn't working?</h3>
+                <p>Web Speech requires internet (voice goes to cloud STT). It works best in Chrome on Android. iOS Safari is inconsistent. If you're offline, type instead — the mic button is disabled until you're online.</p>
+
+                <h3>What if the AI gets a detail wrong?</h3>
+                <p>It will — that's why every wizard step is editable. Read each step carefully. The most common AI mistakes: getting names spelled wrong, missing a badge number, or being too vague about "what the officer said." Fix all of those before generating the draft.</p>
+
+                <h3>Can I file the watermarked draft?</h3>
+                <p>Technically yes, but you shouldn't. Courts will accept it, but the watermark looks unprofessional. Pay first, finalize, and file the clean version.</p>
+
+                <h3>I lost my promo code email — can I still get the discount?</h3>
+                <p>If you signed up through a partner link, the code is in your session — try the pay page, it should be pre-applied. If not, ask whoever sent you the link to resend it.</p>
+
+                <h3>Why aren't there push notifications?</h3>
+                <p>Today we don't send push notifications. The PWA install is for fast access + offline; alerts would require server-side scheduling that we haven't built yet. Email is the only channel.</p>
+            </section>
+
+            <!-- CTA -->
+            <div class="mt-4 text-center">
+                {% if user.is_authenticated %}
+                <a href="{% url 'documents:list' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="bi bi-folder me-2"></i>My Documents
+                </a>
+                {% else %}
+                <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="bi bi-shield-plus me-2"></i>Get Started
+                </a>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

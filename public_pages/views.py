@@ -93,6 +93,10 @@ def home(request):
     return landing_page(request)
 
 
+def user_guide(request):
+    return render(request, 'public_pages/user_guide.html')
+
+
 def know_your_rights(request):
     return render(request, 'public_pages/know_your_rights.html')
 

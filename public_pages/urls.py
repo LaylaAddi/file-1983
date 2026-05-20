@@ -5,6 +5,7 @@ app_name = 'public_pages'
 
 urlpatterns = [
     path('', views.landing_page, name='home'),
+    path('guide/', views.user_guide, name='user_guide'),
     path('robots.txt', views.robots_txt, name='robots_txt'),
 
     path('rights/', views.know_your_rights, name='know_your_rights'),

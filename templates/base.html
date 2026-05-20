@@ -157,6 +157,9 @@
                                 <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
                                     <i class="bi bi-person me-2"></i>Profile
                                 </a></li>
+                                <li><a class="dropdown-item" href="{% url 'public_pages:user_guide' %}">
+                                    <i class="bi bi-book me-2"></i>User Guide
+                                </a></li>
                                 {% if user.is_revenue_partner or user.is_staff %}
                                 <li><a class="dropdown-item" href="{% url 'partner_dashboard' %}">
                                     <i class="bi bi-cash-coin me-2"></i>Partner Dashboard
@@ -255,6 +258,7 @@
                 <div class="col-6 col-lg-2 mb-4 mb-lg-0">
                     <h6>Resources</h6>
                     <div class="footer-links">
+                        <a href="{% url 'public_pages:user_guide' %}">User Guide</a>
                         <a href="{% url 'public_pages:know_your_rights' %}">Know Your Rights</a>
                         <a href="{% url 'public_pages:disclaimer' %}">Legal Disclaimer</a>
                     </div>
