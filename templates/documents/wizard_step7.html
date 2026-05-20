@@ -607,13 +607,47 @@
             {% endif %}
 
             <!-- Case law strategy summary -->
+            {% if not document.caselaw_strategy or document.caselaw_strategy == 'none' %}
+            <!-- Prominent prompt: user hasn't actively chosen a strategy yet -->
+            <div class="review-card border-warning shadow-sm" style="border-width:2px;">
+                <div class="review-card-header" style="background:linear-gradient(135deg,#fff8e6 0%,#fff 100%);">
+                    <h3 class="review-card-title">
+                        <i class="bi bi-book text-warning"></i>Case Law Strategy
+                        <span class="badge bg-warning text-dark ms-2" style="font-size:0.7rem;">Decide before filing</span>
+                    </h3>
+                </div>
+                <div class="review-card-body">
+                    <p class="mb-2">
+                        Your complaint will currently <strong>plead facts only</strong> — no
+                        supporting case law cited. That is the default and a perfectly valid
+                        approach (often the strongest move for pro se filers).
+                    </p>
+                    <p class="mb-3 small text-muted">
+                        You can also add foundational case law from our curated library
+                        (auto-picked by the amendments in your claims). Choose how it
+                        should appear — inline citations, an appendix, or a separate
+                        memorandum — or leave it off entirely.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'documents:wizard_caselaw_strategy' document.slug %}"
+                           class="btn btn-primary fw-semibold">
+                            <i class="bi bi-book me-1"></i>Choose case law strategy
+                        </a>
+                        <span class="align-self-center text-muted small">
+                            (or scroll down to continue without it)
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Quiet summary: user has actively chosen a strategy -->
             <div class="review-card">
                 <div class="review-card-header">
                     <h3 class="review-card-title">
                         <i class="bi bi-book"></i>Case Law Strategy
                     </h3>
                     <a href="{% url 'documents:wizard_caselaw_strategy' document.slug %}" class="review-edit-btn">
-                        <i class="bi bi-pencil"></i> {% if document.caselaw_strategy and document.caselaw_strategy != 'none' %}Change{% else %}Choose{% endif %}
+                        <i class="bi bi-pencil"></i> Change
                     </a>
                 </div>
                 <div class="review-card-body">
@@ -623,45 +657,38 @@
                             {{ document.get_caselaw_strategy_display }}
                         </div>
                     </div>
-                    {% if not document.caselaw_strategy or document.caselaw_strategy == 'none' %}
-                    <div class="text-muted small mt-2">
-                        Default — your complaint will plead facts only. This is usually the
-                        strongest move for pro se filers. Click <strong>Choose</strong> above
-                        to read the trade-offs of each option.
-                    </div>
-                    {% else %}
-                        {% if supporting_cases %}
-                        <div class="review-row">
-                            <div class="review-label">Cases that will be cited</div>
-                            <div class="review-value">
-                                <ul class="list-unstyled mb-0 small">
-                                    {% for sc in supporting_cases %}
-                                    <li class="mb-2">
-                                        <strong><em>{{ sc.case.case_name }}</em></strong>, {{ sc.case.citation }}
-                                        {% if sc.kind == 'monell' %}
-                                        <span class="badge bg-info text-dark ms-1">Monell / municipal liability</span>
-                                        {% elif sc.claim %}
-                                        <span class="text-muted">— for your {{ sc.claim.get_amendment_display }} claim</span>
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                                <div class="text-muted small mt-2">
-                                    These are auto-selected from the foundational case-law library based on the
-                                    amendments in your claims. You can change the strategy or pick "No case law"
-                                    to omit them.
-                                </div>
+                    {% if supporting_cases %}
+                    <div class="review-row">
+                        <div class="review-label">Cases that will be cited</div>
+                        <div class="review-value">
+                            <ul class="list-unstyled mb-0 small">
+                                {% for sc in supporting_cases %}
+                                <li class="mb-2">
+                                    <strong><em>{{ sc.case.case_name }}</em></strong>, {{ sc.case.citation }}
+                                    {% if sc.kind == 'monell' %}
+                                    <span class="badge bg-info text-dark ms-1">Monell / municipal liability</span>
+                                    {% elif sc.claim %}
+                                    <span class="text-muted">— for your {{ sc.claim.get_amendment_display }} claim</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            <div class="text-muted small mt-2">
+                                These are auto-selected from the foundational case-law library based on the
+                                amendments in your claims. You can change the strategy or pick "No case law"
+                                to omit them.
                             </div>
                         </div>
-                        {% else %}
-                        <div class="text-muted small mt-2 fst-italic">
-                            None of your current claims map to a curated foundational case in our library —
-                            the complaint will be drafted without supporting authority for those claims.
-                        </div>
-                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-muted small mt-2 fst-italic">
+                        None of your current claims map to a curated foundational case in our library —
+                        the complaint will be drafted without supporting authority for those claims.
+                    </div>
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
             <!-- Final actions -->
             {% if is_draft_stale %}
