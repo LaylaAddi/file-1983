@@ -55,6 +55,19 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text='Grants access to the /partner/ dashboard to view sales and request payouts.',
     )
 
+    # Beta-tester flag. Toggled by admin (single click or bulk action) to grant
+    # podcast volunteers and other invited testers access to the example-stories
+    # autofill dropdown on the story page, without giving them is_staff (which
+    # would also unlock the Django admin and the per-row Delete buttons).
+    # `tester_granted_at` is auto-stamped by the admin action so you can sort
+    # the user list by "granted in the last week" and revoke a cohort at once.
+    is_tester = models.BooleanField(
+        default=False,
+        help_text='Grants test-mode features (example-stories autofill, "Test mode" navbar badge). '
+                  'Lower-privilege than is_staff — safe to grant to recruited testers.',
+    )
+    tester_granted_at = models.DateTimeField(null=True, blank=True)
+
     # Legal acceptance audit trail. Versions are checked against the current
     # settings.TOS_VERSION / PRIVACY_VERSION; a mismatch forces re-acceptance
     # at /accounts/accept-terms/ before the user can use the app.

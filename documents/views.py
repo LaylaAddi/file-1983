@@ -161,10 +161,13 @@ def wizard_story(request, document_slug):
         else:
             messages.error(request, 'Please enter your story before continuing.')
 
-    # Example stories — only for staff or DEBUG mode
+    # Example stories — staff, testers, or DEBUG mode.
+    # `is_tester` lets recruited podcast volunteers see the autofill dropdown
+    # without granting them admin (see accounts.User.is_tester for the bulk
+    # admin action that toggles it for a cohort).
     example_stories = []
     example_stories_json = '{}'
-    if request.user.is_staff or settings.DEBUG:
+    if request.user.is_staff or getattr(request.user, 'is_tester', False) or settings.DEBUG:
         stories_qs = ExampleStory.objects.filter(is_active=True)
         example_stories = stories_qs
         example_stories_json = json.dumps({

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils import timezone
 from .models import User, Subscription, DocumentPack, SiteSettings, LegalDocument
 
 
@@ -29,16 +30,18 @@ class PromoCodeUsageInline(admin.TabularInline):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'tos_accepted_version', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('user_type', 'is_revenue_partner', 'tos_accepted_version', 'is_staff', 'is_superuser', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'is_tester', 'tos_accepted_version', 'is_staff', 'is_active', 'date_joined')
+    list_filter = ('user_type', 'is_revenue_partner', 'is_tester', 'tos_accepted_version', 'is_staff', 'is_superuser', 'is_active')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
     readonly_fields = (
         'date_joined', 'referral_code',
         'tos_accepted_at', 'tos_accepted_version',
         'privacy_accepted_at', 'privacy_accepted_version',
+        'tester_granted_at',
     )
     inlines = [PromoCodeUsageInline]
+    actions = ['mark_as_tester', 'revoke_tester']
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
@@ -48,6 +51,17 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('phone', 'address', 'city', 'state', 'zip_code'),
         }),
         ('Referral', {'fields': ('referral_code', 'referred_by', 'is_revenue_partner')}),
+        ('Tester Access', {
+            'description': (
+                'Grants test-mode features (example-stories autofill on the '
+                'story page, "Test mode" badge in the navbar) without giving '
+                'admin access. Use the bulk actions on the list view to '
+                'mark/revoke a whole cohort after a testing round. '
+                '`tester_granted_at` is auto-stamped when granted via the '
+                'bulk action.'
+            ),
+            'fields': ('is_tester', 'tester_granted_at'),
+        }),
         ('Legal Acceptance', {
             'description': (
                 'Audit stamp of when this user agreed to the Terms of Service '
@@ -63,6 +77,16 @@ class UserAdmin(BaseUserAdmin):
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates', {'fields': ('date_joined', 'last_login')}),
     )
+
+    @admin.action(description='Mark selected users as testers')
+    def mark_as_tester(self, request, queryset):
+        n = queryset.update(is_tester=True, tester_granted_at=timezone.now())
+        self.message_user(request, f'Marked {n} user(s) as testers.')
+
+    @admin.action(description='Revoke tester status from selected users')
+    def revoke_tester(self, request, queryset):
+        n = queryset.update(is_tester=False, tester_granted_at=None)
+        self.message_user(request, f'Revoked tester status from {n} user(s).')
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
