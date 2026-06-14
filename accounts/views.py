@@ -25,8 +25,22 @@ def register(request):
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
+            # If signup granted tester status via an auto-grants promo code,
+            # stash the canonical code in session so the pay page's existing
+            # `session['referral_code']` pre-fill picks it up at checkout.
+            granted_code = getattr(form, '_granted_tester_code', '')
+            if granted_code:
+                request.session['referral_code'] = granted_code
             login(request, user)
-            messages.success(request, f'Welcome, {user.get_full_name() or user.email}!')
+            if user.is_tester:
+                messages.success(
+                    request,
+                    f'Welcome, {user.get_full_name() or user.email}! Your tester access '
+                    f'is active — you\'ll see example stories on the story page and your '
+                    f'promo code is ready at checkout.',
+                )
+            else:
+                messages.success(request, f'Welcome, {user.get_full_name() or user.email}!')
             return redirect('documents:list')
     else:
         prefilled_ref = (

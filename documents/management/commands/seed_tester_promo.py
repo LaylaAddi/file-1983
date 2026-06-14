@@ -56,19 +56,26 @@ class Command(BaseCommand):
                 'discount_value': 0,
                 'max_uses': 0,
                 'is_active': True,
+                'auto_grants_tester': True,
             },
         )
         if not created:
             promo.discount_type = 'free'
             promo.discount_value = 0
             promo.is_active = True
-            promo.save(update_fields=['discount_type', 'discount_value', 'is_active'])
+            promo.auto_grants_tester = True
+            promo.save(update_fields=[
+                'discount_type', 'discount_value', 'is_active', 'auto_grants_tester',
+            ])
 
         action = 'Created' if created else 'Refreshed'
         self.stdout.write(self.style.SUCCESS(
             f'{action} free-access promo code: {promo.code}\n'
             f'  is_active = {promo.is_active}\n'
+            f'  auto_grants_tester = {promo.auto_grants_tester}\n'
             f'  times_used = {promo.times_used}\n'
-            f'Share this code with testers. Run with --deactivate when the '
-            f'testing round ends.'
+            f'\nTesters enter this code in the Referral Code field on /accounts/register/.\n'
+            f'On signup it grants them is_tester=True (example-stories autofill +\n'
+            f'"Test mode" navbar badge) AND pre-fills the promo at checkout for\n'
+            f'free Stripe Checkout. Run with --deactivate when the round ends.'
         ))

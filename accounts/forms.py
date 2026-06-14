@@ -63,6 +63,9 @@ class RegisterForm(forms.ModelForm):
         user.tos_accepted_version = getattr(dj_settings, 'TOS_VERSION', 'v1')
         user.privacy_accepted_at = now
         user.privacy_accepted_version = getattr(dj_settings, 'PRIVACY_VERSION', 'v1')
+        # Tester-grant flag is computed during save so the view can stash the
+        # matching promo code in session afterward for checkout pre-fill.
+        self._granted_tester_code = ''
         if commit:
             user.save()
             ref_code = self.cleaned_data.get('referral_code', '').strip()
@@ -71,6 +74,23 @@ class RegisterForm(forms.ModelForm):
                 if referrer and referrer.id != user.id:
                     user.referred_by = referrer
                     user.save(update_fields=['referred_by'])
+                # Tester-grant promo: if the entered code is a free-access
+                # promo with auto_grants_tester=True, mark the new user as a
+                # tester so they get the example-stories autofill + navbar
+                # badge automatically.
+                from documents.models import PromoCode
+                promo = (
+                    PromoCode.objects
+                    .filter(code__iexact=ref_code, is_active=True, auto_grants_tester=True)
+                    .first()
+                )
+                if promo:
+                    user.is_tester = True
+                    user.tester_granted_at = now
+                    user.save(update_fields=['is_tester', 'tester_granted_at'])
+                    # Surface the canonical code so the view can stash it in
+                    # the session for checkout pre-fill.
+                    self._granted_tester_code = promo.code
         return user
 
     def _resolve_referrer(self, ref_code):

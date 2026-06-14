@@ -120,9 +120,9 @@ class PromoCodeAdmin(admin.ModelAdmin):
     list_display = [
         'code', 'assigned_to', 'discount_type', 'discount_value',
         'sales_count', 'total_revenue', 'partner_cut',
-        'is_active', 'expires_at',
+        'is_active', 'auto_grants_tester', 'expires_at',
     ]
-    list_filter = ['is_active', 'discount_type', 'created_by']
+    list_filter = ['is_active', 'auto_grants_tester', 'discount_type', 'created_by']
     search_fields = ['code', 'created_by__email']
     readonly_fields = ['times_used', 'created_at']
     actions = ['export_codes_csv']
