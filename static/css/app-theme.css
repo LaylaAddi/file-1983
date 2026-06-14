@@ -863,6 +863,14 @@ a:hover {
     background: var(--dark-bg-card);
 }
 
+[data-theme="dark"] .section-title {
+    color: var(--dark-text);
+}
+
+[data-theme="dark"] .section-subtitle {
+    color: var(--dark-text-muted);
+}
+
 /* Rights cards */
 [data-theme="dark"] .rights-card {
     background: var(--dark-bg-secondary);
