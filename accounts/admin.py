@@ -41,7 +41,7 @@ class UserAdmin(BaseUserAdmin):
         'tester_granted_at',
     )
     inlines = [PromoCodeUsageInline]
-    actions = ['mark_as_tester', 'revoke_tester']
+    actions = ['mark_as_tester', 'revoke_tester', 'reset_test_purchases']
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
@@ -87,6 +87,51 @@ class UserAdmin(BaseUserAdmin):
     def revoke_tester(self, request, queryset):
         n = queryset.update(is_tester=False, tester_granted_at=None)
         self.message_user(request, f'Revoked tester status from {n} user(s).')
+
+    @admin.action(description='Reset test purchases (paid + finalized) on selected users to draft')
+    def reset_test_purchases(self, request, queryset):
+        """Roll back every paid/finalized document owned by the selected users
+        back to draft. Wipes payment + lock fields, deletes the matching
+        PromoCodeUsage row (and decrements PromoCode.times_used) so the
+        tester's run-through doesn't leave inflated partner stats or
+        skewed promo-usage counts behind. Documents themselves are kept
+        so you can inspect the wizard data they produced."""
+        from django.db.models import F
+        from documents.models import Document, PromoCodeUsage
+
+        docs = Document.objects.filter(
+            user__in=queryset,
+            payment_status__in=('paid', 'finalized'),
+        )
+        usages = PromoCodeUsage.objects.filter(document__in=docs).select_related('promo_code')
+
+        # Decrement times_used on every distinct PromoCode that was used.
+        decrement_counts = {}
+        for u in usages:
+            decrement_counts[u.promo_code_id] = decrement_counts.get(u.promo_code_id, 0) + 1
+        from documents.models import PromoCode
+        for promo_id, n in decrement_counts.items():
+            PromoCode.objects.filter(pk=promo_id, times_used__gte=n).update(
+                times_used=F('times_used') - n,
+            )
+
+        usage_count = usages.count()
+        usages.delete()
+
+        doc_count = docs.update(
+            payment_status='draft',
+            paid_at=None,
+            stripe_session_id='',
+            locked_at=None,
+            finalize_acknowledged_at=None,
+            download_disclaimer_acknowledged_at=None,
+        )
+        self.message_user(
+            request,
+            f'Reset {doc_count} document(s) to draft for {queryset.count()} user(s); '
+            f'deleted {usage_count} PromoCodeUsage row(s) and decremented '
+            f'PromoCode.times_used accordingly.',
+        )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
