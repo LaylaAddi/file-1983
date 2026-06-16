@@ -186,6 +186,58 @@ def request_partnership(request):
 
 
 @login_required
+@require_POST
+def submit_feedback(request):
+    from django.core.mail import send_mail
+    from django.urls import reverse
+    from django.conf import settings
+    from documents.models import TesterFeedback
+
+    message = (request.POST.get('message') or '').strip()
+    category = request.POST.get('category') or 'other'
+    if category not in dict(TesterFeedback.CATEGORY_CHOICES):
+        category = 'other'
+    page_url = (request.POST.get('page_url') or '').strip()[:500]
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or 'public_pages:home'
+
+    if not message:
+        messages.error(request, 'Please enter a message before submitting feedback.')
+        return redirect(next_url)
+
+    fb = TesterFeedback.objects.create(
+        user=request.user,
+        category=category,
+        message=message,
+        page_url=page_url,
+    )
+
+    notify_to = getattr(settings, 'PARTNER_PAYOUT_NOTIFY_EMAIL', '') or settings.DEFAULT_FROM_EMAIL
+    if notify_to:
+        admin_url = request.build_absolute_uri(
+            reverse('admin:documents_testerfeedback_change', args=[fb.pk])
+        )
+        try:
+            send_mail(
+                subject=f'[file1983] New feedback ({fb.get_category_display()}) from {request.user.email}',
+                message=(
+                    f'User: {request.user.get_full_name() or request.user.email} ({request.user.email})\n'
+                    f'Category: {fb.get_category_display()}\n'
+                    f'Page: {page_url or "(unknown)"}\n\n'
+                    f'{message}\n\n'
+                    f'Review in admin: {admin_url}\n'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[notify_to],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    messages.success(request, 'Thanks for the feedback — it\'s been sent to the team.')
+    return redirect(next_url)
+
+
+@login_required
 @require_http_methods(['GET', 'POST'])
 def accept_terms(request):
     """

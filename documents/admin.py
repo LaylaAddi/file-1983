@@ -9,7 +9,7 @@ from .models import (
     TimelineEntry, Defendant, GovernmentEntity, ConstitutionalClaim,
     Evidence, Witness, Damages, PriorComplaints, ReliefSought,
     AIPrompt, PromoCode, PromoCodeUsage, PayoutRequest, ExampleStory,
-    CaseLaw, PdfBranding, PartnerAdjustment, PartnershipRequest,
+    CaseLaw, PdfBranding, PartnerAdjustment, PartnershipRequest, TesterFeedback,
 )
 
 
@@ -426,3 +426,23 @@ class PartnershipRequestAdmin(admin.ModelAdmin):
             if not PromoCode.objects.filter(code__iexact=candidate).exists():
                 return candidate
         return None
+
+
+@admin.register(TesterFeedback)
+class TesterFeedbackAdmin(admin.ModelAdmin):
+    list_display = ['user', 'category', 'status', 'short_message', 'created_at']
+    list_filter = ['status', 'category', 'created_at']
+    search_fields = ['user__email', 'message']
+    readonly_fields = ['user', 'category', 'message', 'page_url', 'created_at']
+    fieldsets = (
+        ('Feedback', {
+            'fields': ('user', 'category', 'message', 'page_url', 'created_at'),
+        }),
+        ('Triage', {
+            'fields': ('status', 'admin_notes'),
+        }),
+    )
+
+    def short_message(self, obj):
+        return obj.message[:80] + ('…' if len(obj.message) > 80 else '')
+    short_message.short_description = 'Message'

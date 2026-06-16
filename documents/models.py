@@ -1012,6 +1012,47 @@ class PartnershipRequest(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# Tester Feedback — free-text notes/suggestions from podcast-recruited testers
+# ---------------------------------------------------------------------------
+
+class TesterFeedback(models.Model):
+    """
+    Free-text feedback submitted via the "Send Feedback" button (visible to
+    testers and staff). Saved here for triage and emailed to the admin at
+    submission time.
+    """
+    CATEGORY_CHOICES = [
+        ('bug', 'Bug / something broke'),
+        ('confusing', 'Confusing / hard to use'),
+        ('suggestion', 'Suggestion / idea'),
+        ('other', 'Other'),
+    ]
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('reviewed', 'Reviewed'),
+        ('archived', 'Archived'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tester_feedback'
+    )
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
+    message = models.TextField()
+    page_url = models.CharField(
+        max_length=500, blank=True, help_text='Page the user was on when they submitted this.',
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    admin_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.email} — {self.get_category_display()} ({self.created_at:%Y-%m-%d})'
+
+
+# ---------------------------------------------------------------------------
 # Example Stories — for testing/demo (staff-only dropdown in wizard)
 # ---------------------------------------------------------------------------
 
