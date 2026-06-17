@@ -69,7 +69,14 @@ namespace NinjaTrader.NinjaScript.Indicators
         private List<ProfileSession> sessions = new List<ProfileSession>();
         private ProfileSession currentSession;
         private double tickSizeRows;
-        private SharpDX.Direct2D1.Brush[] gradientCache;
+
+        private Color LowVolumeColor { get { return ((SolidColorBrush)LowVolumeColorBrush).Color; } }
+        private Color MidVolumeColor { get { return ((SolidColorBrush)MidVolumeColorBrush).Color; } }
+        private Color HighVolumeColor { get { return ((SolidColorBrush)HighVolumeColorBrush).Color; } }
+        private Color PocColor { get { return ((SolidColorBrush)PocColorBrush).Color; } }
+        private Color ValueAreaColor { get { return ((SolidColorBrush)ValueAreaColorBrush).Color; } }
+        private Color NakedPocColor { get { return ((SolidColorBrush)NakedPocColorBrush).Color; } }
+        private Color LabelColor { get { return ((SolidColorBrush)LabelColorBrush).Color; } }
 
         protected override void OnStateChange()
         {
@@ -96,13 +103,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 MaxSessionsToShow = 3;
                 ProfileOpacity = 70;
 
-                LowVolumeColor = Colors.MidnightBlue;
-                MidVolumeColor = Colors.MediumSpringGreen;
-                HighVolumeColor = Colors.OrangeRed;
-                PocColor = Colors.Yellow;
-                ValueAreaColor = Colors.DodgerBlue;
-                NakedPocColor = Colors.Magenta;
-                LabelColor = Colors.White;
+                LowVolumeColorBrush = Brushes.MidnightBlue;
+                MidVolumeColorBrush = Brushes.MediumSpringGreen;
+                HighVolumeColorBrush = Brushes.OrangeRed;
+                PocColorBrush = Brushes.Yellow;
+                ValueAreaColorBrush = Brushes.DodgerBlue;
+                NakedPocColorBrush = Brushes.Magenta;
+                LabelColorBrush = Brushes.White;
             }
             else if (State == State.Configure)
             {
@@ -284,7 +291,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                     var rect = new SharpDX.RectangleF(startBarX, Math.Min(y, yNext), barWidth, rowHeight);
 
-                    using (var brush = rt.CreateSolidColorBrush(ToSharpDXColor(rowColor)))
+                    using (var brush = new SolidColorBrush(rowColor).ToDxBrush(rt))
                     {
                         rt.FillRectangle(rect, brush);
                     }
@@ -295,8 +302,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                             ? $"{val:N0} ({val / session.Rows.Values.Sum() * 100:F1}%)"
                             : $"{val:N0}";
 
-                        var textBrush = ToSharpDXColor(LabelColor);
-                        using (var labelBrush = rt.CreateSolidColorBrush(textBrush))
+                        using (var labelBrush = new SolidColorBrush(LabelColor).ToDxBrush(rt))
                         {
                             var textLayout = new SharpDX.DirectWrite.TextFormat(
                                 Core.Globals.DirectWriteFactory, "Arial", 9f);
@@ -343,7 +349,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             ChartScale chartScale, double price, int x1, int x2, Color color, float thickness, bool dashed = false)
         {
             float y = chartScale.GetYByValue(price);
-            using (var brush = rt.CreateSolidColorBrush(ToSharpDXColor(color)))
+            using (var brush = new SolidColorBrush(color).ToDxBrush(rt))
             {
                 var strokeStyle = dashed
                     ? new SharpDX.Direct2D1.StrokeStyle(Core.Globals.D2DFactory,
@@ -371,11 +377,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                 (byte)(a.R + (b.R - a.R) * t),
                 (byte)(a.G + (b.G - a.G) * t),
                 (byte)(a.B + (b.B - a.B) * t));
-        }
-
-        private SharpDX.Color4 ToSharpDXColor(Color c)
-        {
-            return new SharpDX.Color4(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
         }
 
         #region Properties
@@ -434,89 +435,82 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Show Row Labels", GroupName = "Display", Order = 7)]
         public bool ShowLabels { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Low Volume Color", GroupName = "Colors", Order = 1)]
         public Brush LowVolumeColorBrush { get; set; }
         [Browsable(false)]
-        public string LowVolumeColorSerialize
+        public string LowVolumeColorBrushSerialize
         {
-            get { return Serialize.ColorToString(LowVolumeColor); }
-            set { LowVolumeColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(LowVolumeColorBrush); }
+            set { LowVolumeColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color LowVolumeColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Mid Volume Color", GroupName = "Colors", Order = 2)]
         public Brush MidVolumeColorBrush { get; set; }
         [Browsable(false)]
-        public string MidVolumeColorSerialize
+        public string MidVolumeColorBrushSerialize
         {
-            get { return Serialize.ColorToString(MidVolumeColor); }
-            set { MidVolumeColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(MidVolumeColorBrush); }
+            set { MidVolumeColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color MidVolumeColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "High Volume Color", GroupName = "Colors", Order = 3)]
         public Brush HighVolumeColorBrush { get; set; }
         [Browsable(false)]
-        public string HighVolumeColorSerialize
+        public string HighVolumeColorBrushSerialize
         {
-            get { return Serialize.ColorToString(HighVolumeColor); }
-            set { HighVolumeColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(HighVolumeColorBrush); }
+            set { HighVolumeColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color HighVolumeColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "POC Color", GroupName = "Colors", Order = 4)]
         public Brush PocColorBrush { get; set; }
         [Browsable(false)]
-        public string PocColorSerialize
+        public string PocColorBrushSerialize
         {
-            get { return Serialize.ColorToString(PocColor); }
-            set { PocColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(PocColorBrush); }
+            set { PocColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color PocColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Value Area Color", GroupName = "Colors", Order = 5)]
         public Brush ValueAreaColorBrush { get; set; }
         [Browsable(false)]
-        public string ValueAreaColorSerialize
+        public string ValueAreaColorBrushSerialize
         {
-            get { return Serialize.ColorToString(ValueAreaColor); }
-            set { ValueAreaColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(ValueAreaColorBrush); }
+            set { ValueAreaColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color ValueAreaColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Naked POC Color", GroupName = "Colors", Order = 6)]
         public Brush NakedPocColorBrush { get; set; }
         [Browsable(false)]
-        public string NakedPocColorSerialize
+        public string NakedPocColorBrushSerialize
         {
-            get { return Serialize.ColorToString(NakedPocColor); }
-            set { NakedPocColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(NakedPocColorBrush); }
+            set { NakedPocColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color NakedPocColor { get; set; }
 
+        [NinjaScriptProperty]
         [XmlIgnore]
         [Display(Name = "Label Color", GroupName = "Colors", Order = 7)]
         public Brush LabelColorBrush { get; set; }
         [Browsable(false)]
-        public string LabelColorSerialize
+        public string LabelColorBrushSerialize
         {
-            get { return Serialize.ColorToString(LabelColor); }
-            set { LabelColor = Serialize.StringToColor(value); }
+            get { return Serialize.BrushToString(LabelColorBrush); }
+            set { LabelColorBrush = Serialize.StringToBrush(value); }
         }
-        [Browsable(false)]
-        public Color LabelColor { get; set; }
 
         #endregion
     }
