@@ -362,7 +362,8 @@
             <div class="review-card">
                 <div class="review-card-header">
                     <h3 class="review-card-title">
-                        <i class="bi bi-building"></i>Government Entity (Monell)
+                        <i class="bi bi-building"></i>Government Entity
+                        (<a href="{% url 'public_pages:user_guide' %}#monell" target="_blank">Monell <i class="bi bi-question-circle"></i></a>)
                     </h3>
                     <a href="{% url 'documents:wizard_step3' document.slug %}" class="review-edit-btn">
                         <i class="bi bi-pencil"></i> Edit
@@ -666,7 +667,7 @@
                                 <li class="mb-2">
                                     <strong><em>{{ sc.case.case_name }}</em></strong>, {{ sc.case.citation }}
                                     {% if sc.kind == 'monell' %}
-                                    <span class="badge bg-info text-dark ms-1">Monell / municipal liability</span>
+                                    <a href="{% url 'public_pages:user_guide' %}#monell" target="_blank" class="badge bg-info text-dark ms-1 text-decoration-none">Monell / municipal liability <i class="bi bi-question-circle"></i></a>
                                     {% elif sc.claim %}
                                     <span class="text-muted">— for your {{ sc.claim.get_amendment_display }} claim</span>
                                     {% endif %}
