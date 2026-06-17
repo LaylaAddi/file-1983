@@ -69,6 +69,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private List<ProfileSession> sessions = new List<ProfileSession>();
         private ProfileSession currentSession;
         private double tickSizeRows;
+        private DateTime lastCustomSessionDate = DateTime.MinValue;
 
         private Color LowVolumeColor { get { return ((SolidColorBrush)LowVolumeColorBrush).Color; } }
         private Color MidVolumeColor { get { return ((SolidColorBrush)MidVolumeColorBrush).Color; } }
@@ -95,7 +96,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 LookbackBars = 200;
                 RowHeightTicks = 4;
                 ValueAreaPercent = 70;
+                UseCustomSessionStart = false;
+                CustomSessionStartTime = new TimeSpan(9, 30, 0);
                 ProfileWidthPercent = 25;
+                PinLiveSessionToRight = true;
                 ShowPoc = true;
                 ShowValueArea = true;
                 ShowNakedPoc = true;
@@ -132,7 +136,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (Range == VolumeProfileRange.Session)
             {
-                newSession = Bars.IsFirstBarOfSession;
+                if (UseCustomSessionStart)
+                {
+                    DateTime sessionDate = Time[0].TimeOfDay >= CustomSessionStartTime
+                        ? Time[0].Date
+                        : Time[0].Date.AddDays(-1);
+                    newSession = sessionDate != lastCustomSessionDate;
+                    if (newSession)
+                        lastCustomSessionDate = sessionDate;
+                }
+                else
+                {
+                    newSession = Bars.IsFirstBarOfSession;
+                }
             }
             else
             {
@@ -256,13 +272,30 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (session.Rows.Count == 0)
                     continue;
 
-                int startBarX = chartControl.GetXByBarIndex(ChartBars, session.StartBarIdx);
-                int endBarIndexForWidth = Range == VolumeProfileRange.Session
-                    ? GetNextSessionBoundary(session)
-                    : session.EndBarIdx;
+                bool isLiveSession = PinLiveSessionToRight && ReferenceEquals(session, sessions[sessions.Count - 1])
+                    && session.EndBarIdx == CurrentBar;
 
-                int sessionPixelWidth = Math.Max(20, chartControl.GetXByBarIndex(ChartBars, endBarIndexForWidth) - startBarX);
-                int profilePixelWidth = (int)(sessionPixelWidth * (ProfileWidthPercent / 100.0));
+                int startBarX;
+                int sessionPixelWidth;
+                int profilePixelWidth;
+
+                if (isLiveSession)
+                {
+                    int panelRight = ChartPanel.X + ChartPanel.W;
+                    sessionPixelWidth = Math.Max(20, (int)(ChartPanel.W * (ProfileWidthPercent / 100.0)));
+                    startBarX = panelRight - sessionPixelWidth;
+                    profilePixelWidth = sessionPixelWidth;
+                }
+                else
+                {
+                    startBarX = chartControl.GetXByBarIndex(ChartBars, session.StartBarIdx);
+                    int endBarIndexForWidth = Range == VolumeProfileRange.Session
+                        ? GetNextSessionBoundary(session)
+                        : session.EndBarIdx;
+
+                    sessionPixelWidth = Math.Max(20, chartControl.GetXByBarIndex(ChartBars, endBarIndexForWidth) - startBarX);
+                    profilePixelWidth = (int)(sessionPixelWidth * (ProfileWidthPercent / 100.0));
+                }
 
                 double maxVal = session.Rows.Values.Max();
                 byte alpha = (byte)(255 * (ProfileOpacity / 100.0));
@@ -405,9 +438,22 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int ValueAreaPercent { get; set; }
 
         [NinjaScriptProperty]
+        [Display(Name = "Use Custom Session Start Time", GroupName = "Profile Settings", Order = 6)]
+        public bool UseCustomSessionStart { get; set; }
+
+        [NinjaScriptProperty]
+        [PropertyEditor("NinjaTrader.Gui.Tools.TimeEditorKey")]
+        [Display(Name = "Custom Session Start Time", GroupName = "Profile Settings", Order = 7)]
+        public TimeSpan CustomSessionStartTime { get; set; }
+
+        [NinjaScriptProperty]
         [Range(5, 100)]
         [Display(Name = "Profile Width %", GroupName = "Display", Order = 1)]
         public int ProfileWidthPercent { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Pin Current Session To Right Edge", GroupName = "Display", Order = 8)]
+        public bool PinLiveSessionToRight { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 10)]
