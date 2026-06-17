@@ -27,7 +27,7 @@ using NinjaTrader.NinjaScript.DrawingTools;
 //  - Optional row labels showing volume and % of total
 //  - Adjustable row height (tick size multiplier), profile width, placement, and opacity
 
-namespace NinjaTrader.NinjaScript.Indicators
+namespace NinjaTrader.NinjaScript
 {
     public enum VolumeProfileSource
     {
@@ -40,7 +40,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         Session,
         FixedLookbackBars
     }
+}
 
+namespace NinjaTrader.NinjaScript.Indicators
+{
     public class VolumeProfilePro : Indicator
     {
         private class ProfileRow
