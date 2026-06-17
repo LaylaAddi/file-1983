@@ -131,6 +131,13 @@
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav align-items-center">
+                    {% if user.is_authenticated and user.is_tester or user.is_staff %}
+                        <li class="nav-item me-2">
+                            <button class="btn btn-theme-toggle" type="button" data-bs-toggle="modal" data-bs-target="#feedbackModal" aria-label="Send Feedback" title="Send Feedback">
+                                <i class="bi bi-chat-left-text"></i>
+                            </button>
+                        </li>
+                    {% endif %}
                     <!-- Dark Theme Toggle -->
                     <li class="nav-item me-2">
                         <button class="btn btn-theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode">
@@ -168,11 +175,6 @@
                                 <li><a class="dropdown-item" href="{% url 'public_pages:user_guide' %}">
                                     <i class="bi bi-book me-2"></i>User Guide
                                 </a></li>
-                                {% if user.is_tester or user.is_staff %}
-                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#feedbackModal">
-                                    <i class="bi bi-chat-left-text me-2"></i>Send Feedback
-                                </a></li>
-                                {% endif %}
                                 {% if user.is_revenue_partner or user.is_staff %}
                                 <li><a class="dropdown-item" href="{% url 'partner_dashboard' %}">
                                     <i class="bi bi-cash-coin me-2"></i>Partner Dashboard
