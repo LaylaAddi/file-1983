@@ -148,13 +148,13 @@
                     {% endif %}
 
                     <div class="mt-2">
-                        <label for="county_input" class="form-label small text-muted mb-1">County</label>
+                        <label for="county_input" class="form-label small text-muted mb-1">County <span class="text-muted">(leave blank if unknown)</span></label>
                         <input type="text" class="form-control" id="county_input"
                                name="county" x-model="county" placeholder="e.g. Mendocino">
                         <div class="form-text">
-                            Auto-filled from city/state — double-check it against
-                            <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Google Maps</a>
-                            and correct it if it's wrong.
+                            Auto-filled from city/state when we can verify it — double-check it against
+                            <a :href="mapsUrl" target="_blank" rel="noopener noreferrer">Google Maps</a>
+                            and correct it (or leave it blank) if it's wrong.
                         </div>
                     </div>
 
@@ -246,6 +246,12 @@ function step1() {
         confidenceMsg: '',
         _lastKey: '',
 
+        get mapsUrl() {
+            const query = [this.city, this.state].filter(Boolean).join(', ');
+            if (!query) return 'https://www.google.com/maps';
+            return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+        },
+
         async doLookup(force = false) {
             const city = this.city.trim();
             const state = this.state.trim();
@@ -259,6 +265,7 @@ function step1() {
             this.confidence = '';
             this.confidenceMsg = '';
             this.confirmed = false;
+            this.county = '';
 
             try {
                 const url = "{% url 'documents:lookup_district_court' %}"
@@ -269,9 +276,7 @@ function step1() {
                     this.courtName = data.court_name;
                     this.confidence = data.confidence || 'medium';
                     this.confidenceMsg = data.confidence === 'high' ? 'High confidence match' : 'Best match found';
-                    if (data.county) {
-                        this.county = data.county;
-                    }
+                    this.county = data.county || '';
                 } else {
                     this.confidence = 'failed';
                     this.confidenceMsg = 'Could not determine court — enter manually.';

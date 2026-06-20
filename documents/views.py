@@ -686,13 +686,16 @@ def wizard_step1(request, document_slug):
         except Exception:
             pass
 
-    # Auto-fill/correct county from the static city/state dataset — GPT's
-    # guess from the story text alone is unreliable for small towns.
-    if incident.city and incident.state:
+    # Auto-fill county from the static city/state dataset if it's blank —
+    # GPT's guess from the story text alone has no real data behind it and
+    # is unreliable for small towns, so we never trust it; we only fill in
+    # a verified match here and leave it blank rather than overwrite
+    # whatever the user already typed in manually.
+    if incident.city and incident.state and not incident.county:
         try:
             from documents.services.county_lookup_service import CountyLookupService
             looked_up_county = CountyLookupService.lookup_county(incident.city, incident.state)
-            if looked_up_county and looked_up_county != incident.county:
+            if looked_up_county:
                 incident.county = looked_up_county
                 incident.save(update_fields=['county'])
         except Exception:
