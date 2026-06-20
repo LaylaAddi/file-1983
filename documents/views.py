@@ -686,15 +686,17 @@ def wizard_step1(request, document_slug):
         except Exception:
             pass
 
-    # Auto-fill county from the static city/state dataset if it's blank —
+    # Auto-fill county from the static ZIP/city/state dataset if it's blank —
     # GPT's guess from the story text alone has no real data behind it and
-    # is unreliable for small towns, so we never trust it; we only fill in
-    # a verified match here and leave it blank rather than overwrite
-    # whatever the user already typed in manually.
-    if incident.city and incident.state and not incident.county:
+    # is unreliable for small or unincorporated towns, so we never trust
+    # it; we only fill in a verified match here and leave it blank rather
+    # than overwrite whatever the user already typed in manually.
+    if (incident.city or incident.zip_code) and incident.state and not incident.county:
         try:
             from documents.services.county_lookup_service import CountyLookupService
-            looked_up_county = CountyLookupService.lookup_county(incident.city, incident.state)
+            looked_up_county = CountyLookupService.lookup_county(
+                city=incident.city, state=incident.state, zip_code=incident.zip_code,
+            )
             if looked_up_county:
                 incident.county = looked_up_county
                 incident.save(update_fields=['county'])
@@ -706,6 +708,7 @@ def wizard_step1(request, document_slug):
         court_confirmed = request.POST.get('court_confirmed') == 'on'
         new_city = request.POST.get('city', '').strip()
         new_state = request.POST.get('state', '').strip()
+        new_zip_code = request.POST.get('zip_code', '').strip()
         new_county = request.POST.get('county', '').strip()
 
         if not federal_district_court:
@@ -728,6 +731,9 @@ def wizard_step1(request, document_slug):
         if new_state and new_state != (incident.state or ''):
             incident.state = new_state
             update_fields.append('state')
+        if new_zip_code and new_zip_code != (incident.zip_code or ''):
+            incident.zip_code = new_zip_code
+            update_fields.append('zip_code')
         if new_county and new_county != (incident.county or ''):
             incident.county = new_county
             update_fields.append('county')
@@ -1926,6 +1932,7 @@ def lookup_district_court(request):
     """AJAX: return the federal district court for a given city + state."""
     city = request.GET.get('city', '').strip()
     state = request.GET.get('state', '').strip().upper()
+    zip_code = request.GET.get('zip_code', '').strip()
 
     if not city or not state:
         return JsonResponse({'success': False, 'error': 'City and state are required.'})
@@ -1934,7 +1941,7 @@ def lookup_district_court(request):
         from documents.services.court_lookup_service import CourtLookupService
         from documents.services.county_lookup_service import CountyLookupService
         result = CourtLookupService.lookup_court_by_location(city, state)
-        county = CountyLookupService.lookup_county(city, state)
+        county = CountyLookupService.lookup_county(city=city, state=state, zip_code=zip_code)
         if result:
             return JsonResponse({
                 'success': True,

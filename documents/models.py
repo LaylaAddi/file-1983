@@ -378,6 +378,10 @@ class IncidentOverview(models.Model):
     address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
+    zip_code = models.CharField(
+        max_length=10, blank=True,
+        help_text='Incident ZIP — used to verify county for unincorporated areas the city/state lookup misses.'
+    )
     county = models.CharField(max_length=100, blank=True)
     location_description = models.TextField(blank=True)
     location_type = models.CharField(

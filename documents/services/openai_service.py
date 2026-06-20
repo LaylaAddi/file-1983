@@ -168,7 +168,7 @@ Return ONLY the JSON object matching this exact schema:
   },
   "incident": {
     "incident_date": "YYYY-MM-DD", "incident_time": "HH:MM",
-    "address": str, "city": str, "state": str, "county": str,
+    "address": str, "city": str, "state": str, "zip_code": str, "county": str,
     "location_description": str, "location_type": str,
     "is_public_forum": bool,
     "plaintiff_activity": str,
@@ -389,15 +389,15 @@ def _populate_models(session, ai_analysis):
         defaults['federal_district_court'] = ''
         defaults['court_confirmed'] = False
         # GPT's county guess from the story text alone has no real data
-        # behind it and is unreliable, especially for small/obscure towns
-        # or when GPT misattributes the state. Trust the static city/state
-        # lookup instead — if it can't verify the county, leave the field
-        # blank rather than show a confident-looking but unverified guess.
-        if defaults.get('city') and defaults.get('state'):
-            from documents.services.county_lookup_service import CountyLookupService
-            defaults['county'] = CountyLookupService.lookup_county(defaults['city'], defaults['state']) or ''
-        else:
-            defaults['county'] = ''
+        # behind it and is unreliable, especially for small/obscure or
+        # unincorporated places, or when GPT misattributes the state.
+        # Trust the static ZIP/city/state lookup instead — if it can't
+        # verify the county, leave the field blank rather than show a
+        # confident-looking but unverified guess.
+        from documents.services.county_lookup_service import CountyLookupService
+        defaults['county'] = CountyLookupService.lookup_county(
+            city=defaults.get('city'), state=defaults.get('state'), zip_code=defaults.get('zip_code'),
+        ) or ''
         IncidentOverview.objects.update_or_create(
             document=doc,
             defaults=defaults,

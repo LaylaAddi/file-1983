@@ -115,18 +115,22 @@
                         or type the court name directly.
                     </p>
 
-                    <!-- Manual city/state lookup -->
+                    <!-- Manual city/state/zip lookup -->
                     <div class="row g-2 mb-3">
-                        <div class="col-sm-6">
+                        <div class="col-sm-4">
                             <input type="text" class="form-control" placeholder="City" x-model="city" @change="doLookup()">
                         </div>
-                        <div class="col-sm-4">
+                        <div class="col-sm-3">
                             <select class="form-select" x-model="state" @change="doLookup()">
                                 <option value="">State</option>
                                 {% for code, name in state_choices %}
                                 <option value="{{ code }}">{{ name }}</option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" placeholder="ZIP (optional)"
+                                   x-model="zipCode" @change="doLookup()">
                         </div>
                         <div class="col-sm-2">
                             <button type="button" class="btn btn-outline-primary w-100"
@@ -152,11 +156,14 @@
                         <input type="text" class="form-control" id="county_input"
                                name="county" x-model="county" placeholder="e.g. Mendocino">
                         <div class="form-text">
-                            Auto-filled from city/state when we can verify it — double-check it against
-                            <a :href="mapsUrl" target="_blank" rel="noopener noreferrer">Google Maps</a>
+                            Auto-filled when we can verify it — adding the incident ZIP above helps us
+                            verify unincorporated areas a city name alone can miss. Double-check it
+                            against <a :href="mapsUrl" target="_blank" rel="noopener noreferrer">Google Maps</a>
                             and correct it (or leave it blank) if it's wrong.
                         </div>
                     </div>
+
+                    <input type="hidden" name="zip_code" x-bind:value="zipCode">
 
                     <!-- Hidden fields always carry the court name + the location used to find it -->
                     <input type="hidden" name="federal_district_court" x-bind:value="courtName">
@@ -240,6 +247,7 @@ function step1() {
         overriding: false,
         city: '{{ incident.city|escapejs }}',
         state: '{{ incident.state|escapejs }}',
+        zipCode: '{{ incident.zip_code|escapejs }}',
         county: '{{ incident.county|escapejs }}',
         lookupLoading: false,
         confidence: '',
@@ -247,7 +255,7 @@ function step1() {
         _lastKey: '',
 
         get mapsUrl() {
-            const query = [this.city, this.state].filter(Boolean).join(', ');
+            const query = [this.city, this.state, this.zipCode].filter(Boolean).join(', ');
             if (!query) return 'https://www.google.com/maps';
             return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
         },
@@ -255,8 +263,9 @@ function step1() {
         async doLookup(force = false) {
             const city = this.city.trim();
             const state = this.state.trim();
+            const zipCode = this.zipCode.trim();
             if (!city || !state || this.lookupLoading) return;
-            const key = city.toLowerCase() + '|' + state;
+            const key = city.toLowerCase() + '|' + state + '|' + zipCode;
             if (!force && this._lastKey === key) return;
             this._lastKey = key;
 
@@ -270,7 +279,8 @@ function step1() {
             try {
                 const url = "{% url 'documents:lookup_district_court' %}"
                     + '?city=' + encodeURIComponent(city)
-                    + '&state=' + encodeURIComponent(state);
+                    + '&state=' + encodeURIComponent(state)
+                    + '&zip_code=' + encodeURIComponent(zipCode);
                 const data = await fetch(url).then(r => r.json());
                 if (data.success && data.court_name) {
                     this.courtName = data.court_name;
