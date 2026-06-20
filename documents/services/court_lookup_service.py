@@ -111,6 +111,27 @@ class CourtLookupService:
         return None
 
     @classmethod
+    def get_all_court_names(cls):
+        """
+        Return a sorted list of every federal district court name known to the
+        static lookup data, for use in a search/autocomplete dropdown.
+        """
+        import importlib
+
+        names = set()
+        for module_name, class_name in cls.STATE_LOOKUPS.values():
+            try:
+                module = importlib.import_module(f'.court_data.states.{module_name}', package='documents.services')
+                lookup_class = getattr(module, class_name)
+                for district_info in lookup_class.DISTRICTS.values():
+                    if district_info.get('name'):
+                        names.add(district_info['name'])
+            except (ImportError, AttributeError):
+                continue
+
+        return sorted(names)
+
+    @classmethod
     def _static_lookup(cls, city, state):
         """
         Try static lookup from the state-specific lookup classes.

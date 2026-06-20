@@ -159,11 +159,18 @@
                         </button>
                         <div x-show="overriding" class="mt-2">
                             <input type="text" class="form-control"
-                                   placeholder="e.g. United States District Court for the Northern District of Illinois"
+                                   list="allCourtsDatalist"
+                                   placeholder="Start typing or pick from the list — e.g. United States District Court for the Northern District of Illinois"
                                    x-model="courtName"
                                    @input="confirmed = false">
+                            <datalist id="allCourtsDatalist">
+                                {% for name in all_court_names %}
+                                <option value="{{ name }}"></option>
+                                {% endfor %}
+                            </datalist>
                             <div class="form-text">
-                                Find your court at
+                                Choose from the dropdown of all 94 federal districts, or type your own. Not sure which one applies?
+                                Look it up at
                                 <a href="https://www.uscourts.gov/federal-court-finder/search" target="_blank" rel="noopener noreferrer">uscourts.gov</a>.
                             </div>
                         </div>

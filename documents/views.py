@@ -709,11 +709,14 @@ def wizard_step1(request, document_slug):
         messages.success(request, 'Jurisdiction confirmed.')
         return redirect('documents:wizard_step2', document_slug=doc.slug)
 
+    from documents.services.court_lookup_service import CourtLookupService
+
     return render(request, 'documents/wizard_step1.html', {
         'document': doc,
         'session': session,
         'incident': incident,
         'state_choices': STATE_CHOICES,
+        'all_court_names': CourtLookupService.get_all_court_names(),
     })
 
 
