@@ -152,6 +152,16 @@
                                        :name="'def_' + idx + '_agency_name'"
                                        x-model="def.agency_name"
                                        placeholder="e.g. Denver Police Department">
+                                <div class="alert alert-warning small py-2 px-3 mt-2 mb-0"
+                                     x-show="isUnverifiedAgency(def.agency_name)" x-cloak>
+                                    <i class="bi bi-exclamation-circle me-1"></i>
+                                    We couldn't verify a specific department for this location —
+                                    small towns are often policed by the county sheriff's office or
+                                    state police rather than their own department. Double-check the
+                                    correct agency before filing (a quick search for
+                                    "<span x-text="def.full_name || 'the officer'"></span>'s department"
+                                    or the town's police coverage usually clears it up).
+                                </div>
                             </div>
 
                             <!-- Row 3: Legal details -->
@@ -283,6 +293,7 @@
 <script>
 function step3() {
     const raw = {{ defendants_json|safe }};
+    const incidentCity = '{{ incident_city|escapejs }}';
     const defendants = raw.map(d => ({
         ...d,
         acting_under_color_of_law: d.acting_under_color_of_law !== false,
@@ -295,6 +306,19 @@ function step3() {
 
     return {
         defendants,
+        incidentCity,
+
+        // Mirrors the server-side heuristic in views._looks_like_unverified_agency —
+        // GPT has no real law-enforcement-agency dataset to draw on, so for small
+        // towns it tends to fabricate a generic name like "Police Department"
+        // instead of the county sheriff or state police that more likely applies.
+        isUnverifiedAgency(name) {
+            if (!name) return false;
+            const n = name.toLowerCase();
+            if (this.incidentCity && n.includes(this.incidentCity.toLowerCase())) return false;
+            if (['sheriff', 'state police', 'highway patrol', 'state patrol', 'county'].some(kw => n.includes(kw))) return false;
+            return n.includes('police') || n.includes('department');
+        },
 
         addDefendant() {
             this.defendants.push(emptyDefendant());

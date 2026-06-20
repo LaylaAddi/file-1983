@@ -1108,6 +1108,27 @@ AMENDMENT_INFO = {
 # Step 3 — Defendants
 # ---------------------------------------------------------------------------
 
+def _looks_like_unverified_agency(agency_name, city):
+    """
+    Heuristic: does this agency name look like a real, specific department,
+    or a generic GPT guess with no identifying place name baked in?
+
+    GPT has no real law-enforcement-agency dataset to draw on (unlike the
+    court/county lookups), so for small towns it tends to fabricate a
+    plausible but unverified name like "Police Department" instead of the
+    county sheriff's office or state police that more likely covers a town
+    too small to run its own department.
+    """
+    if not agency_name:
+        return False
+    name_lower = agency_name.lower()
+    if city and city.lower() in name_lower:
+        return False
+    if any(kw in name_lower for kw in ('sheriff', 'state police', 'highway patrol', 'state patrol', 'county')):
+        return False
+    return 'police' in name_lower or 'department' in name_lower
+
+
 @login_required
 def wizard_step3(request, document_slug):
     """Step 3 — Add/edit/delete defendants + government entity (Monell)."""
@@ -1179,6 +1200,11 @@ def wizard_step3(request, document_slug):
         'capacity_sued', 'acting_under_color_of_law', 'is_supervisor', 'order',
     ))
 
+    incident = IncidentOverview.objects.filter(document=doc).first()
+    incident_city = incident.city if incident else ''
+    for d in defendants:
+        d['unverified_agency'] = _looks_like_unverified_agency(d.get('agency_name', ''), incident_city)
+
     return render(request, 'documents/wizard_step3.html', {
         'document': doc,
         'session': session,
@@ -1186,6 +1212,7 @@ def wizard_step3(request, document_slug):
         'defendant_count': len(defendants),
         'gov_entity': gov_entity,
         'capacity_choices': Defendant.CAPACITY_CHOICES,
+        'incident_city': incident_city,
     })
 
 
