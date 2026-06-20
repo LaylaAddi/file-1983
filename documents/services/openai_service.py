@@ -388,6 +388,15 @@ def _populate_models(session, ai_analysis):
             defaults['state'] = normalize_state(defaults['state'])
         defaults['federal_district_court'] = ''
         defaults['court_confirmed'] = False
+        # GPT's county guess from the story text alone is unreliable for
+        # small towns. Override it with the static city/state lookup
+        # whenever we have a match — same static-data-first approach as
+        # the federal court lookup.
+        if defaults.get('city') and defaults.get('state'):
+            from documents.services.county_lookup_service import CountyLookupService
+            looked_up_county = CountyLookupService.lookup_county(defaults['city'], defaults['state'])
+            if looked_up_county:
+                defaults['county'] = looked_up_county
         IncidentOverview.objects.update_or_create(
             document=doc,
             defaults=defaults,

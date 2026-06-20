@@ -686,11 +686,24 @@ def wizard_step1(request, document_slug):
         except Exception:
             pass
 
+    # Auto-fill/correct county from the static city/state dataset — GPT's
+    # guess from the story text alone is unreliable for small towns.
+    if incident.city and incident.state:
+        try:
+            from documents.services.county_lookup_service import CountyLookupService
+            looked_up_county = CountyLookupService.lookup_county(incident.city, incident.state)
+            if looked_up_county and looked_up_county != incident.county:
+                incident.county = looked_up_county
+                incident.save(update_fields=['county'])
+        except Exception:
+            pass
+
     if request.method == 'POST':
         federal_district_court = request.POST.get('federal_district_court', '').strip()
         court_confirmed = request.POST.get('court_confirmed') == 'on'
         new_city = request.POST.get('city', '').strip()
         new_state = request.POST.get('state', '').strip()
+        new_county = request.POST.get('county', '').strip()
 
         if not federal_district_court:
             messages.error(request, 'Please enter or look up the federal district court before continuing.')
@@ -712,6 +725,9 @@ def wizard_step1(request, document_slug):
         if new_state and new_state != (incident.state or ''):
             incident.state = new_state
             update_fields.append('state')
+        if new_county and new_county != (incident.county or ''):
+            incident.county = new_county
+            update_fields.append('county')
         incident.save(update_fields=update_fields)
 
         if session.current_step < 2:
@@ -1913,7 +1929,9 @@ def lookup_district_court(request):
 
     try:
         from documents.services.court_lookup_service import CourtLookupService
+        from documents.services.county_lookup_service import CountyLookupService
         result = CourtLookupService.lookup_court_by_location(city, state)
+        county = CountyLookupService.lookup_county(city, state)
         if result:
             return JsonResponse({
                 'success': True,
@@ -1921,6 +1939,7 @@ def lookup_district_court(request):
                 'confidence': result.get('confidence', 'low'),
                 'district': result.get('district', ''),
                 'method': result.get('method', ''),
+                'county': county or '',
             })
         return JsonResponse({
             'success': False,

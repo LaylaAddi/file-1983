@@ -147,6 +147,17 @@
                     </small>
                     {% endif %}
 
+                    <div class="mt-2">
+                        <label for="county_input" class="form-label small text-muted mb-1">County</label>
+                        <input type="text" class="form-control" id="county_input"
+                               name="county" x-model="county" placeholder="e.g. Mendocino">
+                        <div class="form-text">
+                            Auto-filled from city/state — double-check it against
+                            <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Google Maps</a>
+                            and correct it if it's wrong.
+                        </div>
+                    </div>
+
                     <!-- Hidden fields always carry the court name + the location used to find it -->
                     <input type="hidden" name="federal_district_court" x-bind:value="courtName">
                     <input type="hidden" name="city" x-bind:value="city">
@@ -229,6 +240,7 @@ function step1() {
         overriding: false,
         city: '{{ incident.city|escapejs }}',
         state: '{{ incident.state|escapejs }}',
+        county: '{{ incident.county|escapejs }}',
         lookupLoading: false,
         confidence: '',
         confidenceMsg: '',
@@ -257,6 +269,9 @@ function step1() {
                     this.courtName = data.court_name;
                     this.confidence = data.confidence || 'medium';
                     this.confidenceMsg = data.confidence === 'high' ? 'High confidence match' : 'Best match found';
+                    if (data.county) {
+                        this.county = data.county;
+                    }
                 } else {
                     this.confidence = 'failed';
                     this.confidenceMsg = 'Could not determine court — enter manually.';
