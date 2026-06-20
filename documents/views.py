@@ -689,6 +689,8 @@ def wizard_step1(request, document_slug):
     if request.method == 'POST':
         federal_district_court = request.POST.get('federal_district_court', '').strip()
         court_confirmed = request.POST.get('court_confirmed') == 'on'
+        new_city = request.POST.get('city', '').strip()
+        new_state = request.POST.get('state', '').strip()
 
         if not federal_district_court:
             messages.error(request, 'Please enter or look up the federal district court before continuing.')
@@ -698,9 +700,19 @@ def wizard_step1(request, document_slug):
             messages.error(request, 'You must confirm the federal district court before continuing.')
             return redirect('documents:wizard_step1', document_slug=doc.slug)
 
+        update_fields = ['federal_district_court', 'court_confirmed']
         incident.federal_district_court = federal_district_court
         incident.court_confirmed = True
-        incident.save(update_fields=['federal_district_court', 'court_confirmed'])
+        # The city/state typed here only feed the client-side court lookup —
+        # persist any correction so Step 2 reflects it instead of the stale
+        # GPT-extracted value.
+        if new_city and new_city.lower() != (incident.city or '').lower():
+            incident.city = new_city
+            update_fields.append('city')
+        if new_state and new_state != (incident.state or ''):
+            incident.state = new_state
+            update_fields.append('state')
+        incident.save(update_fields=update_fields)
 
         if session.current_step < 2:
             session.current_step = 2

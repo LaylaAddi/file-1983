@@ -147,8 +147,10 @@
                     </small>
                     {% endif %}
 
-                    <!-- Hidden field always carries the court name -->
+                    <!-- Hidden fields always carry the court name + the location used to find it -->
                     <input type="hidden" name="federal_district_court" x-bind:value="courtName">
+                    <input type="hidden" name="city" x-bind:value="city">
+                    <input type="hidden" name="state" x-bind:value="state">
 
                     <!-- Override toggle -->
                     <div class="mt-3">
