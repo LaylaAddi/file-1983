@@ -6,11 +6,16 @@ from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib.auth import views as auth_views
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 from .forms import RegisterForm, LoginForm, ProfileForm, CustomPasswordResetForm, CustomSetPasswordForm
 from .models import SiteSettings, LegalDocument
 
 
+# Caps signups per IP to slow down scripted account creation. axes already
+# guards repeated login failures; this guards the registration form itself.
+@ratelimit(key='ip', rate='10/h', method='POST', block=True)
 def register(request):
     settings_obj = SiteSettings.get_solo()
     if not settings_obj.registration_open:
@@ -289,6 +294,16 @@ def accept_terms(request):
         'is_revision': is_revision,
         'error': error,
     })
+
+
+@method_decorator(
+    ratelimit(key='ip', rate='5/h', method='POST', block=True), name='dispatch'
+)
+class RateLimitedPasswordResetView(auth_views.PasswordResetView):
+    """
+    Password reset emails are easy to weaponize for mail-bombing or account
+    enumeration timing if left unthrottled. Cap by IP.
+    """
 
 
 class LogoutOnPasswordResetConfirmView(auth_views.PasswordResetConfirmView):

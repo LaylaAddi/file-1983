@@ -12,6 +12,10 @@ djangorestframework-simplejwt
 # Payments
 stripe
 
+# Security: login lockout + rate limiting
+django-axes<7
+django-ratelimit
+
 # AI
 openai
 

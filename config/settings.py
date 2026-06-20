@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 import dj_database_url
 from decouple import config, Csv
@@ -26,6 +27,13 @@ CSRF_TRUSTED_ORIGINS = [
 # CanonicalDomainMiddleware. Used by templates for shareable links too.
 PRIMARY_DOMAIN = config('PRIMARY_DOMAIN', default='auditfile1983.com')
 
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 2 weeks
+CSRF_COOKIE_SAMESITE = 'Lax'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -49,6 +57,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
+    'axes',
 
     # Local
     'accounts',
@@ -68,7 +77,23 @@ MIDDLEWARE = [
     'documents.middleware.CanonicalDomainMiddleware',
     'documents.middleware.CaptureReferralMiddleware',
     'accounts.middleware.RequireLegalAcceptanceMiddleware',
+    # Must be last so it sees the final response/exception for every request.
+    'axes.middleware.AxesMiddleware',
 ]
+
+# django-axes checks this backend first; falls through to ModelBackend if the
+# attempt isn't locked out.
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Lock out after 5 failed attempts, combining username + IP so one bad actor
+# can't lock out a shared NAT/office IP for everyone else.
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
+AXES_RESET_ON_SUCCESS = True
 
 ROOT_URLCONF = 'config.urls'
 
@@ -204,7 +229,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),

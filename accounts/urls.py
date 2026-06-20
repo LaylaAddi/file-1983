@@ -16,7 +16,7 @@ urlpatterns = [
     path('accept-terms/', views.accept_terms, name='accept_terms'),
 
     # Password reset flow (Django built-ins with custom templates)
-    path('password-reset/', auth_views.PasswordResetView.as_view(
+    path('password-reset/', views.RateLimitedPasswordResetView.as_view(
         template_name='accounts/password_reset.html',
         form_class=CustomPasswordResetForm,
         email_template_name='accounts/emails/password_reset_email.txt',
