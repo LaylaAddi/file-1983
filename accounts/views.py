@@ -36,7 +36,11 @@ def register(request):
             granted_code = getattr(form, '_granted_tester_code', '')
             if granted_code:
                 request.session['referral_code'] = granted_code
-            login(request, user)
+            # User was created directly via form.save() rather than
+            # authenticate(), so it has no .backend attribute. With axes
+            # added to AUTHENTICATION_BACKENDS there's more than one backend
+            # configured, so login() can no longer infer which one to use.
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             if user.is_tester:
                 messages.success(
                     request,
