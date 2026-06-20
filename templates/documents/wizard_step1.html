@@ -86,70 +86,75 @@
                 <div class="court-card mb-4">
 
                     {% if incident.federal_district_court %}
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <i class="bi bi-building-fill text-primary fs-5"></i>
-                        <span class="fw-semibold text-primary">Court identified for your case</span>
-                    </div>
-                    <p class="text-muted small mb-0">
-                        Based on
-                        {% if incident.city and incident.state %}
-                            <strong>{{ incident.city }}, {{ incident.state }}</strong>
-                        {% else %}
-                            your story
-                        {% endif %}
-                        — the incident location.
-                    </p>
-
-                    <div class="court-name-display" x-text="courtName">
-                        {{ incident.federal_district_court }}
-                    </div>
-
-                    {% else %}
-                    <!-- No court found — show lookup UI -->
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <i class="bi bi-exclamation-circle text-warning fs-5"></i>
-                        <span class="fw-semibold text-warning">Court could not be determined automatically</span>
-                    </div>
-                    <p class="text-muted small mb-3">
-                        We couldn't identify the city from your story. Enter it below to look up the correct court,
-                        or type the court name directly.
-                    </p>
-
-                    <!-- Manual city/state/zip lookup -->
-                    <div class="row g-2 mb-3">
-                        <div class="col-sm-4">
-                            <input type="text" class="form-control" placeholder="City" x-model="city" @change="doLookup()">
+                    <div x-show="!overriding">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <i class="bi bi-building-fill text-primary fs-5"></i>
+                            <span class="fw-semibold text-primary">Court identified for your case</span>
                         </div>
-                        <div class="col-sm-3">
-                            <select class="form-select" x-model="state" @change="doLookup()">
-                                <option value="">State</option>
-                                {% for code, name in state_choices %}
-                                <option value="{{ code }}">{{ name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-sm-3">
-                            <input type="text" class="form-control" placeholder="ZIP (optional)"
-                                   x-model="zipCode" @change="doLookup()">
-                        </div>
-                        <div class="col-sm-2">
-                            <button type="button" class="btn btn-outline-primary w-100"
-                                    @click="doLookup(true)"
-                                    :disabled="lookupLoading || !city || !state">
-                                <span x-show="!lookupLoading"><i class="bi bi-search"></i></span>
-                                <span x-show="lookupLoading"><span class="spinner-border spinner-border-sm"></span></span>
-                            </button>
+                        <p class="text-muted small mb-0">
+                            Based on
+                            {% if incident.city and incident.state %}
+                                <strong>{{ incident.city }}, {{ incident.state }}</strong>
+                            {% else %}
+                                your story
+                            {% endif %}
+                            — the incident location.
+                        </p>
+
+                        <div class="court-name-display" x-text="courtName">
+                            {{ incident.federal_district_court }}
                         </div>
                     </div>
-
-                    <!-- Result after lookup -->
-                    <div x-show="courtName" class="court-name-display" x-text="courtName"></div>
-                    <small x-show="confidenceMsg" class="d-block mb-2"
-                           :class="{'text-success': confidence==='high','text-warning': confidence==='medium','text-danger': confidence==='failed'}">
-                        <i class="bi me-1" :class="{'bi-check-circle':confidence==='high','bi-exclamation-circle':confidence==='medium','bi-x-circle':confidence==='failed'}"></i>
-                        <span x-text="confidenceMsg"></span>
-                    </small>
                     {% endif %}
+
+                    <!-- Address lookup UI — shown when no court was found yet, or
+                         when the user is overriding an already-found court so they
+                         can correct the address and re-run the search instead of
+                         only being able to retype the court name blind. -->
+                    <div x-show="{% if incident.federal_district_court %}overriding{% else %}true{% endif %}">
+                        <div class="d-flex align-items-center gap-2 mb-2" x-show="!courtName">
+                            <i class="bi bi-exclamation-circle text-warning fs-5"></i>
+                            <span class="fw-semibold text-warning">Court could not be determined automatically</span>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            Enter the incident address below to look up the correct court, or type the court name directly.
+                        </p>
+
+                        <!-- Manual city/state/zip lookup -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" placeholder="City" x-model="city" @change="doLookup()">
+                            </div>
+                            <div class="col-sm-3">
+                                <select class="form-select" x-model="state" @change="doLookup()">
+                                    <option value="">State</option>
+                                    {% for code, name in state_choices %}
+                                    <option value="{{ code }}">{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-sm-3">
+                                <input type="text" class="form-control" placeholder="ZIP (optional)"
+                                       x-model="zipCode" @change="doLookup()">
+                            </div>
+                            <div class="col-sm-2">
+                                <button type="button" class="btn btn-outline-primary w-100"
+                                        @click="doLookup(true)"
+                                        :disabled="lookupLoading || !city || !state">
+                                    <span x-show="!lookupLoading"><i class="bi bi-search"></i></span>
+                                    <span x-show="lookupLoading"><span class="spinner-border spinner-border-sm"></span></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Result after lookup -->
+                        <div x-show="courtName" class="court-name-display" x-text="courtName"></div>
+                        <small x-show="confidenceMsg" class="d-block mb-2"
+                               :class="{'text-success': confidence==='high','text-warning': confidence==='medium','text-danger': confidence==='failed'}">
+                            <i class="bi me-1" :class="{'bi-check-circle':confidence==='high','bi-exclamation-circle':confidence==='medium','bi-x-circle':confidence==='failed'}"></i>
+                            <span x-text="confidenceMsg"></span>
+                        </small>
+                    </div>
 
                     <div class="mt-2">
                         <label for="county_input" class="form-label small text-muted mb-1">County <span class="text-muted">(leave blank if unknown)</span></label>
@@ -175,9 +180,13 @@
                         <button type="button" class="btn btn-link btn-sm text-muted p-0 text-decoration-none"
                                 @click="overriding = !overriding">
                             <i class="bi bi-pencil me-1"></i>
-                            <span x-text="overriding ? 'Cancel override' : 'This is wrong — let me enter it manually'"></span>
+                            <span x-text="overriding ? 'Cancel override' : 'This is wrong — let me correct the address or enter the court manually'"></span>
                         </button>
                         <div x-show="overriding" class="mt-2">
+                            <p class="text-muted small mb-2">
+                                Re-enter the city, state, and ZIP above to search again, or type the
+                                court name directly below if you already know it.
+                            </p>
                             <input type="text" class="form-control"
                                    list="allCourtsDatalist"
                                    placeholder="Start typing or pick from the list — e.g. United States District Court for the Northern District of Illinois"
