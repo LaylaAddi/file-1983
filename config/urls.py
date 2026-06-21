@@ -11,7 +11,7 @@ from public_pages.sitemaps import SITEMAPS
 
 
 def redirect_to_home(request, exception=None):
-    return redirect(reverse('home'))
+    return redirect(reverse('public_pages:home'))
 
 
 handler404 = redirect_to_home
