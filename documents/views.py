@@ -145,10 +145,13 @@ def wizard_story(request, document_slug):
                 return redirect('documents:wizard_story', document_slug=doc.slug)
             else:
                 from documents.services.ai_quota import (
-                    consume_ai_call, QuotaExceeded, upgrade_message,
+                    consume_ai_call, QuotaExceeded, AICallTooSoon, upgrade_message,
                 )
                 try:
                     consume_ai_call(doc)
+                except AICallTooSoon:
+                    messages.warning(request, 'Please wait a few seconds before analyzing again.')
+                    return redirect('documents:wizard_story', document_slug=doc.slug)
                 except QuotaExceeded:
                     messages.warning(request, upgrade_message(doc))
                     if doc.payment_status == 'draft':
@@ -312,10 +315,13 @@ def wizard_addendum(request, document_slug):
         return redirect('documents:wizard_summary', document_slug=doc.slug)
 
     from documents.services.ai_quota import (
-        consume_ai_call, QuotaExceeded, upgrade_message,
+        consume_ai_call, QuotaExceeded, AICallTooSoon, upgrade_message,
     )
     try:
         consume_ai_call(doc)
+    except AICallTooSoon:
+        messages.warning(request, 'Please wait a few seconds before adding again.')
+        return redirect('documents:wizard_summary', document_slug=doc.slug)
     except QuotaExceeded:
         messages.warning(request, upgrade_message(doc))
         if doc.payment_status == 'draft':
@@ -377,10 +383,16 @@ def wizard_quick_add(request, document_slug):
                 return _err('Please pick a category.')
 
             from documents.services.ai_quota import (
-                consume_ai_call, QuotaExceeded, upgrade_message,
+                consume_ai_call, QuotaExceeded, AICallTooSoon, upgrade_message,
             )
             try:
                 consume_ai_call(doc)
+            except AICallTooSoon:
+                msg = 'Please wait a few seconds before adding again.'
+                if wants_json:
+                    return JsonResponse({'ok': False, 'error': msg, 'cooldown': True}, status=429)
+                messages.warning(request, msg)
+                return redirect('documents:wizard_quick_add', document_slug=doc.slug)
             except QuotaExceeded:
                 msg = upgrade_message(doc)
                 if wants_json:
@@ -1755,10 +1767,13 @@ def wizard_draft(request, document_slug):
 
         if action == 'regenerate':
             from documents.services.ai_quota import (
-                consume_ai_call, QuotaExceeded, upgrade_message,
+                consume_ai_call, QuotaExceeded, AICallTooSoon, upgrade_message,
             )
             try:
                 consume_ai_call(doc)
+            except AICallTooSoon:
+                messages.warning(request, 'Please wait a few seconds before regenerating again.')
+                return redirect('documents:wizard_draft', document_slug=doc.slug)
             except QuotaExceeded:
                 messages.warning(request, upgrade_message(doc))
                 if doc.payment_status == 'draft':
@@ -1808,10 +1823,12 @@ def wizard_draft(request, document_slug):
     # GET — auto-generate on first load if we don't have a draft yet
     if not paragraphs and not doc.is_locked():
         from documents.services.ai_quota import (
-            consume_ai_call, QuotaExceeded, upgrade_message,
+            consume_ai_call, QuotaExceeded, AICallTooSoon, upgrade_message,
         )
         try:
             consume_ai_call(doc)
+        except AICallTooSoon:
+            messages.warning(request, 'Please wait a few seconds and refresh to generate your draft.')
         except QuotaExceeded:
             messages.warning(request, upgrade_message(doc))
         else:
