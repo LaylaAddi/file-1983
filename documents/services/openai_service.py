@@ -380,10 +380,19 @@ def _populate_models(session, ai_analysis):
     pi.save()
 
     # Step 2a — IncidentOverview
-    # Always reset court fields so step 1 re-runs the lookup for the new city/state
+    # Always reset court fields so step 1 re-runs the lookup for the new city/state.
+    # Unlike PlaintiffInfo, this overwrites every field GPT returned — including
+    # blanking out fields GPT now returns null for — so a re-analyzed story doesn't
+    # leave stale data (e.g. an address) from a previous version of the story.
     inc = ai_analysis.get('incident') or {}
     if inc:
-        defaults = {k: v for k, v in inc.items() if v is not None}
+        _CHAR_FIELDS = {
+            'address', 'city', 'state', 'zip_code', 'county',
+            'location_description', 'location_type',
+            'plaintiff_activity', 'identification_description',
+            'federal_district_court',
+        }
+        defaults = {k: ('' if v is None and k in _CHAR_FIELDS else v) for k, v in inc.items()}
         if defaults.get('state'):
             defaults['state'] = normalize_state(defaults['state'])
         defaults['federal_district_court'] = ''
@@ -414,11 +423,14 @@ def _populate_models(session, ai_analysis):
         Defendant.objects.create(document=doc, **{k: v for k, v in d.items() if v is not None})
 
     # Step 3b — GovernmentEntity
+    # Overwrite every field GPT returned (including blanking nulls) so a
+    # re-analyzed story doesn't leave stale entity data behind — same reasoning
+    # as IncidentOverview above.
     ge = ai_analysis.get('government_entity') or {}
     if ge:
         GovernmentEntity.objects.update_or_create(
             document=doc,
-            defaults={k: v for k, v in ge.items() if v is not None},
+            defaults={k: ('' if v is None else v) for k, v in ge.items()},
         )
 
     # Step 4 — ConstitutionalClaims (clear old, re-insert).
