@@ -1,12 +1,20 @@
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
-from django.urls import path, include
+from django.urls import path, include, reverse
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 
 from documents import views as document_views
 from public_pages.sitemaps import SITEMAPS
+
+
+def redirect_to_home(request, exception=None):
+    return redirect(reverse('home'))
+
+
+handler404 = redirect_to_home
 
 urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
