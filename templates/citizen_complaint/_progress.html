@@ -1,0 +1,81 @@
+{% comment %}
+Reusable step progress indicator for the Citizen Complaint Assistant wizard.
+Context: incident, current_step (int 1-4)
+Usage: {% include 'citizen_complaint/_progress.html' with current_step=2 %}
+{% endcomment %}
+<div class="wizard-progress mb-4" role="navigation" aria-label="Citizen Complaint Assistant progress">
+    <div class="d-flex align-items-center justify-content-between">
+        {% with step_num=1 label="Agencies" url_name='citizen_complaint:agencies' %}
+        {% if incident.current_step >= step_num or current_step >= step_num %}
+        <a href="{% url url_name incident.slug %}" class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable">
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </a>
+        {% else %}
+        <div class="wizard-step text-center"><div class="wizard-dot bg-secondary opacity-50">{{ step_num }}</div><small class="d-none d-sm-block mt-1">{{ label }}</small></div>
+        {% endif %}
+        {% endwith %}
+        <div class="wizard-connector flex-grow-1 mx-1 {% if incident.current_step > 1 or current_step > 1 %}filled{% endif %}"></div>
+
+        {% with step_num=2 label="About You" url_name='citizen_complaint:about_you' %}
+        {% if incident.current_step >= step_num or current_step >= step_num %}
+        <a href="{% url url_name incident.slug %}" class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable">
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </a>
+        {% else %}
+        <div class="wizard-step text-center"><div class="wizard-dot bg-secondary opacity-50">{{ step_num }}</div><small class="d-none d-sm-block mt-1">{{ label }}</small></div>
+        {% endif %}
+        {% endwith %}
+        <div class="wizard-connector flex-grow-1 mx-1 {% if incident.current_step > 2 or current_step > 2 %}filled{% endif %}"></div>
+
+        {% with step_num=3 label="Drafts" url_name='citizen_complaint:drafts' %}
+        {% if incident.current_step >= step_num or current_step >= step_num %}
+        <a href="{% url url_name incident.slug %}" class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable">
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </a>
+        {% else %}
+        <div class="wizard-step text-center"><div class="wizard-dot bg-secondary opacity-50">{{ step_num }}</div><small class="d-none d-sm-block mt-1">{{ label }}</small></div>
+        {% endif %}
+        {% endwith %}
+        <div class="wizard-connector flex-grow-1 mx-1 {% if incident.current_step > 3 or current_step > 3 %}filled{% endif %}"></div>
+
+        {% with step_num=4 label="Send" url_name='citizen_complaint:send' %}
+        {% if incident.current_step >= step_num or current_step >= step_num %}
+        <a href="{% url url_name incident.slug %}" class="wizard-step text-center text-decoration-none {% if current_step == step_num %}active{% else %}completed{% endif %} clickable">
+            <div class="wizard-dot {% if current_step == step_num %}bg-primary{% else %}bg-success{% endif %}">
+                {% if current_step == step_num %}{{ step_num }}{% else %}<i class="bi bi-check-lg text-white"></i>{% endif %}
+            </div>
+            <small class="d-none d-sm-block mt-1">{{ label }}</small>
+        </a>
+        {% else %}
+        <div class="wizard-step text-center"><div class="wizard-dot bg-secondary opacity-50">{{ step_num }}</div><small class="d-none d-sm-block mt-1">{{ label }}</small></div>
+        {% endif %}
+        {% endwith %}
+    </div>
+</div>
+
+<style>
+    .wizard-progress .wizard-step { min-width: 48px; }
+    .wizard-progress .wizard-dot {
+        width: 32px; height: 32px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; font-weight: 600; color: #fff;
+    }
+    .wizard-progress .wizard-dot.bg-secondary { color: rgba(255,255,255,0.7); }
+    .wizard-progress .wizard-connector { height: 3px; background: #dee2e6; border-radius: 2px; position: relative; top: -8px; }
+    .wizard-progress .wizard-connector.filled { background: #198754; }
+    .wizard-progress small { font-size: 0.7rem; color: #6c757d; }
+    .wizard-progress .active small { color: #0d6efd; font-weight: 600; }
+    .wizard-progress .completed small { color: #198754; }
+    [data-theme="dark"] .wizard-progress .wizard-connector { background: #495057; }
+    [data-theme="dark"] .wizard-progress small { color: #adb5bd; }
+    [data-theme="dark"] .wizard-progress .active small { color: #6ea8fe; }
+</style>

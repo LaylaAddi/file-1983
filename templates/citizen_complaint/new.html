@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}New Complaint — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <a href="{% url 'citizen_complaint:landing' %}" class="text-muted text-decoration-none small d-inline-block mb-3">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+            <h2 class="mb-3" style="font-family:'Playfair Display',serif;">Paste your video link</h2>
+            <p class="text-muted mb-4">
+                We'll pull the title, description, and (when available) the transcript, then suggest
+                which agencies were involved based on what's said and shown.
+            </p>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Video URL</label>
+                    <input type="url" name="video_url" class="form-control form-control-lg" placeholder="https://www.youtube.com/watch?v=..." required>
+                    <div class="form-text">YouTube or Rumble links work best. This may take a few seconds.</div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">
+                    <i class="bi bi-search me-1"></i>Analyze video
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

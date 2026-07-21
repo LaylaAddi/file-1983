@@ -76,6 +76,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     privacy_accepted_at = models.DateTimeField(null=True, blank=True)
     privacy_accepted_version = models.CharField(max_length=20, blank=True)
 
+    # Email verification — required before a user can send a Citizen Complaint
+    # Assistant email (agency inboxes are a spam-abuse surface). Not required
+    # anywhere else in the app today.
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+
     objects = UserManager()
 
     USERNAME_FIELD = 'email'

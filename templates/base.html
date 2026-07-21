@@ -117,6 +117,11 @@
                             <i class="bi bi-house-door me-1"></i>Home
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'citizen_complaint:landing' %}">
+                            <i class="bi bi-camera-reels me-1"></i>Citizen Complaint Assistant
+                        </a>
+                    </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'documents:list' %}">

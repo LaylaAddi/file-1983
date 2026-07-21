@@ -14,6 +14,8 @@ urlpatterns = [
     path('profile/request-partnership/', views.request_partnership, name='request_partnership'),
     path('feedback/', views.submit_feedback, name='submit_feedback'),
     path('accept-terms/', views.accept_terms, name='accept_terms'),
+    path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
+    path('verify-email/resend/', views.resend_verification, name='resend_verification'),
 
     # Password reset flow (Django built-ins with custom templates)
     path('password-reset/', views.RateLimitedPasswordResetView.as_view(

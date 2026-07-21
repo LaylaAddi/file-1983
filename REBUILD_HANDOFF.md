@@ -32,6 +32,8 @@ each section → final review → AI drafts factual allegations → user reviews
 - **`/sitemap.xml`** advertises all 8 public pages + 4 legal pages + any published `CivilRightsPage` rows for search engines. `robots.txt` already references it.
 - **Admin-editable footer contact** — `SiteSettings.contact_email` / `contact_phone` with independent visibility flags render in the footer's brand column as `mailto:` / `tel:` links.
 
+**NEW FEATURE (this session): Citizen Complaint Assistant — see dedicated section below.** Built on branch `claude/citizen-complaint-assistant-9ym1be`. Free (no payment gate), login-required, entirely new Django app `citizen_complaint`. Not yet live-tested with real external APIs — needs `YOUTUBE_API_KEY`, `SUPADATA_API_KEY`, `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` set on Render before it's usable end-to-end (see its section for details and what to verify before relying on it in production).
+
 **Latest commits this session (most recent on top), on branch `claude/gracious-ritchie-ckyr9t` (merged into `master`):**
 - Brute-force/login hardening (`django-axes` + `django-ratelimit`), the register-view 500 fix for the multi-backend `login()` call, a `revoke_testers` management command, a wizard Step 1 fix so overriding a found court also re-exposes the address fields (not just a blind court-name text box), the stale-incident/government-entity-data fix on story re-analysis, and the new per-document AI-call cooldown — all documented in their respective detail sections above. A cosmetic migration-drift cleanup (`documents/0025_alter_partneradjustment_id_and_more`) also shipped this session.
 
@@ -150,6 +152,109 @@ git push origin master
 
 ---
 
+## Citizen Complaint Assistant (new Django app: `citizen_complaint`)
+
+**What it is:** A free (no payment gate), login-required feature separate from the §1983
+wizard. User pastes a video URL (YouTube/Rumble/etc.) documenting an encounter with a
+government agency; the app fetches metadata + transcript, AI-extracts which agencies were
+involved, helps the user identify/confirm contact emails, drafts a factual complaint email
+per agency, and sends after the user reviews and confirms every recipient and every draft.
+**No fully automated sending — the user must see and confirm every recipient and every
+draft before Send is enabled.**
+
+**Why a new app instead of extending `documents`:** `documents` is already a large, single-
+purpose app (the §1983 wizard). This feature has its own models/views/urls/templates and a
+completely different domain (video intake, agency directory, complaint emails vs. federal
+court filings), so it's cleanly separated — same pattern as `accounts` / `documents` /
+`public_pages` being separate apps.
+
+**Reused, not duplicated:** `accounts.User`, the existing login/registration flow,
+`base.html` + the app's Bootstrap/Alpine theme, the existing SMTP email backend
+(`DEFAULT_FROM_EMAIL` / `EMAIL_HOST_*`), and the WeasyPrint PDF pattern (`HTML(string=...).write_pdf()`)
+for the optional PDF export.
+
+**5-step wizard** (mirrors the §1983 wizard's step-through UX,
+`templates/citizen_complaint/_progress.html` is the 4-dot equivalent of
+`documents/_wizard_progress.html`):
+1. `/citizen-complaint/new/` — paste video URL → `services/video_intake.py` fetches metadata
+   (YouTube Data API v3, oEmbed fallback for non-YouTube/no API key), transcript (Supadata —
+   covers YouTube/Rumble/etc.), then a regex pass (emails/phones/addresses/links) + a GPT-4o
+   pass extract agencies/location/date/summary. Detected agencies get an email resolved via
+   `services/agency_lookup.py`.
+2. `/citizen-complaint/<slug>/agencies/` — card-per-agency review: checkbox to
+   send/don't-send, editable email, "unverified" badge on anything not from the curated
+   `Agency` DB, manual add-an-agency mini-form. **Nothing is ever sent to an address the user
+   hasn't explicitly confirmed here.**
+3. `/citizen-complaint/<slug>/about-you/` — privacy radio (full name / first name only /
+   anonymous), optional city/state/contact-email/personal note, tone.
+4. `/citizen-complaint/<slug>/drafts/` — one AI-drafted (`services/complaint_drafter.py`,
+   temperature 0.8 + the user's personal note injected deliberately, so many people filing
+   about the same viral video don't produce near-identical text that trips spam filters),
+   editable-per-agency draft. Opening this page is what unlocks Send (`Complaint.viewed_at`).
+5. `/citizen-complaint/<slug>/send/` → `/sent/` — final recipient confirmation, then send.
+   `/citizen-complaint/<slug>/pdf/` is an optional WeasyPrint export of the full packet.
+
+**Models** (`citizen_complaint/models.py`): `Incident` (video + extraction + privacy/tone
+fields + `api_calls_used`, one row per wizard run) → `TargetAgency` (FK Incident; name,
+email, `source` detected/db_match/ai_lookup/manual, `confirmed`) → `Complaint` (OneToOne per
+TargetAgency; body, status, `viewed_at`, `sent_at`, `recipient_email_snapshot`). Plus a
+standalone curated `Agency` directory (admin-managed, checked before any AI lookup — same
+trust model as `documents.CaseLaw`). **`Agency` ships empty — seed real agencies via admin
+before relying on the curated-match path in production.**
+
+**Email verification (new — didn't exist anywhere in the app before this):**
+`accounts.User` gained `email_verified` / `email_verified_at` (migration
+`accounts/0007_user_email_verified_user_email_verified_at`). Sent automatically at
+registration via `accounts/services/email_verification.py` (Django's signed
+`TimestampSigner`, no new table, 3-day expiry). `/accounts/verify-email/<token>/` +
+`/accounts/verify-email/resend/`. **Only gate that depends on this today is Step 5 send** —
+login, registration, and the §1983 wizard are unaffected. Profile page shows a "verify your
+email" banner + resend button when unverified.
+
+**Abuse guardrails — this feature is free, so these substitute for the paid-tier gate the
+§1983 wizard uses (`documents/services/ai_quota.py`):**
+- `services/api_quota.py` — flat per-`Incident` budget (`CITIZEN_COMPLAINT_AI_QUOTA_PER_INCIDENT=10`)
+  across every external call (Supadata/YouTube/OpenAI/Google Search combined). Two entry
+  points on purpose: `consume_call()` (budget-only, used for chained calls already triggered
+  by one user action — video intake's metadata+transcript+extraction+per-agency lookups, and
+  the initial per-agency draft generation) vs. `consume_call_throttled()` (budget + a
+  `CITIZEN_COMPLAINT_AI_CALL_COOLDOWN_SECONDS=10` cooldown, used only at the "Regenerate this
+  draft" button — the one place a user could rapidly re-click). **Don't swap these** —
+  applying the cooldown to every chained call breaks the intake pipeline (each internal call
+  would trip the cooldown set by the previous one).
+- `services/rate_limit.py` — DB-count based (not `django-ratelimit`, since these need
+  cross-request daily totals): `CITIZEN_COMPLAINT_INCIDENTS_PER_USER_PER_DAY=5` (new video
+  intakes, independent of sends — guards against someone starting many incidents and
+  abandoning them, still burns credits), `CITIZEN_COMPLAINT_SENDS_PER_USER_PER_DAY=5`,
+  `CITIZEN_COMPLAINT_AGENCY_SENDS_PER_DAY=20` (platform-wide cap per agency email, so a
+  viral video can't get one small agency's inbox flooded by many different users same-day).
+
+**Privacy / recipient-facing email shape** (`services/email_service.py`): From = app's
+`DEFAULT_FROM_EMAIL`. Reply-To = the user's optional `contact_email`, omitted entirely when
+`privacy_level='anonymous'`. **BCC (never a visible header) = the user's logged-in account
+email, always** — so they get a private copy regardless of which privacy level they chose,
+without ever exposing their real email to the agency.
+
+**Needs before this is usable in production — none of these existed before this session:**
+- `YOUTUBE_API_KEY` (YouTube Data API v3 — Google Cloud Console) for video metadata
+- `SUPADATA_API_KEY` (transcript fetch — was already stubbed into `settings.py` unused
+  before this session, now actually wired up in `services/video_intake.fetch_transcript()`).
+  **This integration was written without live access to Supadata's docs — verify the
+  request/response shape against their current API before trusting it in prod.**
+- `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` (Google Custom Search JSON API + a
+  Programmable Search Engine ID) for the AI-assisted agency-email lookup fallback
+- Seed the `Agency` admin table with real curated agencies (starts empty)
+- Double-check SPF/DKIM/DMARC on `auditfile1983.com`'s existing mail setup covers this
+  feature's outbound volume too (it reuses the existing SMTP sender, no new domain/provider)
+
+**Tests:** `citizen_complaint/tests.py` — 12 tests mirroring `documents/tests.py`'s style
+(external calls mocked at the service boundary, mail assertions via Django's test `mail.outbox`).
+Covers the full happy path (agencies → about-you → drafts → send, asserting BCC/Reply-To
+per privacy level), login gating, email-verification gating, and every rate-limit/quota rule
+above. Run: `python manage.py test citizen_complaint`.
+
+---
+
 ## Docker Dev Setup
 ```bash
 docker compose build web         # only when Dockerfile changes
@@ -179,6 +284,12 @@ DATABASE_URL=postgresql://postgres:postgres@db:5432/file1983
 ADMIN_URL=manage-dev/
 
 OPENAI_API_KEY=                  ← required for extraction, court lookup fallback, draft generation
+
+# Citizen Complaint Assistant (new this session — see its section above)
+SUPADATA_API_KEY=                ← video transcript fetch (YouTube/Rumble/etc.)
+YOUTUBE_API_KEY=                 ← YouTube Data API v3, for video metadata
+GOOGLE_SEARCH_API_KEY=           ← Google Custom Search JSON API, for agency-email lookup fallback
+GOOGLE_SEARCH_CX=                ← Programmable Search Engine ID, paired with the key above
 
 STRIPE_SECRET_KEY=               ← sk_test_... (sandbox) or sk_live_...
 STRIPE_PUBLISHABLE_KEY=          ← pk_test_... or pk_live_...
@@ -221,6 +332,16 @@ PARTNER_PAYOUT_NOTIFY_EMAIL=
 /accounts/profile/request-partnership/      → POST: creates PartnershipRequest + emails admin
 /accounts/pricing/                          → pricing stub
 /accounts/password-reset/                   → password reset flow (logs out current session on confirm page)
+/accounts/verify-email/<token>/             → verifies User.email_verified via a signed TimestampSigner token (3-day expiry), emailed at registration
+/accounts/verify-email/resend/              → POST-only, login-required, rate-limited 5/h — resends the verification email
+/citizen-complaint/                         → Citizen Complaint Assistant landing page (public — describes the feature; logged-in users also see their in-progress incidents here)
+/citizen-complaint/new/                     → login-required: paste a video URL, runs the Step 1 intake pipeline (metadata + transcript + AI extraction)
+/citizen-complaint/<slug>/agencies/         → Step 2: review/confirm/edit detected + AI-looked-up + manually-added target agencies
+/citizen-complaint/<slug>/about-you/        → Step 3: privacy level, optional contact info/personal note, tone
+/citizen-complaint/<slug>/drafts/           → Step 4: one AI-drafted, editable complaint per confirmed agency; opening this page unlocks Send
+/citizen-complaint/<slug>/send/             → Step 5: final recipient confirmation + send (blocked until email verified)
+/citizen-complaint/<slug>/sent/             → receipt page after sending
+/citizen-complaint/<slug>/pdf/              → optional WeasyPrint export of the full complaint packet
 /documents/                                 → document list. Locked docs show Download PDF + View buttons. Open docs surface "Add to story" (Quick add) as the primary action with Continue + Edit story below. Admin sees Delete button
 /documents/start/                           → PWA `start_url` target. `pwa_start` view picks the user's most recent non-finalized document and 302s to its `/q/` page; falls back to `/documents/` when there are none
 /documents/new/                             → create document (profile gate)
@@ -264,6 +385,7 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 ## Build Status
 
 ### Done
+- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, 12-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
 - [x] Project scaffold — settings, URLs, base template, theme CSS, dark mode, DRF+JWT
 - [x] `accounts` — User model (address/profile fields), auth views, profile page, password reset
 - [x] `documents` — all models + admin + migrations

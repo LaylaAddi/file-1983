@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Sent — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 text-center">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 3.5rem;"></i>
+            <h2 class="mt-3 mb-2" style="font-family:'Playfair Display',serif;">Complaint sent</h2>
+            <p class="text-muted mb-4">A copy was sent to your account email ({{ request.user.email }}).</p>
+
+            <div class="card text-start mb-4">
+                <div class="card-body">
+                    <h6 class="mb-3">Sent to</h6>
+                    {% for complaint in complaints %}
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span><strong>{{ complaint.target_agency.name }}</strong> &lt;{{ complaint.recipient_email_snapshot }}&gt;</span>
+                        <small class="text-muted">{{ complaint.sent_at|date:"M j, Y g:i A" }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <a href="{% url 'citizen_complaint:pdf' incident.slug %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF copy
+            </a>
+            <a href="{% url 'citizen_complaint:landing' %}" class="btn btn-primary">Start another complaint</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

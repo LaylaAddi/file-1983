@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'accounts',
     'documents',
     'public_pages',
+    'citizen_complaint',
 ]
 
 MIDDLEWARE = [
@@ -216,8 +217,24 @@ PRIVACY_VERSION = config('PRIVACY_VERSION', default='v1')
 # OpenAI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 
-# Supadata
+# Supadata — video transcript API (YouTube, Rumble, etc.) for Citizen Complaint Assistant intake
 SUPADATA_API_KEY = config('SUPADATA_API_KEY', default='')
+
+# YouTube Data API v3 — video metadata (title/description/channel) for Citizen Complaint Assistant
+YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')
+
+# Google Custom Search JSON API — AI-assisted agency email lookup fallback
+GOOGLE_SEARCH_API_KEY = config('GOOGLE_SEARCH_API_KEY', default='')
+GOOGLE_SEARCH_CX = config('GOOGLE_SEARCH_CX', default='')
+
+# Citizen Complaint Assistant — free feature, so these guardrails (rather than
+# a paid tier) are what keeps a bot/bad actor from burning through AI/API
+# credits or spamming agency inboxes.
+CITIZEN_COMPLAINT_AI_QUOTA_PER_INCIDENT = 10     # total AI/API calls allowed per incident
+CITIZEN_COMPLAINT_AI_CALL_COOLDOWN_SECONDS = 10  # min gap between AI-triggering clicks on one incident
+CITIZEN_COMPLAINT_INCIDENTS_PER_USER_PER_DAY = 5  # new video intakes per user per day
+CITIZEN_COMPLAINT_SENDS_PER_USER_PER_DAY = 5      # complaints sent per user per day
+CITIZEN_COMPLAINT_AGENCY_SENDS_PER_DAY = 20        # complaints one agency email can receive per day, all users combined
 
 # REST Framework + JWT
 REST_FRAMEWORK = {

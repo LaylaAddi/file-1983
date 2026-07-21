@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Send — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            {% include 'citizen_complaint/_progress.html' with current_step=4 %}
+
+            <div class="mb-4">
+                <a href="{% url 'citizen_complaint:drafts' incident.slug %}" class="text-muted text-decoration-none small d-inline-block mb-2">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Drafts
+                </a>
+                <span class="badge bg-primary rounded-pill px-3 py-2">Step 4 of 4</span>
+                <h2 class="mt-2" style="font-family:'Playfair Display',serif;">Confirm &amp; send</h2>
+                <p class="text-muted mb-0">This is the last step — nothing sends until you click Send below.</p>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                {% endfor %}
+            {% endif %}
+
+            {% if not request.user.email_verified %}
+            <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-envelope-exclamation me-1"></i>Verify your email before you can send.</span>
+                <form method="post" action="{% url 'accounts:resend_verification' %}" class="mb-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn btn-sm btn-warning">Resend verification email</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h6 class="mb-3">Recipients</h6>
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for complaint in complaints %}
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" name="send_{{ complaint.id }}" id="send_{{ complaint.id }}" checked>
+                            <label class="form-check-label" for="send_{{ complaint.id }}">
+                                <strong>{{ complaint.target_agency.name }}</strong> &lt;{{ complaint.target_agency.email }}&gt;
+                            </label>
+                        </div>
+                        {% endfor %}
+
+                        <hr>
+                        <p class="small text-muted mb-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            You'll receive a private copy of every email sent, at {{ request.user.email }}.
+                            {% if incident.privacy_level != 'anonymous' and incident.contact_email %}
+                                Agencies can reply to {{ incident.contact_email }}.
+                            {% elif incident.privacy_level == 'anonymous' %}
+                                Since you chose to file anonymously, no reply address is included.
+                            {% endif %}
+                        </p>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100" {% if not request.user.email_verified %}disabled{% endif %}>
+                            <i class="bi bi-send me-1"></i>Send complaint{{ complaints|length|pluralize }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <a href="{% url 'citizen_complaint:pdf' incident.slug %}" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Export as PDF instead
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

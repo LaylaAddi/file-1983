@@ -41,6 +41,8 @@ def register(request):
             # added to AUTHENTICATION_BACKENDS there's more than one backend
             # configured, so login() can no longer infer which one to use.
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            from .services.email_verification import send_verification_email
+            send_verification_email(user, request)
             if user.is_tester:
                 messages.success(
                     request,
@@ -243,6 +245,35 @@ def submit_feedback(request):
             pass
 
     messages.success(request, 'Thanks for the feedback — it\'s been sent to the team.')
+    return redirect(next_url)
+
+
+def verify_email(request, token):
+    from .services.email_verification import verify_token, mark_verified
+
+    user, error = verify_token(token)
+    if error:
+        messages.error(request, error)
+        return redirect('accounts:profile' if request.user.is_authenticated else 'accounts:login')
+
+    if not user.email_verified:
+        mark_verified(user)
+    messages.success(request, 'Email verified — you can now send Citizen Complaint Assistant emails.')
+    return redirect('accounts:profile' if request.user.is_authenticated else 'accounts:login')
+
+
+@login_required
+@require_POST
+@ratelimit(key='user', rate='5/h', method='POST', block=True)
+def resend_verification(request):
+    from .services.email_verification import send_verification_email
+
+    if request.user.email_verified:
+        messages.info(request, 'Your email is already verified.')
+    else:
+        send_verification_email(request.user, request)
+        messages.success(request, f'Verification email sent to {request.user.email}.')
+    next_url = request.POST.get('next') or 'accounts:profile'
     return redirect(next_url)
 
 

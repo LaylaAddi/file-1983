@@ -29,6 +29,7 @@ urlpatterns = [
     path('', include('public_pages.urls')),
     path('accounts/', include('accounts.urls')),
     path('documents/', include('documents.urls')),
+    path('citizen-complaint/', include('citizen_complaint.urls')),
     path('partner/', document_views.partner_dashboard, name='partner_dashboard'),
     path('partner/request-payout/', document_views.partner_request_payout, name='partner_request_payout'),
 
