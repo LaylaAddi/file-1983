@@ -221,6 +221,19 @@ class Complaint(models.Model):
         help_text='Email address actually used at send time — kept even if TargetAgency.email '
                   'is edited afterward, for an accurate audit trail.',
     )
+    moderation_checked_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When this body was last screened by the OpenAI Moderation API before send.',
+    )
+    moderation_flagged = models.BooleanField(
+        default=False,
+        help_text='True if the last moderation check blocked this from sending '
+                  '(threats/violence/harassment, or the check itself failed).',
+    )
+    moderation_categories = models.JSONField(
+        default=list, blank=True,
+        help_text='OpenAI moderation categories that were flagged, if any — for admin review.',
+    )
     sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

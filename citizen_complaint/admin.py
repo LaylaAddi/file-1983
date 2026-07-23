@@ -41,6 +41,9 @@ class TargetAgencyAdmin(admin.ModelAdmin):
 
 @admin.register(Complaint)
 class ComplaintAdmin(admin.ModelAdmin):
-    list_display = ['incident', 'target_agency', 'status', 'sent_at', 'created_at']
-    list_filter = ['status']
-    readonly_fields = ['sent_at', 'recipient_email_snapshot']
+    list_display = ['incident', 'target_agency', 'status', 'moderation_flagged', 'sent_at', 'created_at']
+    list_filter = ['status', 'moderation_flagged']
+    readonly_fields = [
+        'sent_at', 'recipient_email_snapshot',
+        'moderation_checked_at', 'moderation_flagged', 'moderation_categories',
+    ]

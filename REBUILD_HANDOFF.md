@@ -233,7 +233,31 @@ email" banner + resend button when unverified.
 `DEFAULT_FROM_EMAIL`. Reply-To = the user's optional `contact_email`, omitted entirely when
 `privacy_level='anonymous'`. **BCC (never a visible header) = the user's logged-in account
 email, always** — so they get a private copy regardless of which privacy level they chose,
-without ever exposing their real email to the agency.
+without ever exposing their real email to the agency. Important nuance: "anonymous" only
+hides the sender's name from the *agency* — the user is still logged in, email-verified, and
+every `Incident`/`Complaint` row is tied to their real account internally. This is
+pseudonymity toward the recipient with full accountability retained on our side, not true
+anonymous filing (registration + verified email are always required to send).
+
+**Content moderation gate (`services/moderation.py`) — added after the initial build, in
+response to "make sure people aren't sending threats":** Immediately before each selected
+complaint is sent, `incident_send`'s POST handler runs `moderation.check_content(complaint.body)`
+through OpenAI's Moderation API (`omni-moderation-latest`). If `result.flagged` is True for
+*any* category, that complaint is **not sent** — the agency is skipped with a flash message,
+the other selected agencies in the same batch still go through. Two deliberate design choices:
+- **Never gated by `services/api_quota.py`.** This is a safety check, not a paid/cost-control
+  feature — letting a quota-exhausted incident skip moderation would turn "burn your quota on
+  purpose" into a way to bypass it.
+- **Fails closed.** If the moderation call itself errors (missing `OPENAI_API_KEY`, OpenAI
+  outage, network failure), the send is blocked rather than let through unchecked.
+  `OPENAI_API_KEY` is already required for drafting, so this isn't a new single point of
+  failure — it's consistent with one that already existed.
+
+Result is recorded on `Complaint` for admin review/audit: `moderation_checked_at`,
+`moderation_flagged`, `moderation_categories` (migration
+`citizen_complaint/0002_complaint_moderation_categories_and_more`). Visible as a filterable
+column on the `Complaint` admin list. No new API key needed — reuses the same
+`OPENAI_API_KEY` already required for extraction/drafting.
 
 **Needs before this is usable in production — none of these existed before this session:**
 - `YOUTUBE_API_KEY` (YouTube Data API v3 — Google Cloud Console) for video metadata
@@ -243,15 +267,18 @@ without ever exposing their real email to the agency.
   request/response shape against their current API before trusting it in prod.**
 - `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` (Google Custom Search JSON API + a
   Programmable Search Engine ID) for the AI-assisted agency-email lookup fallback
+- `OPENAI_API_KEY` already exists in your Render env (used by the §1983 wizard) — the new
+  moderation gate reuses it, no separate key needed
 - Seed the `Agency` admin table with real curated agencies (starts empty)
 - Double-check SPF/DKIM/DMARC on `auditfile1983.com`'s existing mail setup covers this
   feature's outbound volume too (it reuses the existing SMTP sender, no new domain/provider)
 
-**Tests:** `citizen_complaint/tests.py` — 12 tests mirroring `documents/tests.py`'s style
+**Tests:** `citizen_complaint/tests.py` — 18 tests mirroring `documents/tests.py`'s style
 (external calls mocked at the service boundary, mail assertions via Django's test `mail.outbox`).
 Covers the full happy path (agencies → about-you → drafts → send, asserting BCC/Reply-To
-per privacy level), login gating, email-verification gating, and every rate-limit/quota rule
-above. Run: `python manage.py test citizen_complaint`.
+per privacy level), login gating, email-verification gating, every rate-limit/quota rule, and
+the moderation gate (flagged content blocks send, moderation-check failures fail closed).
+Run: `python manage.py test citizen_complaint`.
 
 ---
 
@@ -385,7 +412,7 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 ## Build Status
 
 ### Done
-- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, 12-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
+- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, a fail-closed OpenAI Moderation gate on every send, 18-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
 - [x] Project scaffold — settings, URLs, base template, theme CSS, dark mode, DRF+JWT
 - [x] `accounts` — User model (address/profile fields), auth views, profile page, password reset
 - [x] `documents` — all models + admin + migrations

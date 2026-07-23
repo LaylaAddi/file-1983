@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Incident, TargetAgency, Complaint
-from .services import api_quota, rate_limit
+from .services import api_quota, rate_limit, moderation
 
 User = get_user_model()
 
@@ -76,6 +76,16 @@ class CitizenComplaintEndToEndTest(TestCase):
             first_name='Alex', last_name='Doe',
         )
         self.client.force_login(self.user)
+
+        # Moderation defaults to "clean" for every test in this class (real
+        # OpenAI calls would fail closed with no key configured). The one
+        # test that wants flagged behavior overrides self.mock_moderation
+        # .return_value directly.
+        moderation_patcher = patch(
+            'citizen_complaint.services.moderation.check_content', return_value=(False, [], ''),
+        )
+        self.mock_moderation = moderation_patcher.start()
+        self.addCleanup(moderation_patcher.stop)
 
     def test_landing_page_public(self):
         self.client.logout()
@@ -213,6 +223,35 @@ class CitizenComplaintEndToEndTest(TestCase):
         self.assertEqual(resp.status_code, 200)  # re-rendered form, not redirected
         self.assertEqual(Incident.objects.filter(user=self.user).count(), 1)
 
+    def test_moderation_blocks_flagged_content(self):
+        incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/abc')
+        ta = TargetAgency.objects.create(incident=incident, name='Agency', email='a@example.gov', confirmed=True, source='manual')
+        complaint = Complaint.objects.create(incident=incident, target_agency=ta, body='draft body')
+
+        self.mock_moderation.return_value = (True, ['violence/threats'], '')
+        resp = self.client.post(reverse('citizen_complaint:send', args=[incident.slug]), {f'send_{complaint.id}': 'on'})
+
+        self.assertRedirects(resp, reverse('citizen_complaint:send', args=[incident.slug]))
+        self.assertEqual(len(mail.outbox), 0)
+        complaint.refresh_from_db()
+        self.assertEqual(complaint.status, 'draft')
+        self.assertTrue(complaint.moderation_flagged)
+        self.assertEqual(complaint.moderation_categories, ['violence/threats'])
+        self.assertIsNotNone(complaint.moderation_checked_at)
+
+    def test_moderation_check_failure_blocks_send(self):
+        """Fails closed: if the moderation call itself errors, don't send."""
+        incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/abc')
+        ta = TargetAgency.objects.create(incident=incident, name='Agency', email='a@example.gov', confirmed=True, source='manual')
+        complaint = Complaint.objects.create(incident=incident, target_agency=ta, body='draft body')
+
+        self.mock_moderation.return_value = (True, [], 'OpenAI API unreachable')
+        self.client.post(reverse('citizen_complaint:send', args=[incident.slug]), {f'send_{complaint.id}': 'on'})
+
+        self.assertEqual(len(mail.outbox), 0)
+        complaint.refresh_from_db()
+        self.assertEqual(complaint.status, 'draft')
+
     @override_settings(CITIZEN_COMPLAINT_AGENCY_SENDS_PER_DAY=0)
     def test_agency_daily_cap_blocks_send(self):
         incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/abc')
@@ -249,6 +288,41 @@ class ApiQuotaTest(TestCase):
         api_quota.consume_call(self.incident)  # should not raise despite active cooldown
         self.incident.refresh_from_db()
         self.assertEqual(self.incident.api_calls_used, 2)
+
+
+class ModerationTest(TestCase):
+    def test_blank_text_is_never_flagged(self):
+        flagged, categories, error = moderation.check_content('')
+        self.assertFalse(flagged)
+        self.assertEqual(categories, [])
+
+    @override_settings(OPENAI_API_KEY='')
+    def test_missing_api_key_fails_closed(self):
+        flagged, categories, error = moderation.check_content('some complaint text')
+        self.assertTrue(flagged)
+        self.assertTrue(error)
+
+    @override_settings(OPENAI_API_KEY='test-key-not-real')
+    def test_openai_call_failure_fails_closed(self):
+        with patch('openai.OpenAI') as mock_openai:
+            mock_openai.side_effect = Exception('network error')
+            flagged, categories, error = moderation.check_content('some complaint text')
+        self.assertTrue(flagged)
+        self.assertTrue(error)
+
+    @override_settings(OPENAI_API_KEY='test-key-not-real')
+    def test_clean_content_passes(self):
+        mock_result = type('Result', (), {
+            'flagged': False,
+            'categories': type('Categories', (), {'model_dump': lambda self: {'violence': False, 'harassment': False}})(),
+        })()
+        mock_response = type('Response', (), {'results': [mock_result]})()
+        with patch('openai.OpenAI') as mock_openai:
+            mock_openai.return_value.moderations.create.return_value = mock_response
+            flagged, categories, error = moderation.check_content('Please review this incident.')
+        self.assertFalse(flagged)
+        self.assertEqual(categories, [])
+        self.assertEqual(error, '')
 
 
 class RateLimitTest(TestCase):

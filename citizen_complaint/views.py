@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import Incident, TargetAgency, Complaint
-from .services import api_quota, rate_limit, video_intake, complaint_drafter, email_service
+from .services import api_quota, rate_limit, video_intake, complaint_drafter, email_service, moderation
 
 
 def landing(request):
@@ -212,6 +212,18 @@ def incident_send(request, incident_slug):
             if not rate_limit.can_send(request.user):
                 messages.warning(request, rate_limit.user_daily_cap_message())
                 break
+
+            flagged, categories, mod_error = moderation.check_content(complaint.body)
+            complaint.moderation_checked_at = timezone.now()
+            complaint.moderation_flagged = flagged
+            complaint.moderation_categories = categories
+            complaint.save(update_fields=['moderation_checked_at', 'moderation_flagged', 'moderation_categories', 'updated_at'])
+            if flagged:
+                if mod_error:
+                    messages.error(request, f'Could not verify the draft to {ta.name} is safe to send right now — try again shortly.')
+                else:
+                    messages.error(request, f'The draft to {ta.name} was blocked — it appears to contain threatening or violent content. Edit it and try again.')
+                continue
 
             ok, error = email_service.send_complaint(incident, ta, complaint)
             if ok:
