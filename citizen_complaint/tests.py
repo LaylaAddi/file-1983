@@ -324,6 +324,42 @@ class ModerationTest(TestCase):
         self.assertEqual(categories, [])
         self.assertEqual(error, '')
 
+    @override_settings(OPENAI_API_KEY='test-key-not-real')
+    def test_describing_violence_experienced_is_not_blocked(self):
+        """A citizen describing excessive force done TO them must not be
+        blocked just because OpenAI's raw `flagged` trips on 'violence' —
+        that would break the feature for nearly every real complaint."""
+        mock_result = type('Result', (), {
+            'flagged': True,  # OpenAI's own aggregate flag trips here
+            'categories': type('Categories', (), {'model_dump': lambda self: {
+                'violence': True, 'violence_graphic': True, 'harassment_threatening': False,
+            }})(),
+        })()
+        mock_response = type('Response', (), {'results': [mock_result]})()
+        with patch('openai.OpenAI') as mock_openai:
+            mock_openai.return_value.moderations.create.return_value = mock_response
+            flagged, categories, error = moderation.check_content(
+                'The officer struck me with his baton and I was tackled to the ground.'
+            )
+        self.assertFalse(flagged)
+        self.assertIn('violence', categories)  # still recorded for admin/audit
+        self.assertEqual(error, '')
+
+    @override_settings(OPENAI_API_KEY='test-key-not-real')
+    def test_actual_threat_is_blocked(self):
+        mock_result = type('Result', (), {
+            'flagged': True,
+            'categories': type('Categories', (), {'model_dump': lambda self: {
+                'violence': False, 'harassment_threatening': True,
+            }})(),
+        })()
+        mock_response = type('Response', (), {'results': [mock_result]})()
+        with patch('openai.OpenAI') as mock_openai:
+            mock_openai.return_value.moderations.create.return_value = mock_response
+            flagged, categories, error = moderation.check_content('I will find you and hurt you.')
+        self.assertTrue(flagged)
+        self.assertIn('harassment_threatening', categories)
+
 
 class RateLimitTest(TestCase):
     def setUp(self):

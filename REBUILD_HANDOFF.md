@@ -242,9 +242,20 @@ anonymous filing (registration + verified email are always required to send).
 **Content moderation gate (`services/moderation.py`) — added after the initial build, in
 response to "make sure people aren't sending threats":** Immediately before each selected
 complaint is sent, `incident_send`'s POST handler runs `moderation.check_content(complaint.body)`
-through OpenAI's Moderation API (`omni-moderation-latest`). If `result.flagged` is True for
-*any* category, that complaint is **not sent** — the agency is skipped with a flash message,
-the other selected agencies in the same batch still go through. Two deliberate design choices:
+through OpenAI's Moderation API (`omni-moderation-latest`). That complaint is **not sent** if a
+blocking category trips — the agency is skipped with a flash message, other selected agencies
+in the same batch still go through. Deliberate design choices:
+- **Blocks on a curated `BLOCKING_CATEGORIES` set, NOT OpenAI's raw `result.flagged` boolean.**
+  Caught in first-round production testing: this app exists to describe violent/abusive
+  government conduct, so a completely legitimate complaint describing excessive force trips
+  OpenAI's plain `violence` / `violence_graphic` categories almost every time just by
+  describing what happened *to* the complainant — blocking on those broke the feature for
+  nearly every real complaint. `BLOCKING_CATEGORIES` is narrowed to signals of the *sender*
+  threatening/targeting someone (`harassment_threatening`, `hate_threatening`,
+  `illicit_violent`) plus categories with no legitimate place in a complaint regardless of
+  context (`self_harm*`, `sexual_minors`). Every tripped category (blocking or not) is still
+  recorded in `moderation_categories` for admin visibility — `violence` can show up there
+  without having blocked the send.
 - **Never gated by `services/api_quota.py`.** This is a safety check, not a paid/cost-control
   feature — letting a quota-exhausted incident skip moderation would turn "burn your quota on
   purpose" into a way to bypass it.
@@ -278,7 +289,7 @@ column on the `Complaint` admin list. No new API key needed — reuses the same
 - Double-check SPF/DKIM/DMARC on `auditfile1983.com`'s existing mail setup covers this
   feature's outbound volume too (it reuses the existing SMTP sender, no new domain/provider)
 
-**Tests:** `citizen_complaint/tests.py` — 18 tests mirroring `documents/tests.py`'s style
+**Tests:** `citizen_complaint/tests.py` — 20 tests mirroring `documents/tests.py`'s style
 (external calls mocked at the service boundary, mail assertions via Django's test `mail.outbox`).
 Covers the full happy path (agencies → about-you → drafts → send, asserting BCC/Reply-To
 per privacy level), login gating, email-verification gating, every rate-limit/quota rule, and
@@ -416,7 +427,7 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 ## Build Status
 
 ### Done
-- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, a fail-closed OpenAI Moderation gate on every send, 18-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
+- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, a fail-closed OpenAI Moderation gate on every send, 20-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
 - [x] Project scaffold — settings, URLs, base template, theme CSS, dark mode, DRF+JWT
 - [x] `accounts` — User model (address/profile fields), auth views, profile page, password reset
 - [x] `documents` — all models + admin + migrations

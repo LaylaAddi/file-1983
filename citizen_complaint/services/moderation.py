@@ -19,12 +19,34 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+# Deliberately NOT the full set of categories OpenAI's `result.flagged` boolean
+# considers. This app exists to describe violent/abusive government conduct —
+# a legitimate complaint about excessive force will almost always trip the
+# plain `violence` / `violence_graphic` categories just by describing what
+# happened to the complainant. Blocking on those would break the feature for
+# nearly every real complaint. We only block on categories that represent the
+# SENDER threatening/targeting someone or otherwise-universally-inappropriate
+# content that has no legitimate place in a complaint email — not a victim's
+# factual account of violence they experienced.
+BLOCKING_CATEGORIES = {
+    'harassment_threatening',   # the actual "sending threats" signal the gate exists for
+    'hate_threatening',
+    'illicit_violent',          # instructions/advice for violent wrongdoing, not a victim account
+    'self_harm',
+    'self_harm_intent',
+    'self_harm_instructions',
+    'sexual_minors',
+}
+
 
 def check_content(text: str) -> tuple[bool, list, str]:
     """
     Returns (flagged, categories, error).
-      flagged=True  -> do not send.
-      categories    -> which OpenAI moderation categories tripped (for admin/audit).
+      flagged=True  -> do not send. Only True when a BLOCKING_CATEGORIES entry
+                       tripped, not OpenAI's raw `flagged` (see module note).
+      categories    -> ALL moderation categories that tripped, for admin/audit —
+                       may include non-blocking ones like `violence` even when
+                       flagged=False, so admins can still see it was noted.
       error         -> non-empty if the check itself failed (also treated as flagged
                        by the caller, since we fail closed).
     """
@@ -42,7 +64,8 @@ def check_content(text: str) -> tuple[bool, list, str]:
         response = client.moderations.create(model='omni-moderation-latest', input=text)
         result = response.results[0]
         categories = [name for name, is_flagged in result.categories.model_dump().items() if is_flagged]
-        return bool(result.flagged), categories, ''
+        flagged = any(cat in BLOCKING_CATEGORIES for cat in categories)
+        return flagged, categories, ''
     except Exception as exc:
         logger.exception('OpenAI moderation call failed')
         return True, [], str(exc)
