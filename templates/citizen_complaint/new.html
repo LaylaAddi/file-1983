@@ -2,40 +2,146 @@
 
 {% block title %}New Complaint — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .terminal-panel {
+        background: #0b0f0d;
+        border: 1px solid #1e2b23;
+        border-radius: 0.5rem;
+        padding: 1.25rem 1.5rem;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        color: #4ade80;
+        min-height: 220px;
+        box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.08);
+    }
+    .terminal-panel .term-header {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #1e2b23;
+        color: #6b7280;
+        font-size: 0.75rem;
+    }
+    .terminal-panel .term-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .term-line { white-space: pre-wrap; word-break: break-word; }
+    .term-line .term-prompt { color: #6b7280; }
+    .term-line.done { color: #4ade80; }
+    .term-line.active { color: #e5e7eb; }
+    .term-cursor {
+        display: inline-block;
+        width: 0.55em;
+        height: 1em;
+        background: #4ade80;
+        vertical-align: text-bottom;
+        margin-left: 2px;
+        animation: term-blink 1s step-start infinite;
+    }
+    @keyframes term-blink { 50% { opacity: 0; } }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-5">
+<div class="container py-5" x-data="citizenIntake()">
     <div class="row justify-content-center">
         <div class="col-lg-6">
             <a href="{% url 'citizen_complaint:landing' %}" class="text-muted text-decoration-none small d-inline-block mb-3">
                 <i class="bi bi-arrow-left me-1"></i>Back
             </a>
-            <h2 class="mb-3" style="font-family:'Playfair Display',serif;">Paste your video link</h2>
-            <p class="text-muted mb-4">
-                We'll pull the title, description, and (when available) the transcript, then suggest
-                which agencies were involved based on what's said and shown.
-            </p>
 
-            {% if messages %}
-                {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <!-- ANALYZING STATE: shown while intake runs in the background -->
+            <div x-show="analyzing" x-cloak>
+                <h5 class="fw-semibold mb-1">Analyzing your video…</h5>
+                <p class="text-muted small mb-3">This usually takes 10–20 seconds.</p>
+                <div class="terminal-panel">
+                    <div class="term-header">
+                        <span class="term-dot" style="background:#ff5f56;"></span>
+                        <span class="term-dot" style="background:#ffbd2e;"></span>
+                        <span class="term-dot" style="background:#27c93f;"></span>
+                        <span class="ms-2">citizen-complaint-assistant — intake</span>
+                    </div>
+                    <template x-for="(step, i) in steps" :key="i">
+                        <div class="term-line" x-show="i <= currentStep" :class="i < currentStep ? 'done' : 'active'">
+                            <span class="term-prompt">$</span> <span x-text="step"></span><span x-show="i < currentStep"> ... OK</span><span class="term-cursor" x-show="i === currentStep"></span>
+                        </div>
+                    </template>
                 </div>
-                {% endfor %}
-            {% endif %}
+            </div>
 
-            <form method="post">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label">Video URL</label>
-                    <input type="url" name="video_url" class="form-control form-control-lg" placeholder="https://www.youtube.com/watch?v=..." required>
-                    <div class="form-text">YouTube or Rumble links work best. This may take a few seconds.</div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-lg w-100">
-                    <i class="bi bi-search me-1"></i>Analyze video
-                </button>
-            </form>
+            <!-- FORM STATE: shown normally -->
+            <div x-show="!analyzing">
+                <h2 class="mb-3" style="font-family:'Playfair Display',serif;">Paste your video link</h2>
+                <p class="text-muted mb-4">
+                    We'll pull the title, description, and (when available) the transcript, then suggest
+                    which agencies were involved based on what's said and shown.
+                </p>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" @submit="startAnalyzing">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Video URL</label>
+                        <input type="url" name="video_url" class="form-control form-control-lg" placeholder="https://www.youtube.com/watch?v=..." required>
+                        <div class="form-text">YouTube or Rumble links work best. This may take a few seconds.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-search me-1"></i>Analyze video
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function citizenIntake() {
+    return {
+        analyzing: false,
+        currentStep: 0,
+        steps: [
+            'detecting video platform',
+            'fetching video metadata',
+            'fetching transcript (supadata)',
+            'scanning description for contacts',
+            'running AI extraction (gpt-4o)',
+            'identifying target agencies',
+            'redirecting to agency review',
+        ],
+
+        startAnalyzing() {
+            this.analyzing = true;
+            this.currentStep = 0;
+            setInterval(() => {
+                if (this.currentStep < this.steps.length - 1) {
+                    this.currentStep++;
+                }
+            }, 2200);
+        },
+
+        init() {
+            // If the user navigates back via the browser, the bfcache may restore
+            // this page with analyzing=true left over from the prior submit.
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    this.analyzing = false;
+                    this.currentStep = 0;
+                }
+            });
+        },
+    }
+}
+</script>
 {% endblock %}
