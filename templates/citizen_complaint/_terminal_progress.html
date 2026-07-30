@@ -1,0 +1,21 @@
+{% comment %}
+Terminal-style progress panel shown while a slow server-side step runs in
+the background. Pair with withTerminalProgress(steps) in base.html on the
+parent element's x-data, and .terminal-panel/.term-line CSS in app-theme.css.
+
+Context: header_label (str) — shown in the fake terminal window's title bar.
+Usage: {% include 'citizen_complaint/_terminal_progress.html' with header_label="intake" %}
+{% endcomment %}
+<div class="terminal-panel">
+    <div class="term-header">
+        <span class="term-dot" style="background:#ff5f56;"></span>
+        <span class="term-dot" style="background:#ffbd2e;"></span>
+        <span class="term-dot" style="background:#27c93f;"></span>
+        <span class="ms-2">citizen-complaint-assistant &mdash; {{ header_label }}</span>
+    </div>
+    <template x-for="(step, i) in steps" :key="i">
+        <div class="term-line" x-show="i <= currentStep" :class="i < currentStep ? 'done' : 'active'">
+            <span class="term-prompt">$</span> <span x-text="step"></span><span x-show="i < currentStep"> ... OK</span><span class="term-cursor" x-show="i === currentStep"></span>
+        </div>
+    </template>
+</div>

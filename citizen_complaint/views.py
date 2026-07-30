@@ -114,7 +114,13 @@ def incident_about_you(request, incident_slug):
         incident.save()
         return redirect('citizen_complaint:drafts', incident_slug=incident.slug)
 
-    return render(request, 'citizen_complaint/about_you.html', {'incident': incident})
+    confirmed_agency_names = list(
+        incident.target_agencies.filter(confirmed=True).exclude(email='').values_list('name', flat=True)
+    )
+    return render(request, 'citizen_complaint/about_you.html', {
+        'incident': incident,
+        'confirmed_agency_names': confirmed_agency_names,
+    })
 
 
 @login_required

@@ -2904,3 +2904,48 @@ a:hover {
     border-color: #9ad9e5;
     color: #002a36;
 }
+
+/* =========================================
+   Terminal-style background-progress panel
+   Shared by Citizen Complaint Assistant pages that hand off to a slow
+   server-side step (video intake, drafting) — a fixed dark/green "terminal"
+   look regardless of site theme, paired with withTerminalProgress() in
+   base.html. Usage: x-data="withTerminalProgress(['step one', 'step two'])"
+   ========================================= */
+.terminal-panel {
+    background: #0b0f0d;
+    border: 1px solid #1e2b23;
+    border-radius: 0.5rem;
+    padding: 1.25rem 1.5rem;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #4ade80;
+    min-height: 220px;
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.08);
+}
+.terminal-panel .term-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1e2b23;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+.terminal-panel .term-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.term-line { white-space: pre-wrap; word-break: break-word; }
+.term-line .term-prompt { color: #6b7280; }
+.term-line.done { color: #4ade80; }
+.term-line.active { color: #e5e7eb; }
+.term-cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1em;
+    background: #4ade80;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: term-blink 1s step-start infinite;
+}
+@keyframes term-blink { 50% { opacity: 0; } }

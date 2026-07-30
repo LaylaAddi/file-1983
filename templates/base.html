@@ -529,6 +529,54 @@
         }
     </script>
 
+    <!-- Terminal-style background-progress panel for pages that hand off to a
+         slow server-side step (Citizen Complaint Assistant's video intake,
+         drafting). Steps through a fixed list on a timer while a real form
+         submit runs in the background — same simulated-progress-during-a-
+         real-navigation trick as the §1983 wizard's story-analysis screen,
+         just styled as a terminal instead of a checklist. Not a live stream
+         of real backend progress (no task queue/websocket in this app).
+         Usage:
+             <div x-data="withTerminalProgress(['step one', 'step two'])">
+                 <div x-show="analyzing" x-cloak> ...terminal markup... </div>
+                 <form @submit="startAnalyzing">...</form>
+             </div>
+         Pair with the .terminal-panel / .term-line / .term-cursor CSS in
+         app-theme.css.
+    -->
+    <script>
+        function withTerminalProgress(steps, intervalMs) {
+            intervalMs = intervalMs || 2200;
+            return {
+                analyzing: false,
+                currentStep: 0,
+                steps: steps,
+
+                startAnalyzing() {
+                    this.analyzing = true;
+                    this.currentStep = 0;
+                    setInterval(() => {
+                        if (this.currentStep < this.steps.length - 1) {
+                            this.currentStep++;
+                        }
+                    }, intervalMs);
+                },
+
+                init() {
+                    // If the user navigates back via the browser, the bfcache
+                    // may restore this page with analyzing=true left over
+                    // from the prior submit.
+                    window.addEventListener('pageshow', (event) => {
+                        if (event.persisted) {
+                            this.analyzing = false;
+                            this.currentStep = 0;
+                        }
+                    });
+                },
+            };
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

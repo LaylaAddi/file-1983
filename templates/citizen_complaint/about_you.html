@@ -3,77 +3,103 @@
 {% block title %}About You — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
 
 {% block content %}
-<div class="container py-5">
+{{ confirmed_agency_names|json_script:"confirmed-agency-names" }}
+<div class="container py-5" x-data="aboutYouStep()">
     <div class="row justify-content-center">
         <div class="col-lg-6">
             {% include 'citizen_complaint/_progress.html' with current_step=2 %}
 
-            <div class="mb-4">
-                <a href="{% url 'citizen_complaint:agencies' incident.slug %}" class="text-muted text-decoration-none small d-inline-block mb-2">
-                    <i class="bi bi-arrow-left me-1"></i>Back to Agencies
-                </a>
-                <span class="badge bg-primary rounded-pill px-3 py-2">Step 2 of 4</span>
-                <h2 class="mt-2" style="font-family:'Playfair Display',serif;">A few details about you</h2>
-                <p class="text-muted mb-0">Everything here is optional except how you'd like to be identified.</p>
+            <!-- DRAFTING STATE: shown after Continue, while drafts are generated in the background -->
+            <div x-show="analyzing" x-cloak>
+                <h5 class="fw-semibold mb-1">Drafting your complaint{{ confirmed_agency_names|length|pluralize }}…</h5>
+                <p class="text-muted small mb-3">This usually takes 10–20 seconds per agency.</p>
+                {% include 'citizen_complaint/_terminal_progress.html' with header_label='drafting' %}
             </div>
 
-            {% if messages %}
-                {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-                {% endfor %}
-            {% endif %}
-
-            <form method="post">
-                {% csrf_token %}
-
+            <div x-show="!analyzing">
                 <div class="mb-4">
-                    <label class="form-label fw-semibold">How should we identify you in the complaint?</label>
-                    {% for value, label in incident.PRIVACY_CHOICES %}
-                    <div class="form-check mb-1">
-                        <input type="radio" class="form-check-input" name="privacy_level" id="privacy_{{ value }}" value="{{ value }}" {% if incident.privacy_level == value %}checked{% endif %}>
-                        <label class="form-check-label" for="privacy_{{ value }}">{{ label }}</label>
-                    </div>
+                    <a href="{% url 'citizen_complaint:agencies' incident.slug %}" class="text-muted text-decoration-none small d-inline-block mb-2">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Agencies
+                    </a>
+                    <span class="badge bg-primary rounded-pill px-3 py-2">Step 2 of 4</span>
+                    <h2 class="mt-2" style="font-family:'Playfair Display',serif;">A few details about you</h2>
+                    <p class="text-muted mb-0">Everything here is optional except how you'd like to be identified.</p>
+                </div>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
                     {% endfor %}
-                </div>
+                {% endif %}
 
-                <div class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Your city (optional)</label>
-                        <input type="text" name="user_city" class="form-control" value="{{ incident.user_city }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Your state (optional)</label>
-                        <input type="text" name="user_state" class="form-control" value="{{ incident.user_state }}">
-                    </div>
-                </div>
+                <form method="post" @submit="startAnalyzing">
+                    {% csrf_token %}
 
-                <div class="mb-3">
-                    <label class="form-label">Contact email for the agency's reply (optional)</label>
-                    <input type="email" name="contact_email" class="form-control" value="{{ incident.contact_email }}" placeholder="Leave blank to receive replies only at your account email">
-                    <div class="form-text">
-                        You'll always get a private copy at your account email ({{ request.user.email }}),
-                        regardless of what you choose here. This field only controls what the agency can reply to —
-                        it's left off entirely if you chose to stay anonymous above.
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Personal note (optional)</label>
-                    <textarea name="personal_note" class="form-control" rows="3" placeholder="Anything you'd like included in your own words">{{ incident.personal_note }}</textarea>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label">Tone</label>
-                    <select name="tone" class="form-select">
-                        {% for value, label in incident.TONE_CHOICES %}
-                        <option value="{{ value }}" {% if incident.tone == value %}selected{% endif %}>{{ label }}</option>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">How should we identify you in the complaint?</label>
+                        {% for value, label in incident.PRIVACY_CHOICES %}
+                        <div class="form-check mb-1">
+                            <input type="radio" class="form-check-input" name="privacy_level" id="privacy_{{ value }}" value="{{ value }}" {% if incident.privacy_level == value %}checked{% endif %}>
+                            <label class="form-check-label" for="privacy_{{ value }}">{{ label }}</label>
+                        </div>
                         {% endfor %}
-                    </select>
-                </div>
+                    </div>
 
-                <button type="submit" class="btn btn-primary btn-lg w-100">Continue <i class="bi bi-arrow-right ms-1"></i></button>
-            </form>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Your city (optional)</label>
+                            <input type="text" name="user_city" class="form-control" value="{{ incident.user_city }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Your state (optional)</label>
+                            <input type="text" name="user_state" class="form-control" value="{{ incident.user_state }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Contact email for the agency's reply (optional)</label>
+                        <input type="email" name="contact_email" class="form-control" value="{{ incident.contact_email }}" placeholder="Leave blank to receive replies only at your account email">
+                        <div class="form-text">
+                            You'll always get a private copy at your account email ({{ request.user.email }}),
+                            regardless of what you choose here. This field only controls what the agency can reply to —
+                            it's left off entirely if you chose to stay anonymous above.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Personal note (optional)</label>
+                        <textarea name="personal_note" class="form-control" rows="3" placeholder="Anything you'd like included in your own words">{{ incident.personal_note }}</textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Tone</label>
+                        <select name="tone" class="form-select">
+                            {% for value, label in incident.TONE_CHOICES %}
+                            <option value="{{ value }}" {% if incident.tone == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">Continue <i class="bi bi-arrow-right ms-1"></i></button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function aboutYouStep() {
+    const agencyNames = JSON.parse(document.getElementById('confirmed-agency-names').textContent);
+    const steps = [
+        'saving your preferences',
+        `loading ${agencyNames.length} confirmed agenc${agencyNames.length === 1 ? 'y' : 'ies'}`,
+        ...agencyNames.map(name => `drafting complaint to ${name} (gpt-4o)`),
+        'finalizing drafts',
+        'redirecting to review',
+    ];
+    return withTerminalProgress(steps);
+}
+</script>
 {% endblock %}
