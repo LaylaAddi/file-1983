@@ -5,6 +5,7 @@ app_name = 'citizen_complaint'
 
 urlpatterns = [
     path('', views.landing, name='landing'),
+    path('mine/', views.incident_list, name='list'),
     path('new/', views.incident_new, name='new'),
     path('<str:incident_slug>/agencies/', views.incident_agencies, name='agencies'),
     path('<str:incident_slug>/about-you/', views.incident_about_you, name='about_you'),

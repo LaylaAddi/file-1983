@@ -229,15 +229,19 @@ email" banner + resend button when unverified.
   `CITIZEN_COMPLAINT_AGENCY_SENDS_PER_DAY=20` (platform-wide cap per agency email, so a
   viral video can't get one small agency's inbox flooded by many different users same-day).
 
-**Privacy / recipient-facing email shape** (`services/email_service.py`): From = app's
-`DEFAULT_FROM_EMAIL`. Reply-To = the user's optional `contact_email`, omitted entirely when
-`privacy_level='anonymous'`. **BCC (never a visible header) = the user's logged-in account
-email, always** — so they get a private copy regardless of which privacy level they chose,
-without ever exposing their real email to the agency. Important nuance: "anonymous" only
-hides the sender's name from the *agency* — the user is still logged in, email-verified, and
-every `Incident`/`Complaint` row is tied to their real account internally. This is
-pseudonymity toward the recipient with full accountability retained on our side, not true
-anonymous filing (registration + verified email are always required to send).
+**Privacy / recipient-facing email shape** (`services/email_service.py`): From display name
+is `"<incident.display_name()> via AuditFile 1983"` (e.g. "Jane Doe via AuditFile 1983", or
+"A concerned citizen via AuditFile 1983" if anonymous) — same underlying `DEFAULT_FROM_EMAIL`
+address, just a friendlier display name (built with `email.utils.formataddr`/`parseaddr`) so
+it reads to the recipient like it's from a constituent, not generic platform support mail.
+Reply-To = the user's optional `contact_email`, omitted entirely when `privacy_level='anonymous'`.
+**BCC (never a visible header) = the user's logged-in account email, always** — so they get a
+private copy regardless of which privacy level they chose, without ever exposing their real
+email to the agency. Important nuance: "anonymous" only hides the sender's name from the
+*agency* — the user is still logged in, email-verified, and every `Incident`/`Complaint` row
+is tied to their real account internally. This is pseudonymity toward the recipient with full
+accountability retained on our side, not true anonymous filing (registration + verified email
+are always required to send).
 
 **Content moderation gate (`services/moderation.py`) — added after the initial build, in
 response to "make sure people aren't sending threats":** Immediately before each selected
@@ -289,7 +293,7 @@ column on the `Complaint` admin list. No new API key needed — reuses the same
 - Double-check SPF/DKIM/DMARC on `auditfile1983.com`'s existing mail setup covers this
   feature's outbound volume too (it reuses the existing SMTP sender, no new domain/provider)
 
-**Tests:** `citizen_complaint/tests.py` — 20 tests mirroring `documents/tests.py`'s style
+**Tests:** `citizen_complaint/tests.py` — 23 tests mirroring `documents/tests.py`'s style
 (external calls mocked at the service boundary, mail assertions via Django's test `mail.outbox`).
 Covers the full happy path (agencies → about-you → drafts → send, asserting BCC/Reply-To
 per privacy level), login gating, email-verification gating, every rate-limit/quota rule, and
@@ -376,7 +380,8 @@ PARTNER_PAYOUT_NOTIFY_EMAIL=
 /accounts/password-reset/                   → password reset flow (logs out current session on confirm page)
 /accounts/verify-email/<token>/             → verifies User.email_verified via a signed TimestampSigner token (3-day expiry), emailed at registration
 /accounts/verify-email/resend/              → POST-only, login-required, rate-limited 5/h — resends the verification email
-/citizen-complaint/                         → Citizen Complaint Assistant landing page (public — describes the feature; logged-in users also see their in-progress incidents here)
+/citizen-complaint/                         → Citizen Complaint Assistant landing page (public — describes the feature; logged-in users get "Start a new complaint" + "My Complaints" buttons)
+/citizen-complaint/mine/                    → login-required "My Complaints" list — every incident this user has started (in-progress or sent), with a Continue/View/Download PDF action per row, routed by Incident.next_step_url_name()
 /citizen-complaint/new/                     → login-required: paste a video URL, runs the Step 1 intake pipeline (metadata + transcript + AI extraction)
 /citizen-complaint/<slug>/agencies/         → Step 2: review/confirm/edit detected + AI-looked-up + manually-added target agencies
 /citizen-complaint/<slug>/about-you/        → Step 3: privacy level, optional contact info/personal note, tone
@@ -427,7 +432,7 @@ CaptureReferralMiddleware and stored in session. Pre-fills the promo input on
 ## Build Status
 
 ### Done
-- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, a fail-closed OpenAI Moderation gate on every send, 20-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
+- [x] `citizen_complaint` — new app, full 5-step wizard (video intake → agency review → about-you → drafts → send), models/admin/migrations, `Agency` curated directory (starts empty — seed it), email verification on `accounts.User`, per-incident AI/API quota + cooldown, daily send/incident/per-agency rate limits, a fail-closed OpenAI Moderation gate on every send (narrowed to actual-threat categories, not raw `flagged` — see below), a "My Complaints" list page (`/citizen-complaint/mine/`, nav-linked) to resume drafts or re-download sent complaints later, terminal-style progress screens on the two slow handoffs (video intake, drafting), 23-test suite. See its dedicated section above for the full breakdown and what API keys it still needs before going live
 - [x] Project scaffold — settings, URLs, base template, theme CSS, dark mode, DRF+JWT
 - [x] `accounts` — User model (address/profile fields), auth views, profile page, password reset
 - [x] `documents` — all models + admin + migrations

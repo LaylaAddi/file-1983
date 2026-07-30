@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}My Complaints — Citizen Complaint Assistant — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0" style="font-family:'Playfair Display',serif;">My Complaints</h2>
+                <a href="{% url 'citizen_complaint:new' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>New Complaint
+                </a>
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if not incidents %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-camera-reels fs-1 d-block mb-3"></i>
+                <p class="mb-3">You haven't started a complaint yet.</p>
+                <a href="{% url 'citizen_complaint:new' %}" class="btn btn-primary">Start your first complaint</a>
+            </div>
+            {% else %}
+            <div class="list-group">
+                {% for incident in incidents %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">{{ incident.video_title|default:incident.video_url|truncatechars:80 }}</div>
+                            <small class="text-muted">
+                                {{ incident.created_at|date:"M j, Y" }}
+                                &middot;
+                                {{ incident.target_agencies.count }} agenc{{ incident.target_agencies.count|pluralize:"y,ies" }}
+                                {% if incident.status == 'sent' %}
+                                    &middot; sent to {{ incident.complaints.count }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <span class="badge bg-{% if incident.status == 'sent' %}success{% else %}secondary{% endif %} rounded-pill">
+                                {{ incident.get_status_display }}
+                            </span>
+                            {% if incident.status == 'sent' %}
+                                <a href="{% url 'citizen_complaint:sent' incident.slug %}" class="btn btn-sm btn-outline-secondary">View</a>
+                                <a href="{% url 'citizen_complaint:pdf' incident.slug %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                </a>
+                            {% else %}
+                                <a href="{% url incident.next_step_url_name incident.slug %}" class="btn btn-sm btn-primary">
+                                    Continue <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

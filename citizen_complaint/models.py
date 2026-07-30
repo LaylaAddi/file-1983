@@ -132,6 +132,19 @@ class Incident(models.Model):
     def is_sent(self):
         return self.status == 'sent'
 
+    def next_step_url_name(self):
+        """Which wizard step a 'Continue' link on the My Complaints list
+        should route to, based on how far this incident has gotten."""
+        if self.status == 'sent':
+            return 'citizen_complaint:sent'
+        return {
+            0: 'citizen_complaint:agencies',
+            1: 'citizen_complaint:agencies',
+            2: 'citizen_complaint:about_you',
+            3: 'citizen_complaint:drafts',
+            4: 'citizen_complaint:send',
+        }.get(self.current_step, 'citizen_complaint:agencies')
+
     def display_name(self):
         """How the user identifies themselves in the drafted emails."""
         if self.privacy_level == 'anonymous':

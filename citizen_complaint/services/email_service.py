@@ -9,9 +9,24 @@ Privacy rule: the user's logged-in account email must never appear in a
 header the recipient agency can see. It always gets a private BCC copy;
 Reply-To is only ever the user's separate, optional contact email, and is
 omitted entirely when they chose to file anonymously.
+
+From display name is "<how the citizen chose to identify themselves> via
+AuditFile 1983" (e.g. "Jane Doe via AuditFile 1983", or "A concerned
+citizen via AuditFile 1983" if filed anonymously) so it reads to the
+recipient like it's from a constituent, not generic platform support mail —
+the underlying address is unchanged (same DEFAULT_FROM_EMAIL as every other
+transactional email in this app).
 """
+from email.utils import formataddr, parseaddr
+
 from django.conf import settings
 from django.core.mail import EmailMessage
+
+
+def _from_header(incident) -> str:
+    raw_address = parseaddr(settings.DEFAULT_FROM_EMAIL)[1] or settings.DEFAULT_FROM_EMAIL
+    display_name = f'{incident.display_name()} via AuditFile 1983'
+    return formataddr((display_name, raw_address))
 
 
 def send_complaint(incident, target_agency, complaint) -> tuple[bool, str]:
@@ -20,7 +35,7 @@ def send_complaint(incident, target_agency, complaint) -> tuple[bool, str]:
     email = EmailMessage(
         subject=subject,
         body=complaint.body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=_from_header(incident),
         to=[target_agency.email],
         bcc=[incident.user.email],
     )

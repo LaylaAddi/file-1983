@@ -13,12 +13,18 @@ from .services import api_quota, rate_limit, video_intake, complaint_drafter, em
 
 def landing(request):
     """Public landing page. Anonymous visitors see a description of the
-    feature + a CTA to register. Logged-in users also see their in-progress
-    incidents here, so there's no separate list page to navigate through."""
-    incidents = []
-    if request.user.is_authenticated:
-        incidents = Incident.objects.filter(user=request.user)[:20]
-    return render(request, 'citizen_complaint/landing.html', {'incidents': incidents})
+    feature + a CTA to register. Logged-in users get a link to their
+    My Complaints list instead of a duplicate listing here."""
+    return render(request, 'citizen_complaint/landing.html')
+
+
+@login_required
+def incident_list(request):
+    """My Complaints — every incident this user has started, in progress or
+    sent, with a Continue/View/Download action per row. The one place a user
+    can come back to later to finish a draft or re-download a sent complaint."""
+    incidents = Incident.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'citizen_complaint/list.html', {'incidents': incidents})
 
 
 def _owned_incident_or_404(request, incident_slug):

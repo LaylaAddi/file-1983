@@ -93,6 +93,28 @@ class CitizenComplaintEndToEndTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Citizen Complaint Assistant')
 
+    def test_my_complaints_list_requires_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse('citizen_complaint:list'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/accounts/login/', resp.url)
+
+    def test_my_complaints_list_shows_own_incidents_only(self):
+        mine = Incident.objects.create(user=self.user, video_url='https://youtu.be/mine', video_title='My video')
+        other_user = _make_verified_user(email='other@example.com', password='testpass123')
+        Incident.objects.create(user=other_user, video_url='https://youtu.be/other', video_title='Other video')
+
+        resp = self.client.get(reverse('citizen_complaint:list'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'My video')
+        self.assertNotContains(resp, 'Other video')
+
+    def test_my_complaints_continue_link_routes_by_current_step(self):
+        incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/x', current_step=2)
+        self.assertEqual(incident.next_step_url_name(), 'citizen_complaint:about_you')
+        incident.status = 'sent'
+        self.assertEqual(incident.next_step_url_name(), 'citizen_complaint:sent')
+
     def test_new_incident_requires_login(self):
         self.client.logout()
         resp = self.client.get(reverse('citizen_complaint:new'))
@@ -168,6 +190,7 @@ class CitizenComplaintEndToEndTest(TestCase):
         for m in mail.outbox:
             self.assertEqual(m.bcc, ['citizen@example.com'])
             self.assertEqual(m.reply_to, ['reply-here@example.com'])
+            self.assertIn('Alex Doe via AuditFile 1983', m.from_email)
 
         for c in complaints:
             c.refresh_from_db()
@@ -200,6 +223,7 @@ class CitizenComplaintEndToEndTest(TestCase):
         sent = mail.outbox[-1]
         self.assertEqual(sent.bcc, ['citizen@example.com'])
         self.assertEqual(sent.reply_to, [])
+        self.assertIn('A concerned citizen via AuditFile 1983', sent.from_email)
 
     def test_send_blocked_without_email_verification(self):
         self.user.email_verified = False
