@@ -6,7 +6,11 @@ Step 1 (and again if the user manually types a name with no email on the
 agencies-review page). Order of trust, cheapest/most-reliable first:
 
   1. Curated Agency DB (admin-managed — same trust model as documents.CaseLaw)
-  2. Google Custom Search + an AI pass over the snippets to propose an email
+  2. SerpApi (Google-engine web search) + an AI pass over the snippets to
+     propose an email. (Google's own Custom Search API can no longer search
+     the open web for newly-created engines as of Jan 2026, and Bing's
+     Search API was fully retired in Aug 2025 — SerpApi is the option that's
+     actually available for this.)
   3. Give up — return blank, user must type the email themselves
 
 Every proposed address is marked non-`db_match`, and the UI (agencies-review
@@ -45,22 +49,23 @@ def _match_curated_db(name: str, location: str):
     return None
 
 
-def _google_search(query: str) -> tuple[list, str | None]:
-    api_key = getattr(settings, 'GOOGLE_SEARCH_API_KEY', '')
-    cx = getattr(settings, 'GOOGLE_SEARCH_CX', '')
-    if not api_key or not cx:
-        return [], 'Google Custom Search not configured.'
+def _serpapi_search(query: str) -> tuple[list, str | None]:
+    api_key = getattr(settings, 'SERPAPI_API_KEY', '')
+    if not api_key:
+        return [], 'SerpApi not configured.'
     try:
         resp = requests.get(
-            'https://www.googleapis.com/customsearch/v1',
-            params={'key': api_key, 'cx': cx, 'q': query, 'num': 5},
+            'https://serpapi.com/search',
+            params={'engine': 'google', 'q': query, 'api_key': api_key, 'num': 5},
             timeout=REQUEST_TIMEOUT,
         )
         resp.raise_for_status()
         data = resp.json()
-        return data.get('items', []) or [], None
+        # organic_results entries carry the same title/link/snippet shape
+        # _ai_pick_email already expects (previously fed by Google Custom Search).
+        return data.get('organic_results', []) or [], None
     except requests.RequestException as exc:
-        logger.exception('Google Custom Search call failed')
+        logger.exception('SerpApi search call failed')
         return [], str(exc)
 
 
@@ -114,7 +119,7 @@ def resolve_agency_email(name: str, location: str = '', incident=None) -> tuple[
             return '', 'detected'
 
     query = f'"{name}" {location} official complaint email contact'.strip()
-    results, search_error = _google_search(query)
+    results, search_error = _serpapi_search(query)
     if search_error or not results:
         return '', 'detected'
 

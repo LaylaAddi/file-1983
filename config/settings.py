@@ -223,9 +223,11 @@ SUPADATA_API_KEY = config('SUPADATA_API_KEY', default='')
 # YouTube Data API v3 — video metadata (title/description/channel) for Citizen Complaint Assistant
 YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')
 
-# Google Custom Search JSON API — AI-assisted agency email lookup fallback
-GOOGLE_SEARCH_API_KEY = config('GOOGLE_SEARCH_API_KEY', default='')
-GOOGLE_SEARCH_CX = config('GOOGLE_SEARCH_CX', default='')
+# SerpApi — AI-assisted agency email lookup fallback. Google's own Custom
+# Search API can no longer search the open web for newly-created engines
+# (Jan 2026 policy change) and Bing's Search API is fully retired (Aug 2025),
+# so SerpApi is the option actually available for open web search.
+SERPAPI_API_KEY = config('SERPAPI_API_KEY', default='')
 
 # Citizen Complaint Assistant — free feature, so these guardrails (rather than
 # a paid tier) are what keeps a bot/bad actor from burning through AI/API

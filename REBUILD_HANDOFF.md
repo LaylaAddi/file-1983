@@ -32,7 +32,7 @@ each section → final review → AI drafts factual allegations → user reviews
 - **`/sitemap.xml`** advertises all 8 public pages + 4 legal pages + any published `CivilRightsPage` rows for search engines. `robots.txt` already references it.
 - **Admin-editable footer contact** — `SiteSettings.contact_email` / `contact_phone` with independent visibility flags render in the footer's brand column as `mailto:` / `tel:` links.
 
-**NEW FEATURE (this session): Citizen Complaint Assistant — see dedicated section below.** Built on branch `claude/citizen-complaint-assistant-9ym1be`. Free (no payment gate), login-required, entirely new Django app `citizen_complaint`. Not yet live-tested with real external APIs — needs `YOUTUBE_API_KEY`, `SUPADATA_API_KEY`, `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` set on Render before it's usable end-to-end (see its section for details and what to verify before relying on it in production).
+**NEW FEATURE (this session): Citizen Complaint Assistant — see dedicated section below.** Built on branch `claude/citizen-complaint-assistant-9ym1be`. Free (no payment gate), login-required, entirely new Django app `citizen_complaint`. Not yet live-tested with real external APIs — needs `YOUTUBE_API_KEY`, `SUPADATA_API_KEY`, `SERPAPI_API_KEY` set on Render before it's usable end-to-end (see its section for details and what to verify before relying on it in production). Also added a fail-closed OpenAI Moderation gate on every send (reuses the existing `OPENAI_API_KEY`, no new credential).
 
 **Latest commits this session (most recent on top), on branch `claude/gracious-ritchie-ckyr9t` (merged into `master`):**
 - Brute-force/login hardening (`django-axes` + `django-ratelimit`), the register-view 500 fix for the multi-backend `login()` call, a `revoke_testers` management command, a wizard Step 1 fix so overriding a found court also re-exposes the address fields (not just a blind court-name text box), the stale-incident/government-entity-data fix on story re-analysis, and the new per-document AI-call cooldown — all documented in their respective detail sections above. A cosmetic migration-drift cleanup (`documents/0025_alter_partneradjustment_id_and_more`) also shipped this session.
@@ -265,8 +265,13 @@ column on the `Complaint` admin list. No new API key needed — reuses the same
   before this session, now actually wired up in `services/video_intake.fetch_transcript()`).
   **This integration was written without live access to Supadata's docs — verify the
   request/response shape against their current API before trusting it in prod.**
-- `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` (Google Custom Search JSON API + a
-  Programmable Search Engine ID) for the AI-assisted agency-email lookup fallback
+- `SERPAPI_API_KEY` (serpapi.com) for the AI-assisted agency-email lookup fallback. **Not
+  Google Custom Search** — that route was abandoned mid-session when we discovered Google
+  blocks newly-created engines from enabling "search the entire web" as of Jan 2026 (existing
+  engines keep it until Jan 2027, new ones are capped at a 50-domain allowlist, useless for
+  looking up arbitrary local government agencies nationwide). Bing Search API was also
+  considered and ruled out — Microsoft fully retired it in Aug 2025, no new keys issuable at
+  all. SerpApi's free tier is 250 searches/month, $25/mo for 1,000 if you outgrow that.
 - `OPENAI_API_KEY` already exists in your Render env (used by the §1983 wizard) — the new
   moderation gate reuses it, no separate key needed
 - Seed the `Agency` admin table with real curated agencies (starts empty)
@@ -315,8 +320,7 @@ OPENAI_API_KEY=                  ← required for extraction, court lookup fallb
 # Citizen Complaint Assistant (new this session — see its section above)
 SUPADATA_API_KEY=                ← video transcript fetch (YouTube/Rumble/etc.)
 YOUTUBE_API_KEY=                 ← YouTube Data API v3, for video metadata
-GOOGLE_SEARCH_API_KEY=           ← Google Custom Search JSON API, for agency-email lookup fallback
-GOOGLE_SEARCH_CX=                ← Programmable Search Engine ID, paired with the key above
+SERPAPI_API_KEY=                 ← serpapi.com, for agency-email lookup fallback (open web search)
 
 STRIPE_SECRET_KEY=               ← sk_test_... (sandbox) or sk_live_...
 STRIPE_PUBLISHABLE_KEY=          ← pk_test_... or pk_live_...
