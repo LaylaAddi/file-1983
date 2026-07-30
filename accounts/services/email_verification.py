@@ -9,12 +9,16 @@ Uses Django's signed, timestamped tokens (no extra model/table needed) —
 the token embeds the user's pk + a hash of their current email, so it
 naturally invalidates if the user changes their email address.
 """
+import logging
+
 from django.conf import settings
 from django.core import signing
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 SALT = 'accounts.email_verification'
 MAX_AGE_SECONDS = 60 * 60 * 24 * 3  # 3 days
@@ -55,9 +59,11 @@ def verify_token(token):
 
 
 def send_verification_email(user, request):
-    """Send (or re-send) the verification email to `user`. Fails silently —
-    mirrors the other transactional-notice sends in this app (partnership
-    requests, feedback, payout requests)."""
+    """Send (or re-send) the verification email to `user`. Never raises up to
+    the caller (mirrors the other transactional-notice sends in this app —
+    partnership requests, feedback, payout requests), but DOES log the actual
+    SMTP error to the `documents`/`django` logger so a "no email arrived"
+    report is diagnosable from Render logs instead of vanishing silently."""
     token = make_token(user)
     path = reverse('accounts:verify_email', kwargs={'token': token})
     verify_url = request.build_absolute_uri(path)
@@ -72,10 +78,10 @@ def send_verification_email(user, request):
             message=body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
-            fail_silently=True,
+            fail_silently=False,
         )
     except Exception:
-        pass
+        logger.exception('Failed to send verification email to %s', user.email)
 
 
 def mark_verified(user):

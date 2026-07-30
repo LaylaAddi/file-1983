@@ -30,18 +30,18 @@ class PromoCodeUsageInline(admin.TabularInline):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'is_tester', 'tos_accepted_version', 'is_staff', 'is_active', 'date_joined')
-    list_filter = ('user_type', 'is_revenue_partner', 'is_tester', 'tos_accepted_version', 'is_staff', 'is_superuser', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'user_type', 'has_complete_profile', 'is_revenue_partner', 'is_tester', 'email_verified', 'tos_accepted_version', 'is_staff', 'is_active', 'date_joined')
+    list_filter = ('user_type', 'is_revenue_partner', 'is_tester', 'email_verified', 'tos_accepted_version', 'is_staff', 'is_superuser', 'is_active')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
     readonly_fields = (
         'date_joined', 'referral_code',
         'tos_accepted_at', 'tos_accepted_version',
         'privacy_accepted_at', 'privacy_accepted_version',
-        'tester_granted_at',
+        'tester_granted_at', 'email_verified_at',
     )
     inlines = [PromoCodeUsageInline]
-    actions = ['mark_as_tester', 'revoke_tester', 'reset_test_purchases']
+    actions = ['mark_as_tester', 'revoke_tester', 'reset_test_purchases', 'mark_email_verified']
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
@@ -61,6 +61,17 @@ class UserAdmin(BaseUserAdmin):
                 'bulk action.'
             ),
             'fields': ('is_tester', 'tester_granted_at'),
+        }),
+        ('Email Verification', {
+            'description': (
+                'Required before a user can send a Citizen Complaint Assistant email. '
+                'Sent automatically at registration and via the "Resend verification '
+                'email" button on the profile page. If a user reports never receiving '
+                'it (SMTP delivery issue, spam filtering, or an older account created '
+                'before this field existed — e.g. via createsuperuser, which never '
+                'sends this email), check it here manually rather than waiting on email.'
+            ),
+            'fields': ('email_verified', 'email_verified_at'),
         }),
         ('Legal Acceptance', {
             'description': (
@@ -87,6 +98,11 @@ class UserAdmin(BaseUserAdmin):
     def revoke_tester(self, request, queryset):
         n = queryset.update(is_tester=False, tester_granted_at=None)
         self.message_user(request, f'Revoked tester status from {n} user(s).')
+
+    @admin.action(description='Mark selected users\' email as verified (manual override, skips sending)')
+    def mark_email_verified(self, request, queryset):
+        n = queryset.filter(email_verified=False).update(email_verified=True, email_verified_at=timezone.now())
+        self.message_user(request, f'Marked {n} user(s) as email-verified.')
 
     @admin.action(description='Reset test purchases (paid + finalized) on selected users to draft')
     def reset_test_purchases(self, request, queryset):
