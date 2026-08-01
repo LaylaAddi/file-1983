@@ -137,11 +137,18 @@ def fetch_oembed_metadata(url: str, platform: str) -> tuple[dict | None, str | N
 def fetch_metadata(video_url: str, platform: str) -> tuple[dict | None, str | None]:
     if platform == 'youtube':
         video_id = extract_youtube_id(video_url)
-        metadata, error = fetch_youtube_metadata(video_id)
+        metadata, api_error = fetch_youtube_metadata(video_id)
         if metadata:
             return metadata, None
-        # Fall back to oEmbed (title/channel only) if the Data API isn't configured
-        return fetch_oembed_metadata(video_url, platform)
+        # Fall back to oEmbed (title/channel only, never a description) if the
+        # Data API isn't configured or the call failed. Surface BOTH errors —
+        # oEmbed failing too doesn't mean the Data API's own failure reason
+        # should be lost; that's usually the more actionable one (missing/
+        # invalid key, quota) and was previously discarded here.
+        metadata, oembed_error = fetch_oembed_metadata(video_url, platform)
+        if metadata:
+            return metadata, None
+        return None, f'YouTube Data API: {api_error} | oEmbed fallback: {oembed_error}'
     return fetch_oembed_metadata(video_url, platform)
 
 

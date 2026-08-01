@@ -406,6 +406,38 @@ class RateLimitTest(TestCase):
         self.assertFalse(rate_limit.can_send_to_agency('same@example.gov'))
 
 
+class MetadataFetchTest(TestCase):
+    """When both the YouTube Data API call and the oEmbed fallback fail, the
+    caller needs to see WHY the Data API failed (missing/invalid key, quota)
+    -- that's usually the actionable error -- not just the oEmbed error that
+    only happens because we already fell back. A prior version of
+    fetch_metadata discarded the Data API's error entirely in this case."""
+
+    @patch('citizen_complaint.services.video_intake.fetch_oembed_metadata')
+    @patch('citizen_complaint.services.video_intake.fetch_youtube_metadata')
+    def test_both_errors_surfaced_when_data_api_and_oembed_both_fail(self, mock_yt, mock_oembed):
+        mock_yt.return_value = (None, 'YouTube Data API key not configured or invalid video ID.')
+        mock_oembed.return_value = (None, '401 Client Error: Unauthorized for url: https://www.youtube.com/oembed?...')
+
+        metadata, error = video_intake.fetch_metadata('https://www.youtube.com/watch?v=abc123', 'youtube')
+
+        self.assertIsNone(metadata)
+        self.assertIn('YouTube Data API', error)
+        self.assertIn('not configured', error)
+        self.assertIn('401 Client Error', error)
+
+    @patch('citizen_complaint.services.video_intake.fetch_oembed_metadata')
+    @patch('citizen_complaint.services.video_intake.fetch_youtube_metadata')
+    def test_oembed_success_used_when_data_api_fails(self, mock_yt, mock_oembed):
+        mock_yt.return_value = (None, 'quota exceeded')
+        mock_oembed.return_value = ({'title': 'A video', 'description': '', 'channel_name': 'Someone'}, None)
+
+        metadata, error = video_intake.fetch_metadata('https://www.youtube.com/watch?v=abc123', 'youtube')
+
+        self.assertIsNone(error)
+        self.assertEqual(metadata['title'], 'A video')
+
+
 class DescriptionContactExtractionTest(TestCase):
     """Auditors often list exactly who to complain to in the video
     description (agency block -> named officials -> direct emails). These
