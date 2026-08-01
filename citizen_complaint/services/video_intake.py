@@ -346,34 +346,40 @@ def run_intake(incident) -> tuple[bool, str]:
     return True, 'Video processed.'
 
 
-def _matching_contacts(agency_name: str, agency_contacts: dict[str, list[dict]]) -> list[dict]:
-    """Case-insensitive, substring-tolerant match — the AI doesn't always echo the
-    agency name identically between the `agencies` list and `agency_contacts`."""
-    name_lower = agency_name.lower()
-    for key, contacts in agency_contacts.items():
-        key_lower = key.lower()
-        if key_lower == name_lower or key_lower in name_lower or name_lower in key_lower:
-            return contacts
-    return []
+def _normalize_agency_name(name: str) -> str:
+    return re.sub(r'[^a-z0-9 ]', '', name.lower()).strip()
 
 
 def _create_detected_agencies(incident, agency_names, agency_contacts=None):
+    """
+    Creates a TargetAgency row per agency, plus one extra row per named
+    official found in the description (agency_contacts).
+
+    agency_contacts is keyed by whatever agency name the AI wrote in that
+    part of its response — which is NOT guaranteed to match, character for
+    character, how the same agency is spelled in the plain `agencies` list
+    (e.g. "U.C. Davis Police Department" vs "UC Davis"). An earlier version
+    of this function required the two to match before trusting the named
+    contacts, which silently dropped real, regex-verified data whenever the
+    AI phrased them differently. Now agency_contacts entries are processed
+    using their OWN name directly — no matching required — and the plain
+    `agencies` list only fills in names not already covered by a contacts
+    block (compared loosely, just to avoid an obvious duplicate row).
+    """
     from citizen_complaint.services.agency_lookup import match_curated_agency, resolve_agency_email
 
     agency_contacts = agency_contacts or {}
-    existing_rows = set(
-        incident.target_agencies.values_list('name', 'contact_name')
-    )
+    existing_rows = set(incident.target_agencies.values_list('name', 'contact_name'))
     existing_general = {name for name, contact_name in existing_rows if not contact_name}
     order = incident.target_agencies.count()
+    location = incident.extracted_data.get('location', '')
+    covered_normalized = set()
 
-    for name in agency_names:
-        name = (name or '').strip()
-        if not name:
+    for raw_name, contacts in agency_contacts.items():
+        name = (raw_name or '').strip()[:255]
+        if not name or not contacts:
             continue
-        name = name[:255]
 
-        contacts = _matching_contacts(name, agency_contacts)
         for contact in contacts:
             key = (name, contact['name'][:255])
             if key in existing_rows:
@@ -386,26 +392,32 @@ def _create_detected_agencies(incident, agency_names, agency_contacts=None):
             )
             order += 1
 
+        covered_normalized.add(_normalize_agency_name(name))
+
         if name in existing_general:
             continue
+        # Admin-vetted general line still wins when it exists, added alongside
+        # the named contacts; skip the AI/SerpApi guess entirely since we
+        # already have a real, source-verified answer for this agency.
+        email = match_curated_agency(name, location)
+        if email:
+            existing_general.add(name)
+            TargetAgency.objects.create(
+                incident=incident, name=name, email=email, source='db_match', order=order,
+            )
+            order += 1
 
-        location = incident.extracted_data.get('location', '')
-        if contacts:
-            # Named contacts straight from the description are already a solid
-            # answer for this agency — only add a second row for the curated
-            # DB's general complaint line (admin-vetted, so it still wins over
-            # the description if both exist), and skip spending quota on the
-            # AI/SerpApi web-lookup fallback since we already have a real answer.
-            email = match_curated_agency(name, location)
-            if not email:
-                continue
-            source = 'db_match'
-        else:
-            email, source = resolve_agency_email(name, location, incident=incident)
+    for name in agency_names:
+        name = (name or '').strip()
+        if not name:
+            continue
+        name = name[:255]
+        if _normalize_agency_name(name) in covered_normalized or name in existing_general:
+            continue
 
+        email, source = resolve_agency_email(name, location, incident=incident)
         existing_general.add(name)
         TargetAgency.objects.create(
-            incident=incident, name=name, email=email,
-            source=source, order=order,
+            incident=incident, name=name, email=email, source=source, order=order,
         )
         order += 1

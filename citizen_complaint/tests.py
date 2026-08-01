@@ -512,6 +512,66 @@ Email: chancellor@ucdavis.edu
             },
         )
 
+    @override_settings(SERPAPI_API_KEY='')
+    @patch('citizen_complaint.services.video_intake.fetch_metadata')
+    @patch('citizen_complaint.services.video_intake.fetch_transcript')
+    @patch('citizen_complaint.services.video_intake._call_openai')
+    def test_named_contacts_survive_when_agencies_list_uses_different_names(self, mock_openai, mock_transcript, mock_metadata):
+        """Regression test: production showed the AI listing generic names in
+        `agencies` ("City of Davis", "UC Davis") while `agency_contacts` used
+        the description's actual block names ("U.C. Davis Police Department",
+        "U.C. Davis Administration"). The old matching-by-name logic silently
+        dropped the named contacts in this case and fell through to a generic
+        AI-guessed agency instead — exactly the bug reported. Contacts must
+        survive regardless of what the plain agencies list says."""
+        mock_metadata.return_value = (
+            {'title': 'UC Davis stop', 'description': self.DESCRIPTION, 'channel_name': 'Auditor'}, None,
+        )
+        mock_transcript.return_value = ('', None)
+        mock_openai.return_value = (json.dumps({
+            'agencies': ['City of Davis', 'UC Davis'],
+            'location': 'Davis, CA',
+            'incident_date': '',
+            'contacts': [],
+            'summary': 'Filmed at UC Davis.',
+            'agency_contacts': [
+                {
+                    'agency': 'U.C. Davis Police Department',
+                    'address': '625 Kleiber Hall Dr, Davis, CA 95616',
+                    'phone': '(530) 754-2677',
+                    'contacts': [
+                        {'name': 'Joseph A. Farrow', 'title': 'Chief of Police', 'email': 'jafarrow@ucdavis.edu'},
+                    ],
+                },
+                {
+                    'agency': 'U.C. Davis Administration',
+                    'address': '376 Mrak Hall Dr, Davis, CA 95616',
+                    'phone': '(530) 752-6661',
+                    'contacts': [
+                        {'name': 'Gary S. May', 'title': 'Chancellor', 'email': 'chancellor@ucdavis.edu'},
+                    ],
+                },
+            ],
+        }), None)
+
+        video_intake.run_intake(self.incident)
+
+        rows = list(self.incident.target_agencies.all())
+        description_rows = [r for r in rows if r.source == 'description']
+        self.assertEqual(
+            {(r.name, r.contact_name, r.email) for r in description_rows},
+            {
+                ('U.C. Davis Police Department', 'Joseph A. Farrow', 'jafarrow@ucdavis.edu'),
+                ('U.C. Davis Administration', 'Gary S. May', 'chancellor@ucdavis.edu'),
+            },
+        )
+        for row in description_rows:
+            self.assertTrue(row.confirmed)
+        # The mismatched plain-list names ("City of Davis", "UC Davis") still
+        # get their own rows too (no curated DB match, no contacts) — they're
+        # just not the ones carrying the verified contact info.
+        self.assertEqual({r.name for r in rows if r.source != 'description'}, {'City of Davis', 'UC Davis'})
+
     @patch('citizen_complaint.services.video_intake.fetch_metadata')
     @patch('citizen_complaint.services.video_intake.fetch_transcript')
     @patch('citizen_complaint.services.video_intake._call_openai')
