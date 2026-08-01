@@ -7,6 +7,7 @@ offline and deterministically.
 Run:
     python manage.py test citizen_complaint
 """
+import json
 from unittest.mock import patch
 
 from django.conf import settings as dj_settings
@@ -16,8 +17,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Incident, TargetAgency, Complaint
-from .services import api_quota, rate_limit, moderation
+from .models import Incident, TargetAgency, Complaint, Agency
+from .services import api_quota, rate_limit, moderation, video_intake
 
 User = get_user_model()
 
@@ -403,3 +404,148 @@ class RateLimitTest(TestCase):
                 sent_at=timezone.now(), recipient_email_snapshot='same@example.gov',
             )
         self.assertFalse(rate_limit.can_send_to_agency('same@example.gov'))
+
+
+class DescriptionContactExtractionTest(TestCase):
+    """Auditors often list exactly who to complain to in the video
+    description (agency block -> named officials -> direct emails). These
+    tests cover pulling that out and turning it into pre-checked,
+    per-official TargetAgency rows, using the real UC Davis-style
+    description block as the fixture."""
+
+    DESCRIPTION = """\
+U.C. Davis Police Department:
+625 Kleiber Hall Dr
+Davis, CA 95616
+Phone: (530) 754-2677
+Joseph A. Farrow- Chief of Police
+Email: jafarrow@ucdavis.edu
+Mark Brunet- Captain
+Email: mbrunet@ucdavis.edu
+
+U.C. Davis Administration:
+376 Mrak Hall Dr
+Davis, CA 95616
+Phone: (530) 752-6661
+Chancellor Gary S. May
+Email: chancellor@ucdavis.edu
+"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(email='desc@example.com', password='testpass123')
+        self.incident = Incident.objects.create(
+            user=self.user, video_url='https://youtu.be/abc', video_description=self.DESCRIPTION,
+        )
+
+    def test_verify_agency_contacts_keeps_only_emails_present_in_text(self):
+        regex_hits = video_intake.regex_extract_contacts(self.DESCRIPTION)
+        verified_emails = {e.lower() for e in regex_hits['emails']}
+        raw = [
+            {
+                'agency': 'U.C. Davis Police Department',
+                'contacts': [
+                    {'name': 'Joseph A. Farrow', 'title': 'Chief of Police', 'email': 'jafarrow@ucdavis.edu'},
+                    {'name': 'Someone Made Up', 'title': 'Director', 'email': 'invented@ucdavis.edu'},
+                ],
+            },
+        ]
+        verified = video_intake.verify_agency_contacts(raw, verified_emails)
+        emails = {c['email'] for c in verified['U.C. Davis Police Department']}
+        self.assertEqual(emails, {'jafarrow@ucdavis.edu'})
+
+    def test_verify_agency_contacts_drops_entries_with_no_email(self):
+        verified = video_intake.verify_agency_contacts(
+            [{'agency': 'Some Dept', 'contacts': [{'name': 'X', 'title': 'Y', 'email': ''}]}],
+            verified_emails=set(),
+        )
+        self.assertEqual(verified, {})
+
+    @patch('citizen_complaint.services.video_intake.fetch_metadata')
+    @patch('citizen_complaint.services.video_intake.fetch_transcript')
+    @patch('citizen_complaint.services.video_intake._call_openai')
+    def test_run_intake_creates_pre_checked_row_per_named_contact(self, mock_openai, mock_transcript, mock_metadata):
+        mock_metadata.return_value = (
+            {'title': 'UC Davis stop', 'description': self.DESCRIPTION, 'channel_name': 'Auditor'}, None,
+        )
+        mock_transcript.return_value = ('', None)
+        mock_openai.return_value = (json.dumps({
+            'agencies': ['U.C. Davis Police Department', 'U.C. Davis Administration'],
+            'location': 'Davis, CA',
+            'incident_date': '',
+            'contacts': [],
+            'summary': 'Filmed at UC Davis.',
+            'agency_contacts': [
+                {
+                    'agency': 'U.C. Davis Police Department',
+                    'address': '625 Kleiber Hall Dr, Davis, CA 95616',
+                    'phone': '(530) 754-2677',
+                    'contacts': [
+                        {'name': 'Joseph A. Farrow', 'title': 'Chief of Police', 'email': 'jafarrow@ucdavis.edu'},
+                        {'name': 'Mark Brunet', 'title': 'Captain', 'email': 'mbrunet@ucdavis.edu'},
+                    ],
+                },
+                {
+                    'agency': 'U.C. Davis Administration',
+                    'address': '376 Mrak Hall Dr, Davis, CA 95616',
+                    'phone': '(530) 752-6661',
+                    'contacts': [
+                        {'name': 'Gary S. May', 'title': 'Chancellor', 'email': 'chancellor@ucdavis.edu'},
+                    ],
+                },
+            ],
+        }), None)
+
+        success, _ = video_intake.run_intake(self.incident)
+        self.assertTrue(success)
+
+        rows = list(self.incident.target_agencies.all())
+        self.assertEqual(len(rows), 3)
+        for row in rows:
+            self.assertEqual(row.source, 'description')
+            self.assertTrue(row.confirmed, f'{row.contact_name} should be pre-checked as the main selection')
+        self.assertEqual(
+            {(r.name, r.contact_name, r.contact_title, r.email) for r in rows},
+            {
+                ('U.C. Davis Police Department', 'Joseph A. Farrow', 'Chief of Police', 'jafarrow@ucdavis.edu'),
+                ('U.C. Davis Police Department', 'Mark Brunet', 'Captain', 'mbrunet@ucdavis.edu'),
+                ('U.C. Davis Administration', 'Gary S. May', 'Chancellor', 'chancellor@ucdavis.edu'),
+            },
+        )
+
+    @patch('citizen_complaint.services.video_intake.fetch_metadata')
+    @patch('citizen_complaint.services.video_intake.fetch_transcript')
+    @patch('citizen_complaint.services.video_intake._call_openai')
+    def test_curated_db_still_wins_general_line_alongside_named_contacts(self, mock_openai, mock_transcript, mock_metadata):
+        Agency.objects.create(
+            name='U.C. Davis Police Department', jurisdiction='Davis, CA',
+            complaint_email='admin-vetted@example.gov', is_active=True,
+        )
+        mock_metadata.return_value = (
+            {'title': 'UC Davis stop', 'description': self.DESCRIPTION, 'channel_name': 'Auditor'}, None,
+        )
+        mock_transcript.return_value = ('', None)
+        mock_openai.return_value = (json.dumps({
+            'agencies': ['U.C. Davis Police Department'],
+            'location': 'Davis, CA',
+            'incident_date': '',
+            'contacts': [],
+            'summary': 'Filmed at UC Davis.',
+            'agency_contacts': [
+                {
+                    'agency': 'U.C. Davis Police Department',
+                    'address': '', 'phone': '',
+                    'contacts': [
+                        {'name': 'Joseph A. Farrow', 'title': 'Chief of Police', 'email': 'jafarrow@ucdavis.edu'},
+                    ],
+                },
+            ],
+        }), None)
+
+        video_intake.run_intake(self.incident)
+
+        rows = list(self.incident.target_agencies.all())
+        sources = {r.source for r in rows}
+        self.assertEqual(sources, {'description', 'db_match'})
+        db_row = next(r for r in rows if r.source == 'db_match')
+        self.assertEqual(db_row.email, 'admin-vetted@example.gov')
+        self.assertEqual(db_row.contact_name, '')

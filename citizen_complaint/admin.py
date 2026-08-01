@@ -6,7 +6,7 @@ from .models import Incident, Agency, TargetAgency, Complaint
 class TargetAgencyInline(admin.TabularInline):
     model = TargetAgency
     extra = 0
-    fields = ['name', 'email', 'role_description', 'source', 'confirmed']
+    fields = ['name', 'contact_name', 'contact_title', 'email', 'role_description', 'source', 'confirmed']
 
 
 class ComplaintInline(admin.TabularInline):
@@ -34,9 +34,9 @@ class AgencyAdmin(admin.ModelAdmin):
 
 @admin.register(TargetAgency)
 class TargetAgencyAdmin(admin.ModelAdmin):
-    list_display = ['name', 'email', 'incident', 'source', 'confirmed']
+    list_display = ['name', 'contact_name', 'email', 'incident', 'source', 'confirmed']
     list_filter = ['source', 'confirmed']
-    search_fields = ['name', 'email', 'incident__slug']
+    search_fields = ['name', 'contact_name', 'email', 'incident__slug']
 
 
 @admin.register(Complaint)

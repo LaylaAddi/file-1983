@@ -14,7 +14,9 @@
                 <p class="text-muted mb-0">
                     Check the box next to every agency you want emailed, and confirm or correct their
                     email address. An address is never sent to unless you check it here — nothing is
-                    sent automatically.
+                    sent automatically. Contacts <span class="badge bg-info text-dark">found in the video
+                    description</span> are pre-checked since they came straight from the source — review
+                    them like everything else before continuing.
                 </p>
                 {% if incident.video_title %}
                 <p class="small text-muted mt-2 mb-0">
@@ -48,8 +50,15 @@
                                 <input type="checkbox" class="form-check-input" name="confirmed_{{ ta.id }}" id="confirmed_{{ ta.id }}" {% if ta.confirmed %}checked{% endif %}>
                             </div>
                             <div class="flex-grow-1">
-                                <label for="confirmed_{{ ta.id }}" class="fw-semibold d-block mb-1">{{ ta.name }}</label>
-                                {% if ta.is_unverified %}
+                                <label for="confirmed_{{ ta.id }}" class="fw-semibold d-block mb-1">
+                                    {{ ta.name }}
+                                    {% if ta.contact_name %}
+                                    <span class="fw-normal text-muted">— {{ ta.contact_name }}{% if ta.contact_title %}, {{ ta.contact_title }}{% endif %}</span>
+                                    {% endif %}
+                                </label>
+                                {% if ta.source == 'description' %}
+                                <span class="badge bg-info text-dark mb-2"><i class="bi bi-camera-reels me-1"></i>Found in video description</span>
+                                {% elif ta.is_unverified %}
                                 <span class="badge bg-warning text-dark mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Unverified — double-check before sending</span>
                                 {% else %}
                                 <span class="badge bg-success mb-2"><i class="bi bi-check-lg me-1"></i>From curated agency directory</span>

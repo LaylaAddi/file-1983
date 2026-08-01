@@ -78,7 +78,10 @@ class Incident(models.Model):
         help_text=(
             'AI-extracted structured data. Shape: {"agencies": [str], '
             '"location": str, "incident_date": str, "contacts": [str], '
-            '"summary": str}.'
+            '"summary": str, "agency_contacts": {agency_name: [{"name", "title", '
+            '"email"}, ...]}, "regex": {...}}. agency_contacts is only populated '
+            'for named officials whose email was regex-verified against the raw '
+            'description/transcript text.'
         ),
     )
     extraction_error = models.TextField(blank=True)
@@ -182,6 +185,7 @@ class TargetAgency(models.Model):
     SOURCE_CHOICES = [
         ('detected', 'Detected from video'),
         ('db_match', 'Matched curated Agency DB'),
+        ('description', 'Found in video description'),
         ('ai_lookup', 'AI-assisted web lookup'),
         ('manual', 'Manually added by user'),
     ]
@@ -189,6 +193,15 @@ class TargetAgency(models.Model):
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE, related_name='target_agencies')
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True)
+    contact_name = models.CharField(
+        max_length=255, blank=True,
+        help_text='Named official this row targets (e.g. "Joseph A. Farrow"), when the video '
+                  'description named a specific person rather than a general agency line.',
+    )
+    contact_title = models.CharField(
+        max_length=255, blank=True,
+        help_text='Title of contact_name (e.g. "Chief of Police"), as written in the source.',
+    )
     role_description = models.CharField(
         max_length=255, blank=True,
         help_text='How this agency relates to the incident, e.g. "Venue — policy violation" '
@@ -208,10 +221,18 @@ class TargetAgency(models.Model):
         verbose_name_plural = 'Target agencies'
 
     def __str__(self):
-        return f'{self.name} <{self.email or "no email"}> — {self.incident.slug}'
+        who = f'{self.name} ({self.contact_name})' if self.contact_name else self.name
+        return f'{who} <{self.email or "no email"}> — {self.incident.slug}'
 
     def is_unverified(self):
         return self.source in ('detected', 'ai_lookup')
+
+    def display_label(self):
+        """Agency name plus, when present, the specific named official this row targets."""
+        if self.contact_name:
+            title = f', {self.contact_title}' if self.contact_title else ''
+            return f'{self.contact_name}{title} — {self.name}'
+        return self.name
 
 
 class Complaint(models.Model):

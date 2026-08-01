@@ -45,6 +45,13 @@ and ending with the citizen's chosen sign-off."""
 def _build_user_message(incident, target_agency):
     lines = [
         f'Agency being contacted: {target_agency.name}',
+    ]
+    if target_agency.contact_name:
+        who = target_agency.contact_name
+        if target_agency.contact_title:
+            who += f', {target_agency.contact_title}'
+        lines.append(f'Addressed to a specific named official: {who} — greet them by name/title, not generically.')
+    lines += [
         f'Agency\'s role in this incident: {target_agency.role_description or "Not specified — use best judgment from the summary."}',
         f'Video link: {incident.video_url}',
         f'Video title: {incident.video_title}',

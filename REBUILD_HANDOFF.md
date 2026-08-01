@@ -40,6 +40,13 @@ each section → final review → AI drafts factual allegations → user reviews
 - Sent emails show a friendly From name: `"<name> via AuditFile 1983"` instead of generic support-style branding
 - Still open: the `Agency` curated directory ships empty (seed real agencies in admin); the Supadata transcript integration was written without live access to their docs (verify request/response shape if transcripts seem off)
 
+**NEW (this session, branch `claude/rebuild-handoff-review-6nch30`): description-sourced agency contacts, pre-checked as the main selection.** Many auditors list exactly who to complain to right in the video description (agency block → named officials → direct emails, e.g. UC Davis PD's Chief/Captain/Chief of Staff each with an `@ucdavis.edu` email). That structure used to be thrown away — only stored in a flat regex JSON blob for admin visibility, never linked to a specific agency. Now:
+- The existing GPT extraction call (no new API cost) also returns `agency_contacts`: per-agency blocks of named officials + emails, when the description/transcript explicitly contains them. Every proposed email is cross-checked against the deterministic regex pass over the same raw text — an email GPT proposes that isn't literally present in the text is dropped, never trusted (`video_intake.verify_agency_contacts`).
+- Each verified named official becomes its **own** reviewable `TargetAgency` row (new `contact_name` / `contact_title` fields, migration `citizen_complaint/0003_targetagency_contact_fields`) — not one row per department — so the user can select some, all, or none of the people found. New source `'description'`, and these rows are **pre-checked** (`confirmed=True`) by default since they came straight from the source, unlike every other source which still requires an explicit check. Agencies-review page shows a distinct blue "Found in video description" badge (not the amber "Unverified" one) and the person's name/title under the agency name.
+- **Curated Agency DB still wins** for the department's general complaint line: when a description-sourced named contact exists for an agency, the admin-vetted DB match (if any) is added as an *additional* row alongside the named contacts — but the AI/SerpApi web-lookup fallback is skipped entirely in that case (no quota spent guessing when we already have a real answer). New `agency_lookup.match_curated_agency()` exposes the DB-only lookup with zero network cost for this path.
+- `complaint_drafter.py` now greets the named official by name/title in the drafted email when a row targets one, instead of a generic agency greeting.
+- 4 new tests (`DescriptionContactExtractionTest`) using the actual UC Davis-style description block as the fixture, covering: regex-verification drops hallucinated emails, one row per named contact gets created and pre-checked, and curated-DB-wins-alongside-named-contacts.
+
 **Next planned feature (not started): assist users in filing public records requests** (e.g. FOIA / state open-records-act requests) — likely a natural extension of `citizen_complaint` given the shared themes (identify the right agency, draft a formal request, track status), but needs its own scoping pass (a records request has a different legal shape than a complaint — specific statutory citations per state, response-deadline tracking, appeal process on denial). Start a fresh session for this; point it at this handoff doc first.
 
 **Latest commits this session (most recent on top), on branch `claude/gracious-ritchie-ckyr9t` (merged into `master`):**
@@ -205,8 +212,10 @@ for the optional PDF export.
 
 **Models** (`citizen_complaint/models.py`): `Incident` (video + extraction + privacy/tone
 fields + `api_calls_used`, one row per wizard run) → `TargetAgency` (FK Incident; name,
-email, `source` detected/db_match/ai_lookup/manual, `confirmed`) → `Complaint` (OneToOne per
-TargetAgency; body, status, `viewed_at`, `sent_at`, `recipient_email_snapshot`). Plus a
+`contact_name`/`contact_title` for a named official when the row targets one, email,
+`source` detected/db_match/description/ai_lookup/manual, `confirmed`) → `Complaint`
+(OneToOne per TargetAgency; body, status, `viewed_at`, `sent_at`,
+`recipient_email_snapshot`). Plus a
 standalone curated `Agency` directory (admin-managed, checked before any AI lookup — same
 trust model as `documents.CaseLaw`). **`Agency` ships empty — seed real agencies via admin
 before relying on the curated-match path in production.**

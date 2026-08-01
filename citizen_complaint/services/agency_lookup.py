@@ -2,8 +2,12 @@
 Step 2 — Agency identification.
 
 resolve_agency_email(name, location) is called once per agency detected in
-Step 1 (and again if the user manually types a name with no email on the
-agencies-review page). Order of trust, cheapest/most-reliable first:
+Step 1 that has no named contacts pulled straight from the video description
+(see video_intake.verify_agency_contacts — a regex-verified email for a
+named official beats a web-search guess, so this function is skipped
+entirely for those). Also called again if the user manually types a name
+with no email on the agencies-review page. Order of trust, cheapest/most-
+reliable first:
 
   1. Curated Agency DB (admin-managed — same trust model as documents.CaseLaw)
   2. SerpApi (Google-engine web search) + an AI pass over the snippets to
@@ -12,6 +16,11 @@ agencies-review page). Order of trust, cheapest/most-reliable first:
      Search API was fully retired in Aug 2025 — SerpApi is the option that's
      actually available for this.)
   3. Give up — return blank, user must type the email themselves
+
+match_curated_agency(name, location) exposes step 1 alone, with no network
+cost — used when a description-sourced named contact already exists for the
+agency and we only want the curated DB's general line (if any) alongside it,
+without spending quota on a web-search guess.
 
 Every proposed address is marked non-`db_match`, and the UI (agencies-review
 page) never lets an unconfirmed address auto-send — the user always sees and
@@ -100,6 +109,13 @@ def _ai_pick_email(agency_name: str, search_results: list) -> tuple[str, str | N
     except Exception as exc:
         logger.exception('AI email-pick call failed')
         return '', str(exc)
+
+
+def match_curated_agency(name: str, location: str = '') -> str:
+    """DB-only lookup, no quota/network cost. Returns the complaint email if the
+    curated Agency directory has a match, else ''."""
+    match = _match_curated_db(name, location)
+    return match.complaint_email if match else ''
 
 
 def resolve_agency_email(name: str, location: str = '', incident=None) -> tuple[str, str]:

@@ -194,9 +194,20 @@ An incident can involve multiple agencies.
 - contacts: any names, emails, phone numbers, or agency contacts mentioned in the story.
 - summary: 2-4 sentence neutral, factual summary of what happened, from the citizen's \
 perspective, with no legal conclusions.
+- agency_contacts: many auditors list exactly who to complain to right in the video \
+description — a block naming an agency followed by named officials and their direct \
+emails (e.g. "Joseph A. Farrow- Chief of Police / Email: jafarrow@ucdavis.edu"). When the \
+description or transcript contains such an explicit block, return one entry per agency: \
+{"agency": "<agency name, matching an entry in agencies>", "address": "<street address if \
+given, else empty string>", "phone": "<general phone if given, else empty string>", \
+"contacts": [{"name": "...", "title": "...", "email": "..."}, ...]}. Only include a \
+contact if their email is EXPLICITLY written in the text — copy it exactly, character for \
+character. Never invent, guess, or complete a partial email address. If no such explicit \
+block exists anywhere in the text, return an empty list for agency_contacts.
 
 Return ONLY a JSON object with exactly these keys: agencies (list of strings), \
-location (string), incident_date (string), contacts (list of strings), summary (string)."""
+location (string), incident_date (string), contacts (list of strings), summary (string), \
+agency_contacts (list of objects as described above)."""
 
 
 def _call_openai(user_message: str) -> tuple[str | None, str | None]:
@@ -219,6 +230,37 @@ def _call_openai(user_message: str) -> tuple[str | None, str | None]:
     except Exception as exc:
         logger.exception('OpenAI extraction call failed')
         return None, str(exc)
+
+
+def verify_agency_contacts(raw_agency_contacts: list, verified_emails: set[str]) -> dict[str, list[dict]]:
+    """
+    Cross-checks each AI-proposed (agency, name, title, email) against the
+    deterministic regex pass over the same text. An email that isn't
+    literally present in the description/transcript is dropped rather than
+    trusted — this is what lets 'description' source be pre-checked by
+    default instead of treated as an unverified guess.
+
+    Returns {agency_name: [{'name', 'title', 'email'}, ...]}, agency names
+    as originally written by the AI (matched case-insensitively by callers).
+    """
+    verified: dict[str, list[dict]] = {}
+    for entry in raw_agency_contacts or []:
+        agency_name = (entry.get('agency') or '').strip()
+        if not agency_name:
+            continue
+        good_contacts = []
+        for contact in entry.get('contacts') or []:
+            email = (contact.get('email') or '').strip()
+            if not email or email.lower() not in verified_emails:
+                continue
+            good_contacts.append({
+                'name': (contact.get('name') or '').strip(),
+                'title': (contact.get('title') or '').strip(),
+                'email': email,
+            })
+        if good_contacts:
+            verified.setdefault(agency_name, []).extend(good_contacts)
+    return verified
 
 
 def ai_extract(incident) -> tuple[dict | None, str | None]:
@@ -278,12 +320,18 @@ def run_intake(incident) -> tuple[bool, str]:
             f'AI extraction failed: {ai_error}'
         ai_data = {}
 
+    verified_emails = {e.lower() for e in regex_hits['emails']}
+    agency_contacts = verify_agency_contacts(
+        ai_data.get('agency_contacts', []) if ai_data else [], verified_emails,
+    )
+
     extracted = {
         'agencies': ai_data.get('agencies', []) if ai_data else [],
         'location': ai_data.get('location', '') if ai_data else '',
         'incident_date': ai_data.get('incident_date', '') if ai_data else '',
         'contacts': ai_data.get('contacts', []) if ai_data else [],
         'summary': ai_data.get('summary', '') if ai_data else '',
+        'agency_contacts': agency_contacts,
         'regex': regex_hits,
     }
     incident.extracted_data = extracted
@@ -291,23 +339,73 @@ def run_intake(incident) -> tuple[bool, str]:
     incident.current_step = 1
     incident.save()
 
-    _create_detected_agencies(incident, extracted['agencies'])
+    _create_detected_agencies(incident, extracted['agencies'], agency_contacts)
 
     if not metadata and not ai_data:
         return False, 'Could not extract anything useful from this video. You can still add agencies manually.'
     return True, 'Video processed.'
 
 
-def _create_detected_agencies(incident, agency_names):
-    from citizen_complaint.services.agency_lookup import resolve_agency_email
+def _matching_contacts(agency_name: str, agency_contacts: dict[str, list[dict]]) -> list[dict]:
+    """Case-insensitive, substring-tolerant match — the AI doesn't always echo the
+    agency name identically between the `agencies` list and `agency_contacts`."""
+    name_lower = agency_name.lower()
+    for key, contacts in agency_contacts.items():
+        key_lower = key.lower()
+        if key_lower == name_lower or key_lower in name_lower or name_lower in key_lower:
+            return contacts
+    return []
 
-    existing = set(incident.target_agencies.values_list('name', flat=True))
-    for i, name in enumerate(agency_names):
+
+def _create_detected_agencies(incident, agency_names, agency_contacts=None):
+    from citizen_complaint.services.agency_lookup import match_curated_agency, resolve_agency_email
+
+    agency_contacts = agency_contacts or {}
+    existing_rows = set(
+        incident.target_agencies.values_list('name', 'contact_name')
+    )
+    existing_general = {name for name, contact_name in existing_rows if not contact_name}
+    order = incident.target_agencies.count()
+
+    for name in agency_names:
         name = (name or '').strip()
-        if not name or name in existing:
+        if not name:
             continue
-        email, source = resolve_agency_email(name, incident.extracted_data.get('location', ''), incident=incident)
+        name = name[:255]
+
+        contacts = _matching_contacts(name, agency_contacts)
+        for contact in contacts:
+            key = (name, contact['name'][:255])
+            if key in existing_rows:
+                continue
+            existing_rows.add(key)
+            TargetAgency.objects.create(
+                incident=incident, name=name, email=contact['email'],
+                contact_name=contact['name'][:255], contact_title=contact['title'][:255],
+                source='description', confirmed=True, order=order,
+            )
+            order += 1
+
+        if name in existing_general:
+            continue
+
+        location = incident.extracted_data.get('location', '')
+        if contacts:
+            # Named contacts straight from the description are already a solid
+            # answer for this agency — only add a second row for the curated
+            # DB's general complaint line (admin-vetted, so it still wins over
+            # the description if both exist), and skip spending quota on the
+            # AI/SerpApi web-lookup fallback since we already have a real answer.
+            email = match_curated_agency(name, location)
+            if not email:
+                continue
+            source = 'db_match'
+        else:
+            email, source = resolve_agency_email(name, location, incident=incident)
+
+        existing_general.add(name)
         TargetAgency.objects.create(
-            incident=incident, name=name[:255], email=email,
-            source=source, order=i,
+            incident=incident, name=name, email=email,
+            source=source, order=order,
         )
+        order += 1
