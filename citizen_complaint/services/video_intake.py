@@ -82,6 +82,26 @@ def regex_extract_contacts(text: str) -> dict:
 # Metadata fetch
 # ---------------------------------------------------------------------------
 
+def _http_error_detail(exc: requests.RequestException) -> str:
+    """requests.HTTPError's default message is just the generic status line
+    ('403 Client Error: Forbidden for url: ...') — it never includes the
+    response body, which is where Google/oEmbed's actual reason lives (e.g.
+    'API key not valid', 'quotaExceeded', 'accessNotConfigured'). Surfacing
+    the body is the difference between a real diagnosis and a bare status
+    code."""
+    response = getattr(exc, 'response', None)
+    if response is None:
+        return str(exc)
+    detail = ''
+    try:
+        detail = response.json().get('error', {}).get('message', '')
+    except ValueError:
+        pass
+    if not detail:
+        detail = (response.text or '').strip()[:300]
+    return f'{exc} — {detail}' if detail else str(exc)
+
+
 def fetch_youtube_metadata(video_id: str) -> tuple[dict | None, str | None]:
     api_key = getattr(settings, 'YOUTUBE_API_KEY', '')
     if not api_key or not video_id:
@@ -106,7 +126,7 @@ def fetch_youtube_metadata(video_id: str) -> tuple[dict | None, str | None]:
         }, None
     except requests.RequestException as exc:
         logger.exception('YouTube Data API call failed')
-        return None, str(exc)
+        return None, _http_error_detail(exc)
 
 
 def fetch_oembed_metadata(url: str, platform: str) -> tuple[dict | None, str | None]:
@@ -131,7 +151,7 @@ def fetch_oembed_metadata(url: str, platform: str) -> tuple[dict | None, str | N
         }, None
     except requests.RequestException as exc:
         logger.exception('oEmbed call failed')
-        return None, str(exc)
+        return None, _http_error_detail(exc)
 
 
 def fetch_metadata(video_url: str, platform: str) -> tuple[dict | None, str | None]:

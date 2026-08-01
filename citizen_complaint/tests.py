@@ -10,6 +10,7 @@ Run:
 import json
 from unittest.mock import patch
 
+import requests
 from django.conf import settings as dj_settings
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -436,6 +437,39 @@ class MetadataFetchTest(TestCase):
 
         self.assertIsNone(error)
         self.assertEqual(metadata['title'], 'A video')
+
+    def test_http_error_detail_surfaces_json_body_message(self):
+        """A bare 'requests.HTTPError' str() is just the generic status line
+        ('403 Client Error: Forbidden for url: ...') -- it drops Google's
+        actual reason, which lives in the JSON error body. This is the exact
+        gap that left a production 403 undiagnosable until this fix."""
+        response = type('Response', (), {
+            'json': lambda self: {'error': {'message': 'API key not valid. Please pass a valid API key.'}},
+            'text': '{"error": {"message": "API key not valid. Please pass a valid API key."}}',
+        })()
+        exc = requests.HTTPError('403 Client Error: Forbidden for url: https://www.googleapis.com/youtube/v3/videos')
+        exc.response = response
+
+        detail = video_intake._http_error_detail(exc)
+
+        self.assertIn('403 Client Error', detail)
+        self.assertIn('API key not valid', detail)
+
+    def test_http_error_detail_falls_back_to_raw_text_on_non_json_body(self):
+        response = type('Response', (), {
+            'json': lambda self: (_ for _ in ()).throw(ValueError('not json')),
+            'text': 'Forbidden',
+        })()
+        exc = requests.HTTPError('403 Client Error: Forbidden for url: https://example.com')
+        exc.response = response
+
+        detail = video_intake._http_error_detail(exc)
+
+        self.assertIn('Forbidden', detail)
+
+    def test_http_error_detail_falls_back_to_str_when_no_response(self):
+        exc = requests.ConnectionError('DNS lookup failed')
+        self.assertEqual(video_intake._http_error_detail(exc), str(exc))
 
 
 class DescriptionContactExtractionTest(TestCase):
