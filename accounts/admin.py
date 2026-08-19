@@ -193,7 +193,20 @@ class SiteSettingsAdmin(admin.ModelAdmin):
             ),
         }),
         ('Pricing', {'fields': ('price_single', 'price_3pack', 'price_monthly', 'price_annual')}),
-        ('Feature Flags', {'fields': ('registration_open', 'stripe_live_mode', 'maintenance_mode', 'maintenance_message')}),
+        ('Feature Flags', {
+            'description': (
+                'On/off switches for whole features. Turning one off hides it from '
+                'users without deleting any data — flip it back on to restore the '
+                'feature exactly as it was.'
+            ),
+            'fields': (
+                'citizen_complaint_enabled',
+                'registration_open',
+                'stripe_live_mode',
+                'maintenance_mode',
+                'maintenance_message',
+            ),
+        }),
     )
 
     def has_add_permission(self, request):

@@ -117,11 +117,14 @@
                             <i class="bi bi-house-door me-1"></i>Home
                         </a>
                     </li>
+                    {% if citizen_complaint_enabled or user.is_staff %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'citizen_complaint:landing' %}">
                             <i class="bi bi-camera-reels me-1"></i>Citizen Complaint Assistant
+                            {% if not citizen_complaint_enabled %}<span class="badge bg-warning text-dark ms-1" title="Hidden from users — Site Settings">off</span>{% endif %}
                         </a>
                     </li>
+                    {% endif %}
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'documents:list' %}">
@@ -133,11 +136,13 @@
                             <i class="bi bi-plus-circle me-1"></i>New Case
                         </a>
                     </li>
+                    {% if citizen_complaint_enabled or user.is_staff %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'citizen_complaint:list' %}">
                             <i class="bi bi-list-ul me-1"></i>My Complaints
                         </a>
                     </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav align-items-center">

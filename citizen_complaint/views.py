@@ -1,7 +1,9 @@
+import functools
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -11,6 +13,42 @@ from .models import Incident, TargetAgency, Complaint
 from .services import api_quota, rate_limit, video_intake, complaint_drafter, email_service, moderation
 
 
+def feature_enabled(view_func):
+    """
+    Gates every view in this app behind SiteSettings.citizen_complaint_enabled.
+
+    Hiding the nav links isn't enough on its own — a bookmarked or shared
+    /citizen-complaint/ URL has to stop working too, or the feature is only
+    cosmetically off. Raises 404 so a switched-off feature looks like it
+    simply isn't there; note this project sets `handler404 =
+    redirect_to_home` in config/urls.py, so what the visitor actually sees
+    is a redirect to the homepage, same as any other unknown URL here.
+
+    Staff are exempt: the point of the switch is to park the feature for
+    users while it's being fixed, not to lock the developer out of testing
+    it. Applied OUTSIDE @login_required so an anonymous visitor gets the
+    same 404 as everyone else instead of a login redirect that would hint
+    the URL is real.
+    """
+    @functools.wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        from accounts.models import SiteSettings
+
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated and user.is_staff:
+            return view_func(request, *args, **kwargs)
+        try:
+            enabled = SiteSettings.get_solo().citizen_complaint_enabled
+        except Exception:
+            enabled = False  # fail closed
+        if not enabled:
+            raise Http404('Citizen Complaint Assistant is not currently available.')
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+@feature_enabled
 def landing(request):
     """Public landing page. Anonymous visitors see a description of the
     feature + a CTA to register. Logged-in users get a link to their
@@ -18,6 +56,7 @@ def landing(request):
     return render(request, 'citizen_complaint/landing.html')
 
 
+@feature_enabled
 @login_required
 def incident_list(request):
     """My Complaints — every incident this user has started, in progress or
@@ -31,6 +70,7 @@ def _owned_incident_or_404(request, incident_slug):
     return get_object_or_404(Incident, slug=incident_slug, user=request.user)
 
 
+@feature_enabled
 @login_required
 def incident_new(request):
     if request.method == 'POST':
@@ -61,6 +101,7 @@ def incident_new(request):
     return render(request, 'citizen_complaint/new.html')
 
 
+@feature_enabled
 @login_required
 def incident_agencies(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
@@ -104,6 +145,7 @@ def incident_agencies(request, incident_slug):
     })
 
 
+@feature_enabled
 @login_required
 def incident_about_you(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
@@ -129,6 +171,7 @@ def incident_about_you(request, incident_slug):
     })
 
 
+@feature_enabled
 @login_required
 def incident_drafts(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
@@ -193,6 +236,7 @@ def incident_drafts(request, incident_slug):
     })
 
 
+@feature_enabled
 @login_required
 def incident_send(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
@@ -262,6 +306,7 @@ def incident_send(request, incident_slug):
     })
 
 
+@feature_enabled
 @login_required
 def incident_sent(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
@@ -272,6 +317,7 @@ def incident_sent(request, incident_slug):
     })
 
 
+@feature_enabled
 @login_required
 def incident_pdf(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)

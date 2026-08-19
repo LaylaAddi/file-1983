@@ -251,6 +251,18 @@ class SiteSettings(models.Model):
     # Feature flags
     registration_open = models.BooleanField(default=True)
     stripe_live_mode = models.BooleanField(default=False)
+    citizen_complaint_enabled = models.BooleanField(
+        default=True,
+        verbose_name='Citizen Complaint Assistant enabled',
+        help_text=(
+            'Uncheck to hide the Citizen Complaint Assistant from users: its nav '
+            'links disappear and every /citizen-complaint/ URL returns 404. Nothing '
+            'is deleted — existing incidents, drafts and sent complaints stay in the '
+            'database untouched, and re-checking this restores the feature exactly '
+            'as it was. Staff accounts can still reach the feature while it is off, '
+            'so you can test before re-enabling it for everyone.'
+        ),
+    )
     maintenance_mode = models.BooleanField(default=False)
     maintenance_message = models.TextField(blank=True)
 

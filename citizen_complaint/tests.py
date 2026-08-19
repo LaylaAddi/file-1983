@@ -18,6 +18,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import SiteSettings
+
 from .models import Incident, TargetAgency, Complaint, Agency
 from .services import api_quota, rate_limit, moderation, video_intake
 
@@ -70,9 +72,20 @@ def _fake_run_intake(incident):
     return True, 'Video processed.'
 
 
+def _enable_citizen_complaint():
+    """The feature ships switched OFF on this deployment (migration
+    accounts/0008 parks it while its YouTube quota problem is sorted out), and
+    that migration runs against the test database too. Tests that exercise the
+    feature have to turn it on explicitly."""
+    site_settings = SiteSettings.get_solo()
+    site_settings.citizen_complaint_enabled = True
+    site_settings.save()
+
+
 @override_settings(**_TEST_OVERRIDES)
 class CitizenComplaintEndToEndTest(TestCase):
     def setUp(self):
+        _enable_citizen_complaint()
         self.user = _make_verified_user(
             email='citizen@example.com', password='testpass123',
             first_name='Alex', last_name='Doe',
@@ -405,6 +418,87 @@ class RateLimitTest(TestCase):
                 sent_at=timezone.now(), recipient_email_snapshot='same@example.gov',
             )
         self.assertFalse(rate_limit.can_send_to_agency('same@example.gov'))
+
+
+@override_settings(**_TEST_OVERRIDES)
+class FeatureSwitchTest(TestCase):
+    """SiteSettings.citizen_complaint_enabled parks the whole feature without
+    deleting anything. Hiding nav links alone would leave every bookmarked
+    /citizen-complaint/ URL working, so the views have to 404 too."""
+
+    def setUp(self):
+        self.user = _make_verified_user(email='switch@example.com', password='testpass123')
+        self.staff = _make_verified_user(
+            email='staff@example.com', password='testpass123', is_staff=True,
+        )
+
+    def _disable(self):
+        site_settings = SiteSettings.get_solo()
+        site_settings.citizen_complaint_enabled = False
+        site_settings.save()
+
+    def test_migration_ships_the_feature_switched_off(self):
+        """accounts/0008 parks the feature on the way in — a deployment of this
+        branch should hide it without anyone having to touch admin first."""
+        self.assertFalse(SiteSettings.get_solo().citizen_complaint_enabled)
+
+    def test_disabled_landing_sends_anonymous_visitors_home(self):
+        """The views raise Http404, but this project routes every 404 through
+        `handler404 = redirect_to_home` (config/urls.py), so what a visitor
+        actually gets is a redirect to the homepage — same as any other URL
+        that doesn't exist on this site."""
+        self._disable()
+        resp = self.client.get(reverse('citizen_complaint:landing'))
+        self.assertRedirects(resp, reverse('public_pages:home'))
+
+    def test_disabled_views_blocked_for_logged_in_users(self):
+        self._disable()
+        self.client.force_login(self.user)
+        for url_name in ('citizen_complaint:landing', 'citizen_complaint:list', 'citizen_complaint:new'):
+            with self.subTest(url_name=url_name):
+                self.assertRedirects(self.client.get(reverse(url_name)), reverse('public_pages:home'))
+
+    def test_disabled_incident_urls_blocked_even_for_their_owner(self):
+        """A user mid-wizard when the switch is thrown can't keep going via a
+        bookmarked step URL."""
+        self._disable()
+        incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/abc')
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('citizen_complaint:agencies', args=[incident.slug]))
+        self.assertRedirects(resp, reverse('public_pages:home'))
+
+    def test_staff_can_still_reach_the_feature_while_disabled(self):
+        self._disable()
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(reverse('citizen_complaint:landing')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('citizen_complaint:list')).status_code, 200)
+
+    def test_enabled_restores_access_for_everyone(self):
+        _enable_citizen_complaint()
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('citizen_complaint:landing')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('citizen_complaint:list')).status_code, 200)
+
+    def test_disabling_preserves_existing_data(self):
+        """The switch hides the feature; it must never destroy work in flight."""
+        incident = Incident.objects.create(user=self.user, video_url='https://youtu.be/abc')
+        agency = TargetAgency.objects.create(incident=incident, name='PD', email='pd@example.gov')
+        Complaint.objects.create(incident=incident, target_agency=agency, body='draft body')
+
+        self._disable()
+
+        self.assertEqual(Incident.objects.filter(pk=incident.pk).count(), 1)
+        self.assertEqual(Complaint.objects.filter(incident=incident).count(), 1)
+
+    def test_nav_links_hidden_when_disabled_and_shown_when_enabled(self):
+        self._disable()
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('documents:list'))
+        self.assertNotContains(resp, reverse('citizen_complaint:landing'))
+
+        _enable_citizen_complaint()
+        resp = self.client.get(reverse('documents:list'))
+        self.assertContains(resp, reverse('citizen_complaint:landing'))
 
 
 class MetadataFetchTest(TestCase):
