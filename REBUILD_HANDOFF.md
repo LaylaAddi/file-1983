@@ -127,10 +127,11 @@ Until that's fixed, the feature is hidden behind a new admin switch rather than 
 
 **Likely next features (user's open roadmap, prioritized):**
 1. **Public records requests (FOIA / state open-records-act) assistant** — next thing the user wants to build. Likely a natural sibling to `citizen_complaint` (same "identify the right agency" problem), but needs its own scoping session before writing code: a records request has a different legal shape than a complaint (specific statutory citation per state, a response-deadline the requester should be able to track, an appeal path on denial/non-response). Don't assume it's a copy-paste of the complaint wizard — review this with the user first.
-2. Landing page CMS — `public_pages.CivilRightsPage` and `PageSection` models already exist with the right shape; just need admin polish + a few seeded pages. Primary domain is auditfile1983.com so this is the homepage users see.
-3. Switch Stripe to **Live mode** when ready to take real payments — generate live keys, create a live webhook endpoint at `https://auditfile1983.com/stripe/webhook/`, swap `STRIPE_*` env vars on Render.
-4. Optional mobile polish: native Capacitor wrapper for App Store / Play Store distribution + real push notifications. Open question, not committed — see Roadmap → Open below for the trade-off summary. Capacitor is the lowest-friction path since the app is HTML/CSS/JS, but adds $25 Play + $99/yr Apple fees and ongoing native-build overhead.
-5. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties.
+2. **User audit trail** (requested by the user — see the full scoping section "User Audit Trail (requested, not started)" below before writing any code). Goal: if a user abuses the system and an agency complains, produce a printable per-user record of activity with timestamps, IP, and email. Notable: **nothing in the app captures IP or user agent today** (verified — no `REMOTE_ADDR` / `HTTP_X_FORWARDED_FOR` / `HTTP_USER_AGENT` usage anywhere), so that's the real gap; timestamps largely already exist.
+3. Landing page CMS — `public_pages.CivilRightsPage` and `PageSection` models already exist with the right shape; just need admin polish + a few seeded pages. Primary domain is auditfile1983.com so this is the homepage users see.
+4. Switch Stripe to **Live mode** when ready to take real payments — generate live keys, create a live webhook endpoint at `https://auditfile1983.com/stripe/webhook/`, swap `STRIPE_*` env vars on Render.
+5. Optional mobile polish: native Capacitor wrapper for App Store / Play Store distribution + real push notifications. Open question, not committed — see Roadmap → Open below for the trade-off summary. Capacitor is the lowest-friction path since the app is HTML/CSS/JS, but adds $25 Play + $99/yr Apple fees and ongoing native-build overhead.
+6. Optional polish: per-claim case-law selection UI, Playwright/Selenium browser tests, more admin niceties.
 
 ---
 
@@ -959,6 +960,47 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 - Verify `/documents/<slug>/wizard/draft/` runs the GPT call (check OpenAI dashboard for usage)
 - Verify a full wizard flow + PDF download against the live URL
 - Set up Render's free uptime monitoring on `/`
+
+---
+
+## User Audit Trail (requested, not started)
+
+**What the user asked for, verbatim in spirit:** "if a user was ever to abuse the system and there was a complaint, we want a way to print a user's activity with timestamps, IP, and email." This matters most because of `citizen_complaint` — that feature **sends real email to real government agencies on a user's behalf**, so "who sent what, when, and from where" is the record you'd need to hand an agency, a lawyer, or a platform provider. Scope this with the user before building; the notes below are the groundwork, not a decided design.
+
+### What already exists (don't rebuild it)
+Timestamps are in decent shape already — the gap is *identity-of-origin*, not *when*.
+- **`accounts.User`** — `date_joined`, `tos_accepted_at` + `tos_accepted_version`, `privacy_accepted_at` + `privacy_accepted_version`, `email_verified_at`, `tester_granted_at`. So consent/acceptance is already provable per user, with the version they accepted.
+- **`citizen_complaint.Complaint`** — `created_at`, `viewed_at`, `sent_at`, `recipient_email_snapshot`, plus the moderation record (`moderation_checked_at`, `moderation_flagged`, `moderation_categories`). This is already a partial send-side audit trail and the single most relevant table for an abuse complaint.
+- **`citizen_complaint.Incident`** — `created_at`, `updated_at`, `video_url`, `api_calls_used`.
+- **`documents.Document`** — `created_at`, `paid_at`, `locked_at`, `finalize_acknowledged_at`, `download_disclaimer_acknowledged_at`, `stripe_session_id`.
+- **`documents.PromoCodeUsage`** — `used_at`, `amount_cents`.
+- **`django-axes`** (already installed + configured, `config/settings.py` ~lines 94–97) creates its own `AccessAttempt` / `AccessLog` / `AccessFailureLog` tables which **do record IP address and user agent for login activity**. Verify exactly which of those your axes version populates before relying on it, but this likely covers the login half for free — a per-user report should read from it rather than duplicating it.
+
+### The actual gap (verified)
+`grep` across the codebase for `REMOTE_ADDR`, `HTTP_X_FORWARDED_FOR`, `get_client_ip`, and `HTTP_USER_AGENT` returns **zero hits outside django-axes**. So today you can prove *what* a user did and *when*, but not *from where* or *on what device* — for anything other than logging in. That's the piece to build.
+
+### Suggested shape — an append-only `AuditEvent` model
+One table, queryable/printable per user, rather than scattering `ip_address` columns across a dozen models:
+- `user` FK (`null=True`, `on_delete=SET_NULL`) **plus `user_email_snapshot`** — denormalized on purpose so the trail survives an account deletion or an email change. A trail that evaporates when the accused deletes their account is not a trail.
+- `event_type` (choices, indexed), `created_at` (`auto_now_add`, indexed)
+- `ip_address` (`GenericIPAddressField`), `user_agent` (truncated CharField), `session_key` (indexed — ties a burst of actions to one browser session)
+- Loose object reference as plain fields (`object_label`, `object_id`, `object_slug`) rather than a `GenericForeignKey`, so rows stay readable after the referenced object is deleted
+- `metadata` JSONField for event-specific detail (recipient agency + email, video URL, promo code, amount, etc.)
+- `Meta`: `ordering = ['-created_at']`, indexes on `(user, created_at)` and `(event_type, created_at)`
+
+**Log consequential events only, never page views** — Render's Starter Postgres shouldn't carry a hit-log. Candidates: register / login / logout / password reset / email verification / TOS acceptance (with version); incident created + intake run + draft generated + **complaint sent** (by far the most important) + PDF export; document created / analyzed / paid / finalized / PDF downloaded; partnership + payout requests; staff actions like tester grant/revoke and feature-flag flips.
+
+### Gotchas worth knowing before writing code
+1. **Getting the IP right on Render is the whole ballgame.** `request.META['REMOTE_ADDR']` is Render's load balancer, not the user — logging it would give you a useless trail that *looks* authoritative. You need `X-Forwarded-For`, but the naive `split(',')[0]` is client-spoofable, so a user could forge whatever IP they liked into your audit log. Settle on one `get_client_ip(request)` helper (or `django-ipware`), use it everywhere, and decide explicitly how many proxy hops to trust. The codebase already has proxy awareness precedent in `SECURE_PROXY_SSL_HEADER`.
+2. **`Complaint.body` is mutable after sending.** `recipient_email_snapshot` already freezes the *address* at send time, but nothing freezes the *body* — so if a user edits a draft after it's sent, the DB no longer shows what actually went out. In an abuse complaint that body **is** the evidence. Add a `sent_body_snapshot` (or capture it in the AuditEvent metadata) at send time. This is a real existing gap and probably the highest-value single item here, independent of the rest of the audit work.
+3. **Make it genuinely append-only.** `has_change_permission` / `has_delete_permission` → `False` on the admin, readonly fields throughout. A log staff can quietly edit is worth much less if it's ever challenged.
+4. **Update the legal copy *before* you start logging.** IP addresses and user agents are personal data. Terms + Privacy are DB-editable `LegalDocument` rows with a version field, and bumping the `PRIVACY_VERSION` env var forces every existing user to re-accept — that machinery already exists precisely for this. Disclose what's collected, why, and how long it's kept, then bump.
+5. **Pick a retention window** (e.g. 24 months) and write a `purge_audit_events` management command. The `fetch_news` Render Cron Job is the existing pattern to copy for scheduling it.
+
+### The "print it" deliverable the user actually asked for
+- A **`UserAdmin` bulk action → "Export audit trail (CSV)"**, mirroring the CSV export already on `PromoCode` / `PromoCodeUsage` admin — same proven pattern, minimal new code.
+- A **printable per-user PDF report** rendered through WeasyPrint (already wired for complaint PDFs): identity block (email, join date, accepted TOS/privacy versions, verification status), then a chronological table of events with UTC timestamp + IP + user agent. That's the artifact you'd hand to an agency or attorney.
+- An inline on the User admin page showing that user's most recent events, for quick day-to-day checks.
 
 ---
 
