@@ -1,4 +1,5 @@
 import functools
+import hashlib
 
 from django.conf import settings
 from django.contrib import messages
@@ -107,8 +108,16 @@ def incident_agencies(request, incident_slug):
     incident = _owned_incident_or_404(request, incident_slug)
 
     if request.method == 'POST':
+        blocked_removals = []
         for ta in incident.target_agencies.all():
             if request.POST.get(f'delete_{ta.id}'):
+                # Complaint is a OneToOne on CASCADE, so removing an agency
+                # we've already emailed would take the sent copy with it and
+                # leave no record that the send ever happened.
+                complaint = getattr(ta, 'complaint', None)
+                if complaint is not None and complaint.is_sent():
+                    blocked_removals.append(ta.name)
+                    continue
                 ta.delete()
                 continue
             ta.confirmed = bool(request.POST.get(f'confirmed_{ta.id}'))
@@ -124,6 +133,13 @@ def incident_agencies(request, incident_slug):
                 incident=incident, name=new_name, email=new_email,
                 role_description=new_role, source='manual', confirmed=bool(new_email),
                 order=incident.target_agencies.count(),
+            )
+
+        if blocked_removals:
+            messages.warning(
+                request,
+                'Kept {} — a complaint was already emailed to them, and removing the agency '
+                'would delete the record of what was sent.'.format(', '.join(blocked_removals)),
             )
 
         if request.POST.get('action') == 'continue':
@@ -182,10 +198,20 @@ def incident_drafts(request, incident_slug):
         return redirect('citizen_complaint:agencies', incident_slug=incident.slug)
 
     if request.method == 'POST':
+        blocked_sent = []
         for ta in confirmed_agencies:
             complaint = getattr(ta, 'complaint', None)
             if complaint is None:
                 continue
+
+            # Already sent → read-only. Letting the draft be edited or
+            # regenerated after the fact would leave the stored draft
+            # disagreeing with the copy that actually went to the agency.
+            if complaint.is_locked():
+                if f'body_{complaint.id}' in request.POST or request.POST.get(f'regenerate_{complaint.id}'):
+                    blocked_sent.append(ta.name)
+                continue
+
             field = f'body_{complaint.id}'
             if field in request.POST:
                 complaint.body = request.POST.get(field, '')
@@ -204,6 +230,14 @@ def incident_drafts(request, incident_slug):
                     messages.error(request, api_quota.upgrade_message(incident))
                 except api_quota.AICallTooSoon as exc:
                     messages.error(request, f'Please wait {exc.retry_after}s before regenerating another draft.')
+
+        if blocked_sent:
+            messages.warning(
+                request,
+                'Already sent to {} — those complaints are locked, so the copy on file '
+                'stays exactly what the agency received. Add a new agency if you need to '
+                'send something else.'.format(', '.join(blocked_sent)),
+            )
 
         if request.POST.get('action') == 'continue':
             incident.status = 'drafted'
@@ -281,12 +315,28 @@ def incident_send(request, incident_slug):
                     messages.error(request, f'The draft to {ta.name} was blocked — it appears to contain threatening or violent content. Edit it and try again.')
                 continue
 
-            ok, error = email_service.send_complaint(incident, ta, complaint)
+            ok, error, sent = email_service.send_complaint(incident, ta, complaint)
             if ok:
                 complaint.status = 'sent'
                 complaint.sent_at = timezone.now()
-                complaint.recipient_email_snapshot = ta.email
-                complaint.save(update_fields=['status', 'sent_at', 'recipient_email_snapshot', 'updated_at'])
+                complaint.recipient_email_snapshot = sent.get('to') or ta.email
+                # Archive the message exactly as the mailer sent it. Everything
+                # these headers derive from stays editable afterwards, so this
+                # is the only durable record of what the agency received.
+                complaint.sent_subject_snapshot = sent.get('subject', '')
+                complaint.sent_body_snapshot = sent.get('body', '')
+                complaint.sent_from_snapshot = sent.get('from_email', '')[:255]
+                complaint.sent_reply_to_snapshot = sent.get('reply_to', '')[:255]
+                complaint.sent_bcc_snapshot = sent.get('bcc', '')[:255]
+                complaint.sent_body_sha256 = hashlib.sha256(
+                    (sent.get('body') or '').encode('utf-8')
+                ).hexdigest()
+                complaint.save(update_fields=[
+                    'status', 'sent_at', 'recipient_email_snapshot',
+                    'sent_subject_snapshot', 'sent_body_snapshot', 'sent_from_snapshot',
+                    'sent_reply_to_snapshot', 'sent_bcc_snapshot', 'sent_body_sha256',
+                    'updated_at',
+                ])
                 sent_any = True
             else:
                 messages.error(request, f'Failed to send to {ta.name}: {error}')

@@ -33,21 +33,36 @@
                 <div class="card mb-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <strong>{{ complaint.target_agency.name }}</strong>
-                        <small class="text-muted">{{ complaint.target_agency.email }}</small>
+                        <small class="text-muted">
+                            {% if complaint.is_sent %}
+                            <span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i>Sent {{ complaint.sent_at|date:"M j, Y" }}</span>
+                            {% else %}{{ complaint.target_agency.email }}{% endif %}
+                        </small>
                     </div>
                     <div class="card-body">
-                        {% if complaint.body %}
+                        {% if complaint.is_sent %}
+                        <p class="small text-muted mb-2">
+                            This is the copy that went to
+                            <strong>{{ complaint.recipient_email_snapshot }}</strong>. It's kept
+                            exactly as sent and can't be edited — that's what makes it a reliable
+                            record of what the agency received.
+                        </p>
+                        <pre class="form-control mb-0 bg-body-secondary" style="white-space:pre-wrap;font-family:inherit;">{{ complaint.sent_body_snapshot|default:complaint.body }}</pre>
+                        {% elif complaint.body %}
                         <textarea name="body_{{ complaint.id }}" class="form-control mb-2" rows="10">{{ complaint.body }}</textarea>
+                        <button type="submit" name="regenerate_{{ complaint.id }}" value="1" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Regenerate this draft
+                        </button>
                         {% else %}
                         <div class="alert alert-warning mb-2">
                             Couldn't generate a draft for this agency (AI/API quota or configuration issue).
                             Write it yourself below.
                         </div>
                         <textarea name="body_{{ complaint.id }}" class="form-control mb-2" rows="10" placeholder="Write your complaint to {{ complaint.target_agency.name }} here"></textarea>
-                        {% endif %}
                         <button type="submit" name="regenerate_{{ complaint.id }}" value="1" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-arrow-clockwise me-1"></i>Regenerate this draft
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}

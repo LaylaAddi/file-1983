@@ -268,6 +268,45 @@ class Complaint(models.Model):
         default=list, blank=True,
         help_text='OpenAI moderation categories that were flagged, if any — for admin review.',
     )
+    # ---- Sent-message snapshot -------------------------------------------
+    # Everything below is written once, at the moment of a successful send,
+    # straight off the EmailMessage the mailer actually used — not
+    # reconstructed afterwards. `body` and every field the headers are
+    # derived from (TargetAgency.name/email, Incident.video_title,
+    # privacy_level, contact_email, the user's account email) all stay
+    # editable after sending, so without this there is no record of what the
+    # agency actually received. Never write to these outside send.
+    sent_subject_snapshot = models.TextField(
+        blank=True,
+        help_text='Subject line exactly as sent. Derived from agency name + video title, '
+                  'both of which stay editable afterwards.',
+    )
+    sent_body_snapshot = models.TextField(
+        blank=True,
+        help_text='The true copy: message body exactly as sent. `body` above remains the '
+                  'working draft and can differ if it was edited later.',
+    )
+    sent_from_snapshot = models.CharField(
+        max_length=255, blank=True,
+        help_text='From header as sent, including the display name — which depends on the '
+                  'privacy level chosen at the time, and can be changed afterwards.',
+    )
+    sent_reply_to_snapshot = models.CharField(
+        max_length=255, blank=True,
+        help_text='Reply-To as sent (blank when filed anonymously).',
+    )
+    sent_bcc_snapshot = models.CharField(
+        max_length=255, blank=True,
+        help_text="Bcc as sent — the sender's own account email at that time.",
+    )
+    sent_body_sha256 = models.CharField(
+        max_length=64, blank=True,
+        help_text='SHA-256 of the sent body, recorded at send time. Lets you show the stored '
+                  'copy still matches what was hashed on the way out. Not tamper-proof on its '
+                  'own (anyone who can rewrite the body row can rewrite this too) — it catches '
+                  'accidental or application-level modification, not a determined edit.',
+    )
+
     sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -281,5 +320,20 @@ class Complaint(models.Model):
     def is_sent(self):
         return self.status == 'sent'
 
+    def is_locked(self):
+        """Sent complaints are read-only — the draft they were sent from is
+        part of the record and must not drift away from the sent copy."""
+        return self.status == 'sent'
+
     def has_been_viewed(self):
         return self.viewed_at is not None
+
+    def sent_copy_matches_hash(self):
+        """True when the stored sent body still hashes to what was recorded at
+        send time. None when there's nothing to check (not sent, or sent before
+        this field existed)."""
+        if not self.sent_body_sha256 or not self.sent_at:
+            return None
+        import hashlib
+        digest = hashlib.sha256((self.sent_body_snapshot or '').encode('utf-8')).hexdigest()
+        return digest == self.sent_body_sha256

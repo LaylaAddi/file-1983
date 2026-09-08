@@ -43,7 +43,21 @@ class TargetAgencyAdmin(admin.ModelAdmin):
 class ComplaintAdmin(admin.ModelAdmin):
     list_display = ['incident', 'target_agency', 'status', 'moderation_flagged', 'sent_at', 'created_at']
     list_filter = ['status', 'moderation_flagged']
+    # Every sent_* field is written once at send and must never be editable —
+    # they're the record of what the agency actually received.
     readonly_fields = [
         'sent_at', 'recipient_email_snapshot',
+        'sent_subject_snapshot', 'sent_body_snapshot', 'sent_from_snapshot',
+        'sent_reply_to_snapshot', 'sent_bcc_snapshot', 'sent_body_sha256',
+        'sent_copy_intact',
         'moderation_checked_at', 'moderation_flagged', 'moderation_categories',
     ]
+
+    @admin.display(description='Sent copy intact?')
+    def sent_copy_intact(self, obj):
+        """Re-hashes the stored sent body and compares it to the hash recorded
+        at send time."""
+        result = obj.sent_copy_matches_hash()
+        if result is None:
+            return '— (not sent, or sent before snapshots existed)'
+        return 'Yes — matches the hash recorded at send time' if result else 'NO — stored copy does not match the send-time hash'

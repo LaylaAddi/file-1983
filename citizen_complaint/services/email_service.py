@@ -29,7 +29,15 @@ def _from_header(incident) -> str:
     return formataddr((display_name, raw_address))
 
 
-def send_complaint(incident, target_agency, complaint) -> tuple[bool, str]:
+def send_complaint(incident, target_agency, complaint) -> tuple[bool, str, dict]:
+    """
+    Returns (ok, error, sent) where `sent` describes what actually went out.
+
+    The third element is read back off the EmailMessage after a successful
+    send rather than rebuilt by the caller, so the archived copy can't drift
+    from the message the mailer used. Callers persist it onto the
+    Complaint's sent_*_snapshot fields; it's empty on failure.
+    """
     subject = f'Citizen Complaint — {target_agency.name} — {incident.video_title or incident.video_url}'
 
     email = EmailMessage(
@@ -44,6 +52,14 @@ def send_complaint(incident, target_agency, complaint) -> tuple[bool, str]:
 
     try:
         email.send(fail_silently=False)
-        return True, ''
     except Exception as exc:
-        return False, str(exc)
+        return False, str(exc), {}
+
+    return True, '', {
+        'subject': email.subject,
+        'body': email.body,
+        'from_email': email.from_email,
+        'to': ', '.join(email.to),
+        'reply_to': ', '.join(email.reply_to or []),
+        'bcc': ', '.join(email.bcc or []),
+    }

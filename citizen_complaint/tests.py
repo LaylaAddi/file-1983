@@ -421,6 +421,160 @@ class RateLimitTest(TestCase):
 
 
 @override_settings(**_TEST_OVERRIDES)
+class SentCopyIntegrityTest(TestCase):
+    """A sent complaint has to stay provable: the copy on file must be what the
+    agency actually received, and nothing the user does afterwards may edit it
+    or delete it. `body` and every field the headers derive from stay editable,
+    which is exactly why the snapshot has to be taken at send time."""
+
+    def setUp(self):
+        _enable_citizen_complaint()
+        self.user = _make_verified_user(
+            email='sender@example.com', password='testpass123',
+            first_name='Dana', last_name='Reed',
+        )
+        self.client.force_login(self.user)
+        moderation_patcher = patch(
+            'citizen_complaint.services.moderation.check_content', return_value=(False, [], ''),
+        )
+        self.mock_moderation = moderation_patcher.start()
+        self.addCleanup(moderation_patcher.stop)
+
+        self.incident = Incident.objects.create(
+            user=self.user, video_url='https://youtu.be/abc', video_title='Original title',
+            privacy_level='full_name', contact_email='reply@example.com', status='drafted',
+        )
+        self.agency = TargetAgency.objects.create(
+            incident=self.incident, name='Davis PD', email='pd@example.gov', confirmed=True,
+        )
+        self.complaint = Complaint.objects.create(
+            incident=self.incident, target_agency=self.agency,
+            body='The original text that was actually sent.',
+            viewed_at=timezone.now(),
+        )
+
+    def _send(self):
+        return self.client.post(
+            reverse('citizen_complaint:send', args=[self.incident.slug]),
+            {f'send_{self.complaint.id}': 'on'},
+        )
+
+    def test_send_archives_the_message_exactly_as_sent(self):
+        self._send()
+        self.complaint.refresh_from_db()
+
+        self.assertEqual(self.complaint.status, 'sent')
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(self.complaint.sent_body_snapshot, sent.body)
+        self.assertEqual(self.complaint.sent_subject_snapshot, sent.subject)
+        self.assertEqual(self.complaint.sent_from_snapshot, sent.from_email)
+        self.assertEqual(self.complaint.recipient_email_snapshot, 'pd@example.gov')
+        self.assertEqual(self.complaint.sent_reply_to_snapshot, 'reply@example.com')
+        self.assertEqual(self.complaint.sent_bcc_snapshot, 'sender@example.com')
+
+    def test_snapshot_survives_later_edits_to_everything_it_derives_from(self):
+        """The whole point: change the draft and every source field afterwards,
+        and the archived copy still shows what the agency received."""
+        self._send()
+
+        self.complaint.refresh_from_db()
+        original_body = self.complaint.sent_body_snapshot
+        original_subject = self.complaint.sent_subject_snapshot
+        original_from = self.complaint.sent_from_snapshot
+
+        # Simulate a user (or a later code path) rewriting history.
+        Complaint.objects.filter(pk=self.complaint.pk).update(body='Rewritten after the fact.')
+        self.agency.name = 'Some Other Agency'
+        self.agency.email = 'different@example.gov'
+        self.agency.save()
+        self.incident.video_title = 'Changed title'
+        self.incident.privacy_level = 'anonymous'
+        self.incident.save()
+
+        self.complaint.refresh_from_db()
+        self.assertEqual(self.complaint.body, 'Rewritten after the fact.')
+        self.assertEqual(self.complaint.sent_body_snapshot, original_body)
+        self.assertEqual(self.complaint.sent_subject_snapshot, original_subject)
+        self.assertEqual(self.complaint.sent_from_snapshot, original_from)
+        self.assertEqual(self.complaint.recipient_email_snapshot, 'pd@example.gov')
+
+    def test_sent_body_hash_detects_a_tampered_copy(self):
+        self._send()
+        self.complaint.refresh_from_db()
+        self.assertTrue(self.complaint.sent_copy_matches_hash())
+
+        Complaint.objects.filter(pk=self.complaint.pk).update(sent_body_snapshot='tampered')
+        self.complaint.refresh_from_db()
+        self.assertFalse(self.complaint.sent_copy_matches_hash())
+
+    def test_drafts_page_refuses_to_edit_a_sent_complaint(self):
+        self._send()
+        self.complaint.refresh_from_db()
+        sent_body = self.complaint.sent_body_snapshot
+
+        self.client.post(
+            reverse('citizen_complaint:drafts', args=[self.incident.slug]),
+            {f'body_{self.complaint.id}': 'sneaky edit after sending', 'action': 'save'},
+        )
+
+        self.complaint.refresh_from_db()
+        self.assertEqual(self.complaint.body, sent_body)
+        self.assertEqual(self.complaint.sent_body_snapshot, sent_body)
+
+    @patch('citizen_complaint.services.complaint_drafter.generate_draft')
+    def test_drafts_page_refuses_to_regenerate_a_sent_complaint(self, mock_draft):
+        mock_draft.return_value = ('A brand new draft', None)
+        self._send()
+        self.complaint.refresh_from_db()
+        sent_body = self.complaint.sent_body_snapshot
+
+        self.client.post(
+            reverse('citizen_complaint:drafts', args=[self.incident.slug]),
+            {f'regenerate_{self.complaint.id}': '1', 'action': 'save'},
+        )
+
+        self.complaint.refresh_from_db()
+        self.assertEqual(self.complaint.body, sent_body)
+        mock_draft.assert_not_called()
+
+    def test_cannot_delete_an_agency_that_was_already_emailed(self):
+        """TargetAgency -> Complaint is CASCADE, so allowing the removal would
+        delete the sent copy along with it."""
+        self._send()
+
+        self.client.post(
+            reverse('citizen_complaint:agencies', args=[self.incident.slug]),
+            {f'delete_{self.agency.id}': 'on', 'action': 'save'},
+        )
+
+        self.assertTrue(TargetAgency.objects.filter(pk=self.agency.pk).exists())
+        self.assertTrue(Complaint.objects.filter(pk=self.complaint.pk).exists())
+
+    def test_unsent_agency_can_still_be_removed(self):
+        """The lock is specific to sent complaints — normal editing still works."""
+        other = TargetAgency.objects.create(
+            incident=self.incident, name='Unsent Dept', email='unsent@example.gov', confirmed=True,
+        )
+        self.client.post(
+            reverse('citizen_complaint:agencies', args=[self.incident.slug]),
+            {f'delete_{other.id}': 'on', 'action': 'save'},
+        )
+        self.assertFalse(TargetAgency.objects.filter(pk=other.pk).exists())
+
+    def test_failed_send_archives_nothing(self):
+        with patch('citizen_complaint.services.email_service.send_complaint') as mock_send:
+            mock_send.return_value = (False, 'SMTP is down', {})
+            self._send()
+
+        self.complaint.refresh_from_db()
+        self.assertEqual(self.complaint.status, 'draft')
+        self.assertEqual(self.complaint.sent_body_snapshot, '')
+        self.assertEqual(self.complaint.sent_body_sha256, '')
+        self.assertIsNone(self.complaint.sent_at)
+
+
+@override_settings(**_TEST_OVERRIDES)
 class FeatureSwitchTest(TestCase):
     """SiteSettings.citizen_complaint_enabled parks the whole feature without
     deleting anything. Hiding nav links alone would leave every bookmarked
