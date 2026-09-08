@@ -963,6 +963,24 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 
 ---
 
+## Sent-complaint lock + true copy (shipped)
+
+**Problem it solved:** `citizen_complaint` emails real government agencies on a user's behalf, but `Complaint.body` stayed editable after sending — as did every field the headers derive from (`TargetAgency.name`/`email`, `Incident.video_title`, `privacy_level`, `contact_email`, the user's account email). Only the recipient address was frozen (`recipient_email_snapshot`). So if an agency complained about a user, there was no reliable record of what that user actually sent — and worse, the user could rewrite or delete it after the fact.
+
+**Snapshot at send** (migration `citizen_complaint/0004_complaint_sent_snapshot`): `email_service.send_complaint()` now returns `(ok, error, sent)`, where `sent` is read back **off the `EmailMessage` after a successful send** rather than rebuilt by the caller — so the archive can't drift from the message the mailer actually used. `incident_send` persists it to `sent_subject_snapshot`, `sent_body_snapshot`, `sent_from_snapshot`, `sent_reply_to_snapshot`, `sent_bcc_snapshot`, plus `sent_body_sha256` (SHA-256 of the body at send time). `Complaint.sent_copy_matches_hash()` re-checks that; it surfaces in the Complaint admin as a readonly "Sent copy intact?" row. **The hash is not tamper-proof** — anyone who can rewrite the body row can rewrite the hash too — it catches accidental and application-level modification, not a determined edit. Don't oversell it if it ever comes up in a dispute.
+
+**Lock after send:**
+- The drafts page renders a sent complaint **read-only** (shows the sent copy, no textarea, no regenerate button), and the POST handler refuses body edits and regeneration on it, flashing which agencies were skipped.
+- **Removing a target agency that was already emailed is refused.** `Complaint` is a `OneToOneField(TargetAgency, on_delete=CASCADE)`, so the existing `delete_<id>` path on the agencies page silently destroyed the sent record along with the agency. This was a live hole, not a theoretical one — the regression test fails against the old code with the agency actually deleted.
+- **Locking is per-complaint, not per-incident**, deliberately: a user can send to two agencies today and the rest next week, and the unsent ones stay fully editable. Don't "improve" this into an incident-level lock without checking that partial-send flow first.
+- Failed sends archive nothing and leave the complaint editable (`status` stays `draft`), so a user can fix and retry.
+
+**Tests:** `SentCopyIntegrityTest` (8 tests) — the archive matches `mail.outbox` exactly; the snapshot survives later edits to the draft *and* every field the headers derive from; the hash detects a tampered copy; edit/regenerate/delete are all refused post-send; an unsent agency can still be removed (control); a failed send archives nothing.
+
+**Not done here:** the legal copy was deliberately left alone. This archives a message the user wrote and sent themselves, not a new category of data about them — unlike the IP logging below, which does need a Terms/Privacy update first. The user asked to hold off on legal changes while mid-stream.
+
+---
+
 ## User Audit Trail (requested, not started)
 
 **What the user asked for, verbatim in spirit:** "if a user was ever to abuse the system and there was a complaint, we want a way to print a user's activity with timestamps, IP, and email." This matters most because of `citizen_complaint` — that feature **sends real email to real government agencies on a user's behalf**, so "who sent what, when, and from where" is the record you'd need to hand an agency, a lawyer, or a platform provider. Scope this with the user before building; the notes below are the groundwork, not a decided design.
@@ -970,7 +988,7 @@ What it **doesn't** cover: Alpine.js interactions (Playwright/Selenium later), r
 ### What already exists (don't rebuild it)
 Timestamps are in decent shape already — the gap is *identity-of-origin*, not *when*.
 - **`accounts.User`** — `date_joined`, `tos_accepted_at` + `tos_accepted_version`, `privacy_accepted_at` + `privacy_accepted_version`, `email_verified_at`, `tester_granted_at`. So consent/acceptance is already provable per user, with the version they accepted.
-- **`citizen_complaint.Complaint`** — `created_at`, `viewed_at`, `sent_at`, `recipient_email_snapshot`, plus the moderation record (`moderation_checked_at`, `moderation_flagged`, `moderation_categories`). This is already a partial send-side audit trail and the single most relevant table for an abuse complaint.
+- **`citizen_complaint.Complaint`** — `created_at`, `viewed_at`, `sent_at`, `recipient_email_snapshot`, the full sent-message archive (`sent_subject_snapshot`, `sent_body_snapshot`, `sent_from_snapshot`, `sent_reply_to_snapshot`, `sent_bcc_snapshot`, `sent_body_sha256` — see "Sent-complaint lock + true copy" below), plus the moderation record (`moderation_checked_at`, `moderation_flagged`, `moderation_categories`). This is already a strong send-side audit trail and the single most relevant table for an abuse complaint — what's still missing per-event is IP and user agent.
 - **`citizen_complaint.Incident`** — `created_at`, `updated_at`, `video_url`, `api_calls_used`.
 - **`documents.Document`** — `created_at`, `paid_at`, `locked_at`, `finalize_acknowledged_at`, `download_disclaimer_acknowledged_at`, `stripe_session_id`.
 - **`documents.PromoCodeUsage`** — `used_at`, `amount_cents`.
@@ -992,7 +1010,7 @@ One table, queryable/printable per user, rather than scattering `ip_address` col
 
 ### Gotchas worth knowing before writing code
 1. **Getting the IP right on Render is the whole ballgame.** `request.META['REMOTE_ADDR']` is Render's load balancer, not the user — logging it would give you a useless trail that *looks* authoritative. You need `X-Forwarded-For`, but the naive `split(',')[0]` is client-spoofable, so a user could forge whatever IP they liked into your audit log. Settle on one `get_client_ip(request)` helper (or `django-ipware`), use it everywhere, and decide explicitly how many proxy hops to trust. The codebase already has proxy awareness precedent in `SECURE_PROXY_SSL_HEADER`.
-2. **`Complaint.body` is mutable after sending.** `recipient_email_snapshot` already freezes the *address* at send time, but nothing freezes the *body* — so if a user edits a draft after it's sent, the DB no longer shows what actually went out. In an abuse complaint that body **is** the evidence. Add a `sent_body_snapshot` (or capture it in the AuditEvent metadata) at send time. This is a real existing gap and probably the highest-value single item here, independent of the rest of the audit work.
+2. ~~**`Complaint.body` is mutable after sending.**~~ **DONE** — shipped separately from the audit-trail work; see "Sent-complaint lock + true copy" below. The sent message is now archived at send time and sent complaints are read-only.
 3. **Make it genuinely append-only.** `has_change_permission` / `has_delete_permission` → `False` on the admin, readonly fields throughout. A log staff can quietly edit is worth much less if it's ever challenged.
 4. **Update the legal copy *before* you start logging.** IP addresses and user agents are personal data. Terms + Privacy are DB-editable `LegalDocument` rows with a version field, and bumping the `PRIVACY_VERSION` env var forces every existing user to re-accept — that machinery already exists precisely for this. Disclose what's collected, why, and how long it's kept, then bump.
 5. **Pick a retention window** (e.g. 24 months) and write a `purge_audit_events` management command. The `fetch_news` Render Cron Job is the existing pattern to copy for scheduling it.
